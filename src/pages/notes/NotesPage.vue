@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useToast } from '@/composables/useToast'
 import { useNoteStore } from '@/stores/note'
 import { useAuthStore } from '@/stores/auth'
 import AppButton from '@/components/common/AppButton.vue'
 import type { Note, NoteCategory } from '@/types'
 
 const store = useNoteStore()
+const toast = useToast()
 const authStore = useAuthStore()
 const selectedNote = ref<Note | null>(null)
 const activeCategory = ref<NoteCategory | 'all'>('all')
@@ -46,7 +48,7 @@ function openEdit(note: Note) {
 }
 
 async function handleSave() {
-  if (!editingNote.value.title?.trim()) { alert('标题不能为空'); return }
+  if (!editingNote.value.title?.trim()) { toast.warning('标题不能为空'); return }
   saving.value = true
   try {
     if (editingNote.value.id) {

@@ -2,6 +2,7 @@
 import { onMounted } from 'vue'
 import { RouterView } from 'vue-router'
 import { useAppStore } from '@/stores/app'
+import AppToast from '@/components/common/AppToast.vue'
 
 const appStore = useAppStore()
 onMounted(() => {
@@ -11,4 +12,5 @@ onMounted(() => {
 
 <template>
   <RouterView />
+  <AppToast />
 </template>

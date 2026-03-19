@@ -1,15 +1,22 @@
-﻿<script setup lang="ts">
-import { computed } from 'vue'
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { articles, userProfile, aiFeatures } from '@/data'
+import { useAuthStore } from '@/stores/auth'
+import { articleApi } from '@/api'
+import { noteApi } from '@/api/notes'
+import { aiFeatures } from '@/data'
+import type { Article } from '@/types'
 import ArticleCard from '@/components/blog/ArticleCard.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import SectionTitle from '@/components/common/SectionTitle.vue'
 
 const router = useRouter()
-const featuredArticles = computed(() => articles.filter(a => a.featured).slice(0, 2))
-const recentArticles = computed(() => articles.slice(0, 4))
-const topAI = computed(() => aiFeatures.slice(0, 3))
+const authStore = useAuthStore()
+
+const featuredArticles = ref<Article[]>([])
+const recentArticles = ref<Article[]>([])
+const topAI = aiFeatures.slice(0, 3)
+const stats = ref({ articles: 0, notes: 0, views: 0 })
 
 const aiIcons: Record<string, string> = {
   'AI 文案创作': '✍️',
@@ -21,7 +28,23 @@ const aiIcons: Record<string, string> = {
   'AI 诗词创作': '🪶',
   'AI 摘要提取': '📋',
 }
+
+onMounted(async () => {
+  await authStore.fetchSiteSettings()
+  try {
+    const allArticles = await articleApi.getList()
+    featuredArticles.value = allArticles.filter(a => a.featured).slice(0, 2)
+    recentArticles.value = allArticles.slice(0, 4)
+    stats.value.articles = allArticles.length
+    stats.value.views = allArticles.reduce((sum, a) => sum + (a.views || 0), 0)
+  } catch {}
+  try {
+    const allNotes = await noteApi.getList()
+    stats.value.notes = allNotes.length
+  } catch {}
+})
 </script>
+
 <template>
   <div class="home">
     <section class="hero">
@@ -33,23 +56,22 @@ const aiIcons: Record<string, string> = {
       <div class="hero__inner">
         <div class="hero__content animate-fade-in-up">
           <div class="hero__greeting">你好，我是</div>
-          <h1 class="hero__name"><span class="text-gradient">{{ userProfile.nickname }}</span></h1>
-          <p class="hero__bio">{{ userProfile.bio }}</p>
-          <div class="hero__meta"><span class="hero__location">📍 {{ userProfile.location }}</span></div>
+          <h1 class="hero__name"><span class="text-gradient">{{ authStore.siteSettings?.owner_nickname || '晨光' }}</span></h1>
+          <p class="hero__bio">{{ authStore.siteSettings?.site_description || '记录生活与技术的小角落' }}</p>
+          <div class="hero__meta"><span class="hero__location">📍 {{ authStore.siteSettings?.owner_location || '深圳' }}</span></div>
           <div class="hero__actions">
-            <AppButton size="lg" @click="router.push('/blog')">探索博客</AppButton>
+            <AppButton size="lg" @click="router.push('/blog')">探索文章</AppButton>
             <AppButton variant="secondary" size="lg" @click="router.push('/notes')">我的笔记</AppButton>
           </div>
           <div class="hero__stats">
-            <div class="stat"><span class="stat__num">{{ userProfile.stats.articles }}</span><span class="stat__label">篇文章</span></div>
-            <div class="stat"><span class="stat__num">{{ userProfile.stats.notes }}</span><span class="stat__label">条笔记</span></div>
-            <div class="stat"><span class="stat__num">{{ (userProfile.stats.views / 1000).toFixed(1) }}K</span><span class="stat__label">次阅读</span></div>
-            <div class="stat"><span class="stat__num">{{ userProfile.stats.followers }}</span><span class="stat__label">位关注</span></div>
+            <div class="stat"><span class="stat__num">{{ stats.articles }}</span><span class="stat__label">篇文章</span></div>
+            <div class="stat"><span class="stat__num">{{ stats.notes }}</span><span class="stat__label">条笔记</span></div>
+            <div class="stat"><span class="stat__num">{{ stats.views > 999 ? (stats.views / 1000).toFixed(1) + 'K' : stats.views }}</span><span class="stat__label">次阅读</span></div>
           </div>
         </div>
         <div class="hero__avatar-wrap animate-fade-in delay-300">
           <div class="hero__avatar-ring" />
-          <img :src="userProfile.avatar" :alt="userProfile.nickname" class="hero__avatar" />
+          <img :src="authStore.siteSettings?.owner_avatar || '/images/avatar.svg'" :alt="authStore.siteSettings?.owner_nickname || '博主'" class="hero__avatar" />
           <div class="hero__avatar-glow" />
         </div>
       </div>
@@ -61,9 +83,10 @@ const aiIcons: Record<string, string> = {
           <SectionTitle title="精选文章" subtitle="记录技术探索与生活感悟" />
           <AppButton variant="ghost" @click="router.push('/blog')">查看全部 →</AppButton>
         </div>
-        <div class="featured-grid">
+        <div v-if="featuredArticles.length" class="featured-grid">
           <ArticleCard v-for="article in featuredArticles" :key="article.id" :article="article" :featured="true" class="animate-fade-in-up" />
         </div>
+        <div v-else class="empty-articles"><p>还没有精选文章</p></div>
       </div>
     </section>
 
@@ -73,9 +96,10 @@ const aiIcons: Record<string, string> = {
           <SectionTitle title="最新动态" subtitle="持续更新，记录每一个值得记录的时刻" />
           <AppButton variant="ghost" @click="router.push('/blog')">更多文章 →</AppButton>
         </div>
-        <div class="recent-grid">
+        <div v-if="recentArticles.length" class="recent-grid">
           <ArticleCard v-for="(article, i) in recentArticles" :key="article.id" :article="article" class="animate-fade-in-up" :class="`delay-${(i+1)*100}`" />
         </div>
+        <div v-else class="empty-articles"><p>还没有文章</p></div>
       </div>
     </section>
 
@@ -111,6 +135,7 @@ const aiIcons: Record<string, string> = {
     </section>
   </div>
 </template>
+
 <style scoped>
 .hero { position: relative; min-height: calc(100vh - 64px); display: flex; align-items: center; overflow: hidden; }
 .hero__bg { position: absolute; inset: 0; pointer-events: none; }
@@ -140,6 +165,7 @@ const aiIcons: Record<string, string> = {
 .section__header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 32px; flex-wrap: wrap; gap: 16px; }
 .featured-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 24px; }
 .recent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+.empty-articles { text-align: center; padding: 40px; color: var(--color-text-muted); font-size: var(--text-sm); }
 .ai-preview { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
 .ai-preview-card { padding: 28px; background: var(--color-bg-card); backdrop-filter: var(--blur-md); border: 1px solid var(--color-border); border-radius: var(--radius-xl); cursor: pointer; transition: all var(--transition-base); }
 .ai-preview-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: var(--color-border-strong); }

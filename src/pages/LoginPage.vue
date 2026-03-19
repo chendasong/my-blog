@@ -2,29 +2,30 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const toast = useToast()
 
 const username = ref('')
 const password = ref('')
-const error = ref('')
 const loading = ref(false)
 const showPassword = ref(false)
 
 async function handleLogin() {
   if (!username.value.trim() || !password.value.trim()) {
-    error.value = '请输入账号和密码'
+    toast.warning('请输入账号和密码')
     return
   }
-  error.value = ''
   loading.value = true
   try {
     await authStore.login(username.value.trim(), password.value)
     const redirect = (router.currentRoute.value.query.redirect as string) || '/'
     router.push(redirect)
+    toast.success('登录成功，欢迎回来！')
   } catch (e: unknown) {
-    error.value = e instanceof Error ? e.message : '登录失败，请重试'
+    toast.error(e instanceof Error ? e.message : '登录失败，请重试')
   } finally {
     loading.value = false
   }
@@ -73,9 +74,6 @@ async function handleLogin() {
             </button>
           </div>
         </div>
-        <Transition name="error-fade">
-          <div v-if="error" class="login-error">⚠️ {{ error }}</div>
-        </Transition>
         <button type="submit" class="login-btn" :disabled="loading">
           <span v-if="loading" class="btn-spinner" />
           <span v-else>登录</span>

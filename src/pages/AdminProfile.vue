@@ -3,14 +3,14 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import AppButton from '@/components/common/AppButton.vue'
+import { useToast } from '@/composables/useToast'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const toast = useToast()
 
 const saving = ref(false)
 const savingSettings = ref(false)
-const successMsg = ref('')
-const errorMsg = ref('')
 
 // 个人资料表单
 const profile = ref({
@@ -66,8 +66,8 @@ function handleOwnerAvatarChange(e: Event) {
 
 async function saveProfile() {
   saving.value = true
-  successMsg.value = ''
-  errorMsg.value = ''
+  
+  
   try {
     await authStore.updateProfile({
       ...profile.value,
@@ -75,9 +75,9 @@ async function saveProfile() {
     })
     avatarFile.value = null
     avatarPreview.value = ''
-    successMsg.value = '个人资料已保存'
+    toast.success('个人资料已保存')
   } catch (e) {
-    errorMsg.value = e instanceof Error ? e.message : '保存失败'
+    toast.error(e instanceof Error ? e.message : '保存失败')
   } finally {
     saving.value = false
   }
@@ -85,8 +85,8 @@ async function saveProfile() {
 
 async function saveSettings() {
   savingSettings.value = true
-  successMsg.value = ''
-  errorMsg.value = ''
+  
+  
   try {
     await authStore.updateSiteSettings({
       ...settings.value,
@@ -94,9 +94,9 @@ async function saveSettings() {
     })
     ownerAvatarFile.value = null
     ownerAvatarPreview.value = ''
-    successMsg.value = '网站配置已保存'
+    toast.success('网站配置已保存')
   } catch (e) {
-    errorMsg.value = e instanceof Error ? e.message : '保存失败'
+    toast.error(e instanceof Error ? e.message : '保存失败')
   } finally {
     savingSettings.value = false
   }
@@ -115,11 +115,6 @@ function handleLogout() {
       <h1 class="admin-title">⚙️ 管理设置</h1>
       <AppButton variant="ghost" @click="handleLogout">🔒 退出登录</AppButton>
     </div>
-
-    <Transition name="msg-fade">
-      <div v-if="successMsg" class="alert alert--success">✅ {{ successMsg }}</div>
-      <div v-else-if="errorMsg" class="alert alert--error">⚠️ {{ errorMsg }}</div>
-    </Transition>
 
     <div class="admin-body">
       <!-- 个人资料 -->

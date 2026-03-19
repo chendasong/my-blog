@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useToast } from '@/composables/useToast'
 import { useRouter } from 'vue-router'
 import { coupleInfo } from '@/data'
 import { useCoupleStore } from '@/stores/couple'
@@ -9,6 +10,7 @@ import AppButton from '@/components/common/AppButton.vue'
 import type { CoupleMemory } from '@/types'
 
 const router = useRouter()
+const toast = useToast()
 const appStore = useAppStore()
 const store = useCoupleStore()
 const activeFilter = ref('all')
@@ -41,7 +43,7 @@ async function handleImageUpload(e: Event) {
     const { coupleApi } = await import('@/api')
     editingMemory.value.image = await coupleApi.uploadImage(file)
   } catch {
-    alert('图片上传失败，请重试')
+    toast.error('图片上传失败，请重试')
   } finally {
     uploadingImage.value = false
   }
@@ -65,7 +67,7 @@ function openEdit(m: CoupleMemory) {
 }
 
 async function handleSave() {
-  if (!editingMemory.value.title?.trim()) { alert('标题不能为空'); return }
+  if (!editingMemory.value.title?.trim()) { toast.warning('标题不能为空'); return }
   saving.value = true
   try {
     if (editingMemory.value.id) {

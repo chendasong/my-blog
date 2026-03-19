@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useToast } from '@/composables/useToast'
 import { useRoute, useRouter } from 'vue-router'
 import { articleApi, uploadImage } from '@/api'
 import { categories } from '@/data'
@@ -8,6 +9,7 @@ import dayjs from 'dayjs'
 
 const route = useRoute()
 const router = useRouter()
+const toast = useToast()
 const isEdit = !!route.params.id
 
 const loading = ref(false)
@@ -41,7 +43,7 @@ async function handleCoverUpload(e: Event) {
   try {
     form.value.cover = await uploadImage(file)
   } catch {
-    alert('图片上传失败，请重试')
+    toast.error('图片上传失败，请重试')
   } finally {
     uploadingCover.value = false
   }
@@ -70,7 +72,7 @@ onMounted(async () => {
 
 async function handleSubmit() {
   if (!form.value.title.trim() || !form.value.content.trim()) {
-    alert('标题和内容不能为空')
+    toast.error('标题和内容不能为空')
     return
   }
   saving.value = true
