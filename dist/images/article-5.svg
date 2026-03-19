@@ -26,5 +26,5 @@
   <!-- Container query indicator -->
   <rect x="300" y="122" width="80" height="20" rx="6" fill="#5B8AF0" opacity="0.8"/>
   <text x="340" y="136" text-anchor="middle" font-size="9" fill="white" font-family="monospace">@container</text>
-  <text x="400" y="420" text-anchor="middle" font-size="13" fill="#8B93B8" font-family="sans-serif">CSS №hевН”ѕЎ„°</text>
+  <text x="400" y="420" text-anchor="middle" font-size="13" fill="#8B93B8" font-family="sans-serif">CSS пїЅhпїЅпїЅН”пїЅпїЅпїЅпїЅ</text>
 </svg>

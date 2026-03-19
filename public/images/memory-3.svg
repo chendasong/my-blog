@@ -9,7 +9,7 @@
   <rect x="0" y="180" width="400" height="120" fill="url(#sea)" opacity="0.6"/>
   <ellipse cx="200" cy="180" rx="200" ry="20" fill="#4A90D9" opacity="0.3"/>
   <circle cx="320" cy="60" r="36" fill="#FFE066" opacity="0.8"/>
-  <text x="200" y="155" text-anchor="middle" font-size="36"><Ý</text>
-  <text x="200" y="240" text-anchor="middle" font-size="14" fill="white" font-family="serif">¦èKÅ</text>
+  <text x="200" y="155" text-anchor="middle" font-size="36"><ï¿½</text>
+  <text x="200" y="240" text-anchor="middle" font-size="14" fill="white" font-family="serif">ï¿½ï¿½Kï¿½</text>
   <text x="200" y="262" text-anchor="middle" font-size="11" fill="rgba(255,255,255,0.8)" font-family="serif">2021.10.01</text>
 </svg>

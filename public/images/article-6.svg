@@ -17,6 +17,7 @@
   <!-- Leaves -->
   <ellipse cx="180" cy="360" rx="60" ry="20" fill="#82B366" opacity="0.4" transform="rotate(-20, 180, 360)"/>
   <ellipse cx="620" cy="340" rx="50" ry="16" fill="#82B366" opacity="0.35" transform="rotate(15, 620, 340)"/>
-  <text x="400" y="400" text-anchor="middle" font-size="18" fill="#D4A96A" font-family="serif" font-style="italic">b;„òf</text>
-  <text x="400" y="430" text-anchor="middle" font-size="12" fill="#8B93B8" font-family="sans-serif">Sìºb;ö</text>
+  <text x="400" y="400" text-anchor="middle" font-size="18" fill="#D4A96A" font-family="serif" font-style="italic">b;ï¿½ï¿½f</text>
+  <text x="400" y="430" text-anchor="middle" font-size="12" fill="#8B93B8" font-family="sans-serif">Sï¿½ï¿½b;
+ï¿½</text>
 </svg>
