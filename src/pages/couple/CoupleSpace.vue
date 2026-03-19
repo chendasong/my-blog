@@ -16,6 +16,7 @@ const appStore = useAppStore()
 const authStore = useAuthStore()
 const store = useCoupleStore()
 const activeFilter = ref('all')
+const carouselIndexes = ref<Record<string, number>>({})
 
 const typeLabels: Record<string, string> = { all:'全部',photo:'相册',milestone:'里程碑',wish:'心愿',diary:'日记' }
 const typeIcons: Record<string, string> = { all:'💝',photo:'📸',milestone:'🏆',wish:'🌠',diary:'📖' }
@@ -37,6 +38,24 @@ async function handleFilter(type: string) {
   await store.fetchMemories(type)
 }
 
+function getCarouselImages(mem: CoupleMemory): string[] {
+  if (mem.images && mem.images.length > 0) return mem.images
+  return mem.image ? [mem.image] : []
+}
+function carouselNext(mem: CoupleMemory, e: Event) {
+  e.stopPropagation()
+  const imgs = getCarouselImages(mem)
+  if (imgs.length <= 1) return
+  const cur = carouselIndexes.value[mem.id] || 0
+  carouselIndexes.value[mem.id] = (cur + 1) % imgs.length
+}
+function carouselPrev(mem: CoupleMemory, e: Event) {
+  e.stopPropagation()
+  const imgs = getCarouselImages(mem)
+  if (imgs.length <= 1) return
+  const cur = carouselIndexes.value[mem.id] || 0
+  carouselIndexes.value[mem.id] = (cur - 1 + imgs.length) % imgs.length
+}
 function openNew() {
   router.push('/couple/memory/new')
 }
@@ -49,7 +68,6 @@ function openEdit(m: CoupleMemory) {
 async function handleDelete(id: string) {
   if (!confirm('确定删除这条记忆吗？')) return
   await store.remove(id)
-  if (expandedId.value === id) expandedId.value = null
 }
 
 function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
@@ -93,8 +111,18 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
         <div v-else class="memories-grid">
           <div v-for="mem in store.memories" :key="mem.id" class="memory-card glass-card animate-fade-in-up" style="cursor:pointer" @click="openEdit(mem)">
             <div class="memory-card__cover">
-              <img :src="mem.image" :alt="mem.title" />
+              <img :src="getCarouselImages(mem)[carouselIndexes[mem.id] || 0] || mem.image" :alt="mem.title" />
               <div class="memory-card__emotion" :style="{ background: emotionColors[mem.emotion] }">{{ emotionLabels[mem.emotion] }}</div>
+              <template v-if="getCarouselImages(mem).length > 1">
+                <button class="carousel-btn carousel-btn--prev" @click="carouselPrev(mem, $event)">‹</button>
+                <button class="carousel-btn carousel-btn--next" @click="carouselNext(mem, $event)">›</button>
+                <div class="carousel-dots">
+                  <span v-for="(_, i) in getCarouselImages(mem)" :key="i"
+                    :class="['carousel-dot', { 'carousel-dot--active': (carouselIndexes[mem.id] || 0) === i }]"
+                    @click.stop="carouselIndexes[mem.id] = i"
+                  />
+                </div>
+              </template>
             </div>
             <div class="memory-card__body">
               <div class="memory-card__type">{{ typeIcons[mem.type] }} {{ typeLabels[mem.type] }}</div>
@@ -202,4 +230,12 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
 .form-input:focus, .form-textarea:focus, .form-select:focus { border-color: #E8607A; }
 .form-textarea { resize: vertical; }
 @media (max-width: 700px) { .mf-body { grid-template-columns: 1fr; } .form-row { grid-template-columns: 1fr; } }
+
+.carousel-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.35); color: white; border: none; cursor: pointer; font-size: 1.2rem; line-height: 1; padding: 4px 8px; border-radius: var(--radius-md); opacity: 0; transition: opacity var(--transition-fast); z-index: 2; }
+.memory-card__cover:hover .carousel-btn { opacity: 1; }
+.carousel-btn--prev { left: 6px; }
+.carousel-btn--next { right: 6px; }
+.carousel-dots { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; z-index: 2; }
+.carousel-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.5); cursor: pointer; transition: background var(--transition-fast); }
+.carousel-dot--active { background: white; }
 </style>

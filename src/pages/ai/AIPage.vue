@@ -10,11 +10,13 @@ const toast = useToast()
 const selectedFeature = ref<AIFeature | null>(aiFeatures[0])
 const activeCategory = ref<AICategory | 'all'>('all')
 const inputText = ref('')
+const thinkingMode = ref<'fast' | 'balanced' | 'deep'>('fast')
 const outputText = ref('')
+const thinkText = ref('')
+const thinkExpanded = ref(false)
 const isLoading = ref(false)
 const isThinking = ref(false)
 let abortFlag = false
-let thinkBuffer = ""
 
 const categoryLabels: Record<string, string> = {
   all: '全部', writing: '写作', vision: '视觉', analysis: '分析', creative: '创意', productivity: '效率',
@@ -27,8 +29,14 @@ const aiIcons: Record<string, string> = {
   'AI 情感分析': '💡', 'AI 翻译': '🌐', 'AI 思维导图': '🗺️',
   'AI 诗词创作': '🪶', 'AI 摘要提取': '📋',
   'AI 食谱': '🍼',
+  'AI 医生': '🏥',
 }
 
+const thinkingModes = [
+  { value: 'fast' as const, label: '⚡ 快速', desc: '快速回答，适合日常对话' },
+  { value: 'balanced' as const, label: '⚖️ 平衡', desc: '平衡效率与质量' },
+  { value: 'deep' as const, label: '🧠 深思', desc: '深度思考，适合复杂任务' },
+]
 const langOptions = ['中文', 'English', '日本语', '韩语', '法语', '德语', '西班牙语', '俄语']
 const sourceLang = ref('中文')
 const targetLang = ref('English')
@@ -51,8 +59,9 @@ async function handleGenerate() {
   isLoading.value = true
   isThinking.value = false
   abortFlag = false
-  thinkBuffer = ""
   outputText.value = ''
+  thinkText.value = ''
+  thinkExpanded.value = true
 
   const userInput = selectedFeature.value.id === '5'
     ? `[${sourceLang.value}] -> [${targetLang.value}]\n${inputText.value}`
@@ -60,30 +69,28 @@ async function handleGenerate() {
   await streamChat({
     featureId: selectedFeature.value.id,
     userInput,
+    thinkingMode: thinkingMode.value,
+    onThink: (text) => {
+      if (abortFlag) return
+      isThinking.value = true
+      thinkText.value += text
+    },
     onChunk: (text) => {
       if (abortFlag) return
-      thinkBuffer += text
-      // Check if we are in a think block
-      const hasOpenThink = thinkBuffer.includes('<think>')
-      const hasCloseThink = thinkBuffer.includes('</think>')
-      if (hasOpenThink && !hasCloseThink) {
-        // Still inside think block - show thinking state, output stays empty
-        isThinking.value = true
-        return
-      }
-      // Remove complete think blocks
-      let processed = thinkBuffer.replace(/<think>[\s\S]*?<\/think>/g, '')
       isThinking.value = false
-      // Only update if we have real content (avoid empty flicker)
-      if (processed.length > 0) outputText.value = processed
+      if (!outputText.value) thinkExpanded.value = false
+      outputText.value += text
     },
     onDone: () => {
       isLoading.value = false
+      thinkExpanded.value = false
     },
     onError: (err) => {
       isLoading.value = false
       toast.error(err)
       if (!outputText.value) outputText.value = ''
+  thinkText.value = ''
+  thinkExpanded.value = true
     },
   })
 }
@@ -93,6 +100,10 @@ function handleSelect(feature: AIFeature) {
   selectedFeature.value = feature
   inputText.value = ''
   outputText.value = ''
+  thinkText.value = ''
+  thinkExpanded.value = false
+  thinkText.value = ''
+  thinkExpanded.value = true
 }
 
 function handleStop() {
@@ -179,18 +190,33 @@ function copyOutput() {
                   :disabled="isLoading"
                 />
                 <div class="ai-input-btns">
+                  <select v-model="thinkingMode" class="mode-select" :disabled="isLoading">
+                    <option v-for="mode in thinkingModes" :key="mode.value" :value="mode.value">{{ mode.label }}</option>
+                  </select>
                   <button v-if="isLoading" class="stop-btn stop-btn--active" @click="handleStop">
-                    <span class="stop-btn__dot"></span> 停止生成
+                    <span class="stop-btn__dot"></span> 停止
                   </button>
                   <AppButton v-else :disabled="!inputText.trim()" @click="handleGenerate">✨ 生成</AppButton>
                 </div>
               </div>
-              <span class="ai-char-count">{{ inputText.length }} 字</span>
             </div>
             <div class="ai-output-area">
+              <div v-if="thinkText" class="ai-think-block">
+                <button class="ai-think-toggle" @click="thinkExpanded = !thinkExpanded">
+                  <span class="ai-think-icon">🧠</span>
+                  <span>思考过程</span>
+                  <span v-if="isThinking" class="ai-streaming-badge">● 思考中</span>
+                  <span class="ai-think-arrow">{{ thinkExpanded ? '▲' : '▼' }}</span>
+                </button>
+                <Transition name="think-slide">
+                  <div v-if="thinkExpanded" class="ai-think-content">
+                    <pre>{{ thinkText }}</pre>
+                  </div>
+                </Transition>
+              </div>
               <label class="ai-label">
                 AI 输出
-                <span v-if="isLoading" class="ai-streaming-badge">● {{ isThinking ? "思考中" : "生成中" }}</span>
+                <span v-if="isLoading && !isThinking" class="ai-streaming-badge">● 生成中</span>
               </label>
               <div v-if="isLoading && !outputText.trim()" class="ai-loading">
                 <div class="ai-loading__dots"><span /><span /><span /></div>
@@ -259,8 +285,8 @@ function copyOutput() {
 .ai-textarea:disabled { opacity: 0.7; cursor: not-allowed; }
 .ai-textarea::placeholder { color: var(--color-text-muted); }
 .ai-input-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
-.ai-char-count { font-size: var(--text-xs); color: var(--color-text-muted); }
-.stop-btn { padding: 8px 16px; border-radius: var(--radius-full); border: 1px solid var(--color-border); background: var(--color-bg-card); font-size: var(--text-sm); cursor: pointer; transition: all var(--transition-fast); }
+
+.stop-btn { height: 40px; padding: 0 18px; border-radius: var(--radius-lg); border: 1px solid var(--color-border); background: var(--color-bg-card); font-size: var(--text-sm); cursor: pointer; transition: all var(--transition-fast); white-space: nowrap; }
 .stop-btn:hover { border-color: #E8607A; color: #E8607A; }
 .ai-loading { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 60px 20px; border: 1px dashed var(--color-border); border-radius: var(--radius-lg); color: var(--color-text-muted); font-size: var(--text-sm); }
 .ai-loading__dots { display: flex; gap: 6px; }
@@ -278,7 +304,27 @@ function copyOutput() {
 .ai-fade-enter-from, .ai-fade-leave-to { opacity: 0; transform: translateY(8px); }
 @media (max-width: 768px) { .ai-io { grid-template-columns: 1fr; } .ai-grid { grid-template-columns: 1fr; } }
 
-.ai-input-row { display: flex; align-items: flex-end; gap: 12px; }
+.ai-input-row { display: flex; align-items: center; gap: 12px; }
 .ai-input-row .ai-textarea { flex: 1; min-height: 44px; max-height: 300px; resize: none; overflow-y: auto; }
-.ai-input-btns { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+.ai-input-btns { display: flex; flex-direction: row; align-items: center; gap: 8px; flex-shrink: 0; }
+
+.ai-think-block { border: 1px solid rgba(91,138,240,0.2); border-radius: var(--radius-lg); margin-bottom: 16px; overflow: hidden; background: rgba(91,138,240,0.03); }
+.ai-think-toggle { width: 100%; display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: none; border: none; cursor: pointer; font-size: var(--text-sm); color: var(--color-text-secondary); font-weight: 600; text-align: left; }
+.ai-think-toggle:hover { background: rgba(91,138,240,0.06); }
+.ai-think-icon { font-size: 1rem; }
+.ai-think-arrow { margin-left: auto; font-size: 10px; color: var(--color-text-muted); }
+.ai-think-content { padding: 12px 16px 16px; border-top: 1px solid rgba(91,138,240,0.12); }
+.ai-think-content pre { font-size: var(--text-xs); color: var(--color-text-muted); line-height: 1.7; white-space: pre-wrap; font-family: var(--font-sans); margin: 0; max-height: 300px; overflow-y: auto; }
+.think-slide-enter-active, .think-slide-leave-active { transition: all 0.25s ease; overflow: hidden; }
+.think-slide-enter-from, .think-slide-leave-to { opacity: 0; max-height: 0; }
+.think-slide-enter-to, .think-slide-leave-from { max-height: 300px; }
+
+
+
+
+
+
+.mode-select { height: 40px; padding: 0 12px; border-radius: var(--radius-lg); border: 1px solid var(--color-border); background: var(--color-bg-glass); font-size: var(--text-sm); color: var(--color-text-secondary); outline: none; cursor: pointer; flex-shrink: 0; transition: border-color var(--transition-fast); }
+.mode-select:focus { border-color: var(--color-primary); }
+.mode-select:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>

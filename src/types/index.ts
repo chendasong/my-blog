@@ -37,6 +37,7 @@ export interface CoupleMemory {
   title: string
   description: string
   image: string
+  images?: string[]
   date: string
   type: 'photo' | 'milestone' | 'wish' | 'diary'
   emotion: 'happy' | 'romantic' | 'sweet' | 'funny'
