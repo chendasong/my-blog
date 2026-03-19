@@ -21,6 +21,11 @@ export interface SiteSettings {
   owner_location: string
   icp_number: string
   couple_password: string
+  couple_since: string
+  person1_name: string
+  person1_avatar: string
+  person2_name: string
+  person2_avatar: string
 }
 
 async function verifyPassword(password: string, hash: string): Promise<boolean> {
@@ -95,9 +100,11 @@ export const authApi = {
       const { data: urlData } = supabase.storage.from('images').getPublicUrl(fileName)
       avatarUrl = urlData.publicUrl
     }
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { avatar_file: _f, ...settingsData } = settings
     const { data, error } = await supabase
       .from('site_settings')
-      .update({ ...settings, owner_avatar: avatarUrl, updated_at: new Date().toISOString() })
+      .update({ ...settingsData, owner_avatar: avatarUrl, updated_at: new Date().toISOString() })
       .eq('id', 1)
       .select()
       .single()

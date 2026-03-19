@@ -33,8 +33,8 @@ onMounted(async () => {
   await authStore.fetchSiteSettings()
   try {
     const allArticles = await articleApi.getList()
-    featuredArticles.value = allArticles.filter(a => a.featured).slice(0, 2)
-    recentArticles.value = allArticles.slice(0, 4)
+    featuredArticles.value = allArticles.filter(a => a.featured).slice(0, 3)
+    recentArticles.value = allArticles.slice(0, 3)
     stats.value.articles = allArticles.length
     stats.value.views = allArticles.reduce((sum, a) => sum + (a.views || 0), 0)
   } catch {}
@@ -163,8 +163,8 @@ onMounted(async () => {
 .section--alt { background: rgba(91,138,240,0.03); }
 .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
 .section__header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 32px; flex-wrap: wrap; gap: 16px; }
-.featured-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 24px; }
-.recent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+.featured-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.recent-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .empty-articles { text-align: center; padding: 40px; color: var(--color-text-muted); font-size: var(--text-sm); }
 .ai-preview { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
 .ai-preview-card { padding: 28px; background: var(--color-bg-card); backdrop-filter: var(--blur-md); border: 1px solid var(--color-border); border-radius: var(--radius-xl); cursor: pointer; transition: all var(--transition-base); }
@@ -178,6 +178,7 @@ onMounted(async () => {
 .couple-entry-banner__emoji { font-size: 3rem; }
 .couple-entry-banner__title { font-size: var(--text-xl); font-weight: 700; color: var(--color-text-primary); margin-bottom: 6px; }
 .couple-entry-banner__desc { font-size: var(--text-sm); color: var(--color-text-muted); }
+@media (max-width: 900px) { .featured-grid, .recent-grid { grid-template-columns: 1fr; } }
 @media (max-width: 768px) {
   .hero__inner { flex-direction: column; padding: 60px 24px; text-align: center; }
   .hero__actions { justify-content: center; }

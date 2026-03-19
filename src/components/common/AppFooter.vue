@@ -21,6 +21,8 @@ onMounted(async () => {
           <div class="footer__nav-row">
             <a href="/blog">文章</a>
             <a href="/notes">笔记</a>
+          </div>
+          <div class="footer__nav-row">
             <a href="/ai">AI 工坊</a>
             <a href="/couple">情侣空间</a>
           </div>

@@ -13,20 +13,38 @@ const toast = useToast()
 
 const password = ref('')
 const loading = ref(false)
+const checking = ref(true)
 const showPwd = ref(false)
+
+const COUPLE_PWD_KEY = 'couple_saved_pwd'
 
 onMounted(async () => {
   if (!authStore.siteSettings) {
     await authStore.fetchSiteSettings()
   }
+  // 自动验证已存储的密码
+  const saved = localStorage.getItem(COUPLE_PWD_KEY)
+  if (saved) {
+    const correct = authStore.siteSettings?.couple_password || '2024-11-09'
+    if (saved === correct) {
+      appStore.setCoupleAuth(true)
+      router.replace('/couple/space')
+      return
+    } else {
+      // 密码已被管理员修改，清除旧缓存
+      localStorage.removeItem(COUPLE_PWD_KEY)
+    }
+  }
+  checking.value = false
 })
 
 async function handleSubmit() {
   if (!password.value) { toast.warning('请输入密码'); return }
   loading.value = true
-  await new Promise(r => setTimeout(r, 600))
-  const correctPwd = authStore.siteSettings?.couple_password || '2024-11-09'
-  if (password.value === correctPwd) {
+  await new Promise(r => setTimeout(r, 500))
+  const correct = authStore.siteSettings?.couple_password || '2024-11-09'
+  if (password.value === correct) {
+    localStorage.setItem(COUPLE_PWD_KEY, password.value)
     appStore.setCoupleAuth(true)
     router.push('/couple/space')
   } else {
@@ -46,7 +64,10 @@ async function handleSubmit() {
         <span v-for="i in 8" :key="i" class="heart" :style="{ '--i': i }">💗</span>
       </div>
     </div>
-    <div class="couple-entry__card glass-card animate-scale-in">
+    <div v-if="checking" class="couple-entry__checking">
+      <div class="checking-dots"><span/><span/><span/></div>
+    </div>
+    <div v-else class="couple-entry__card glass-card animate-scale-in">
       <div class="couple-entry__icon">🔐</div>
       <h1 class="couple-entry__title">情侣专属空间</h1>
       <p class="couple-entry__desc">这里是我们两个人的小天地，<br />请输入专属密码进入 🌸</p>
@@ -58,6 +79,7 @@ async function handleSubmit() {
             class="pwd-input"
             placeholder="输入专属密码..."
             @keydown.enter="handleSubmit"
+            autofocus
           />
           <button type="button" class="pwd-toggle" @click="showPwd = !showPwd">
             {{ showPwd ? '🙈' : '👁️' }}
@@ -67,7 +89,7 @@ async function handleSubmit() {
           进入我们的空间 →
         </AppButton>
       </form>
-      <p class="couple-entry__hint">默认密码：2024-11-09，登录后可在管理设置中修改 🗝️</p>
+      <p class="couple-entry__hint">密码可在管理设置中配置 🗝️</p>
     </div>
   </div>
 </template>
@@ -88,6 +110,12 @@ async function handleSubmit() {
 .heart:nth-child(6) { top: 75%; right: 12%; }
 .heart:nth-child(7) { top: 5%; left: 45%; }
 .heart:nth-child(8) { bottom: 10%; left: 40%; }
+.couple-entry__checking { display: flex; align-items: center; justify-content: center; min-height: 200px; }
+.checking-dots { display: flex; gap: 8px; }
+.checking-dots span { width: 12px; height: 12px; border-radius: 50%; background: rgba(232,96,122,0.5); animation: bounce 1.2s ease-in-out infinite; }
+.checking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.checking-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce { 0%,80%,100%{transform:scale(0.8);opacity:0.5}40%{transform:scale(1.2);opacity:1} }
 .couple-entry__card { width: 100%; max-width: 420px; padding: 48px 40px; text-align: center; position: relative; z-index: 1; }
 .couple-entry__icon { font-size: 3rem; margin-bottom: 16px; }
 .couple-entry__title { font-size: var(--text-2xl); font-weight: 700; color: var(--color-text-primary); margin-bottom: 12px; }
@@ -99,6 +127,4 @@ async function handleSubmit() {
 .pwd-input::placeholder { letter-spacing: 0; color: var(--color-text-muted); }
 .pwd-toggle { position: absolute; right: 14px; font-size: 1.1rem; cursor: pointer; background: none; border: none; }
 .couple-entry__hint { margin-top: 20px; font-size: var(--text-xs); color: var(--color-text-muted); }
-.fade-enter-active, .fade-leave-active { transition: all 0.2s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-4px); }
 </style>

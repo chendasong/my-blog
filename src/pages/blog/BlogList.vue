@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useArticleStore } from '@/stores/article'
 import { useAuthStore } from '@/stores/auth'
@@ -13,6 +13,8 @@ const authStore = useAuthStore()
 
 const activeCategory = ref('all')
 const searchQuery = ref('')
+const currentPage = ref(1)
+const PAGE_SIZE = 6
 
 const categoryColors: Record<string, string> = {
   '技术': '#6C8EBF', '生活': '#82B366', '设计': '#B85450', '思考': '#9673A6',
@@ -23,7 +25,14 @@ const categoryIcons: Record<string, string> = {
 
 onMounted(() => store.fetchList())
 
+const pagedArticles = computed(() => {
+  const start = (currentPage.value - 1) * PAGE_SIZE
+  return store.articles.slice(start, start + PAGE_SIZE)
+})
+const totalPages = computed(() => Math.ceil(store.articles.length / PAGE_SIZE))
+
 function doSearch() {
+  currentPage.value = 1
   const params: Record<string, string> = {}
   if (activeCategory.value !== 'all') params.category = activeCategory.value
   if (searchQuery.value.trim()) params.q = searchQuery.value.trim()
@@ -32,6 +41,7 @@ function doSearch() {
 
 function handleCategoryChange(cat: string) {
   activeCategory.value = cat
+  currentPage.value = 1
   doSearch()
 }
 
@@ -73,22 +83,31 @@ async function handleDelete(id: string) {
         <span>😕 {{ store.error }}</span>
         <AppButton variant="secondary" @click="store.fetchList()">重试</AppButton>
       </div>
-      <div v-else-if="store.articles.length" class="articles-grid">
-        <div v-for="(article, i) in store.articles" :key="article.id" class="article-wrap animate-fade-in-up" :class="`delay-${Math.min(i * 100, 500)}`">
-          <ArticleCard
-            :article="article"
-            :featured="article.featured"
-            :editable="authStore.isLoggedIn"
-            @edit="router.push(`/blog/${$event}/edit`)"
-            @delete="handleDelete"
-          />
+      <template v-else>
+        <div v-if="!store.articles.length" class="empty-state">
+          <span class="empty-state__icon">📝</span>
+          <p>还没有文章，去写第一篇吧！</p>
+          <AppButton v-if="authStore.isLoggedIn" @click="router.push('/blog/new')">✏️ 写文章</AppButton>
         </div>
-      </div>
-      <div v-else class="empty-state">
-        <span class="empty-state__icon">📝</span>
-        <p>还没有文章，去写第一篇吧！</p>
-        <AppButton v-if="authStore.isLoggedIn" @click="router.push('/blog/new')">✏️ 写文章</AppButton>
-      </div>
+        <template v-else>
+          <div class="articles-grid">
+            <div v-for="(article, i) in pagedArticles" :key="article.id" class="article-wrap animate-fade-in-up" :class="`delay-${Math.min(i * 100, 500)}`">
+              <ArticleCard
+                :article="article"
+                :featured="article.featured"
+                :editable="authStore.isLoggedIn"
+                @edit="router.push(`/blog/${$event}/edit`)"
+                @delete="handleDelete"
+              />
+            </div>
+          </div>
+          <div v-if="totalPages > 1" class="pagination">
+            <button class="page-btn" :disabled="currentPage === 1" @click="currentPage--">← 上一页</button>
+            <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
+            <button class="page-btn" :disabled="currentPage === totalPages" @click="currentPage++">下一页 →</button>
+          </div>
+        </template>
+      </template>
     </div>
   </div>
 </template>
@@ -120,4 +139,9 @@ async function handleDelete(id: string) {
 @keyframes bounce { 0%,80%,100%{transform:scale(0.8);opacity:0.5}40%{transform:scale(1.2);opacity:1} }
 .empty-state { text-align: center; padding: 80px 24px; color: var(--color-text-muted); display: flex; flex-direction: column; align-items: center; gap: 16px; }
 .empty-state__icon { font-size: 3rem; }
+.pagination { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 40px; }
+.page-btn { padding: 8px 20px; border-radius: var(--radius-full); border: 1px solid var(--color-border); background: var(--color-bg-card); font-size: var(--text-sm); cursor: pointer; transition: all var(--transition-fast); color: var(--color-text-secondary); }
+.page-btn:hover:not(:disabled) { border-color: var(--color-primary); color: var(--color-primary); }
+.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.page-info { font-size: var(--text-sm); color: var(--color-text-muted); min-width: 60px; text-align: center; }
 </style>

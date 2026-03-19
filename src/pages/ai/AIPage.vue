@@ -26,7 +26,7 @@ const aiIcons: Record<string, string> = {
   'AI 文案创作': '✍️', 'AI 代码助手': '💻', 'AI 图片识别': '🔍',
   'AI 情感分析': '💡', 'AI 翻译': '🌐', 'AI 思维导图': '🗺️',
   'AI 诗词创作': '🪶', 'AI 摘要提取': '📋',
-  'AI 食谱工坊': '🍼',
+  'AI 食谱': '🍼',
 }
 
 const langOptions = ['中文', 'English', '日本语', '韩语', '法语', '德语', '西班牙语', '俄语']
@@ -63,19 +63,19 @@ async function handleGenerate() {
     onChunk: (text) => {
       if (abortFlag) return
       thinkBuffer += text
-      // Filter out <think>...</think> blocks from Qwen3
-      let processed = thinkBuffer
-      if (processed.includes('<think>')) {
+      // Check if we are in a think block
+      const hasOpenThink = thinkBuffer.includes('<think>')
+      const hasCloseThink = thinkBuffer.includes('</think>')
+      if (hasOpenThink && !hasCloseThink) {
+        // Still inside think block - show thinking state, output stays empty
         isThinking.value = true
-        // Remove complete think blocks
-        processed = processed.replace(/<think>[\s\S]*?<\/think>/g, '')
-        // If still inside think block, show nothing
-        const openIdx = processed.lastIndexOf('<think>')
-        if (openIdx !== -1) processed = processed.slice(0, openIdx)
-      } else {
-        isThinking.value = false
+        return
       }
-      outputText.value = processed.trimStart()
+      // Remove complete think blocks
+      let processed = thinkBuffer.replace(/<think>[\s\S]*?<\/think>/g, '')
+      isThinking.value = false
+      // Only update if we have real content (avoid empty flicker)
+      if (processed.length > 0) outputText.value = processed
     },
     onDone: () => {
       isLoading.value = false
@@ -120,7 +120,7 @@ function copyOutput() {
         <div class="ai-hero__stats">
           <span class="ai-stat">🔧 {{ aiFeatures.length }} 个工具</span>
           <span class="ai-stat">🆕 {{ aiFeatures.filter(f => f.isNew).length }} 个新功能</span>
-          <span class="ai-stat">⚡ 硅基流动驱动</span>
+          <span class="ai-stat">⚡ 千文大模型</span>
         </div>
       </div>
     </section>
@@ -170,29 +170,29 @@ function copyOutput() {
                   <option v-for="l in langOptions" :key="l" :value="l">{{ l }}</option>
                 </select>
               </div>
-              <textarea
-                v-model="inputText"
-                class="ai-textarea"
-                :placeholder="selectedFeature.placeholder"
-                rows="8"
-                :disabled="isLoading"
-              />
-              <div class="ai-input-actions">
-                <span class="ai-char-count">{{ inputText.length }} 字</span>
-                <div style="display:flex;gap:8px">
-                  <button v-if="isLoading" class="stop-btn" @click="handleStop">⏹ 停止</button>
-                  <AppButton :loading="isLoading" :disabled="!inputText.trim() || isLoading" @click="handleGenerate">
-                    ✨ 开始生成
-                  </AppButton>
+              <div class="ai-input-row">
+                <textarea
+                  v-model="inputText"
+                  class="ai-textarea"
+                  :placeholder="selectedFeature.placeholder"
+                  rows="1"
+                  :disabled="isLoading"
+                />
+                <div class="ai-input-btns">
+                  <button v-if="isLoading" class="stop-btn stop-btn--active" @click="handleStop">
+                    <span class="stop-btn__dot"></span> 停止生成
+                  </button>
+                  <AppButton v-else :disabled="!inputText.trim()" @click="handleGenerate">✨ 生成</AppButton>
                 </div>
               </div>
+              <span class="ai-char-count">{{ inputText.length }} 字</span>
             </div>
             <div class="ai-output-area">
               <label class="ai-label">
                 AI 输出
                 <span v-if="isLoading" class="ai-streaming-badge">● {{ isThinking ? "思考中" : "生成中" }}</span>
               </label>
-              <div v-if="isLoading && !outputText" class="ai-loading">
+              <div v-if="isLoading && !outputText.trim()" class="ai-loading">
                 <div class="ai-loading__dots"><span /><span /><span /></div>
                 <p>{{ isThinking ? 'AI 正在深度思考中...' : 'AI 正在生成中...' }}</p>
               </div>
@@ -205,7 +205,7 @@ function copyOutput() {
                 </div>
               </div>
               <div v-else class="ai-output-empty">
-                <p>在左侧输入内容，点击「开始生成」</p>
+                <p>在上方输入内容，点击「开始生成」</p>
               </div>
             </div>
           </div>
@@ -246,14 +246,14 @@ function copyOutput() {
 .ai-ws-icon { font-size: 2.5rem; flex-shrink: 0; }
 .ai-ws-title { font-size: var(--text-xl); font-weight: 700; color: var(--color-text-primary); margin-bottom: 4px; }
 .ai-ws-desc { font-size: var(--text-sm); color: var(--color-text-muted); line-height: 1.5; }
-.ai-io { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.ai-io { display: flex; flex-direction: column; gap: 20px; }
 .ai-label { display: flex; align-items: center; gap: 8px; font-size: var(--text-sm); font-weight: 600; color: var(--color-text-secondary); margin-bottom: 8px; }
 .ai-streaming-badge { font-size: 11px; font-weight: 600; color: var(--color-primary); background: rgba(91,138,240,0.12); padding: 2px 8px; border-radius: var(--radius-full); animation: pulse 1.5s ease-in-out infinite; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
 .lang-switcher { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .lang-select { flex: 1; padding: 7px 10px; background: var(--color-bg-glass); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-sm); color: var(--color-text-primary); outline: none; cursor: pointer; }
-.lang-swap-btn { flex-shrink: 0; padding: 7px 12px; border-radius: var(--radius-md); border: 1px solid var(--color-border); background: var(--color-bg-card); cursor: pointer; font-size: 1rem; transition: transform var(--transition-fast); }
-.lang-swap-btn:hover { transform: rotate(180deg); border-color: var(--color-primary); }
+.lang-swap-btn { flex-shrink: 0; padding: 7px 12px; border-radius: var(--radius-md); border: 1px solid var(--color-border); background: var(--color-bg-card); cursor: pointer; font-size: 1rem; transition: transform 0.4s ease, border-color var(--transition-fast), background var(--transition-fast); }
+.lang-swap-btn:hover { transform: rotate(180deg); border-color: var(--color-primary); background: rgba(91,138,240,0.08); }
 .ai-textarea { width: 100%; padding: 14px 16px; background: var(--color-bg-glass); border: 1px solid var(--color-border); border-radius: var(--radius-lg); font-size: var(--text-sm); color: var(--color-text-primary); font-family: var(--font-sans); line-height: 1.6; resize: vertical; outline: none; transition: border-color var(--transition-fast); }
 .ai-textarea:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(91,138,240,0.10); }
 .ai-textarea:disabled { opacity: 0.7; cursor: not-allowed; }
@@ -277,4 +277,8 @@ function copyOutput() {
 .ai-fade-enter-active, .ai-fade-leave-active { transition: all 0.25s ease; }
 .ai-fade-enter-from, .ai-fade-leave-to { opacity: 0; transform: translateY(8px); }
 @media (max-width: 768px) { .ai-io { grid-template-columns: 1fr; } .ai-grid { grid-template-columns: 1fr; } }
+
+.ai-input-row { display: flex; align-items: flex-end; gap: 12px; }
+.ai-input-row .ai-textarea { flex: 1; min-height: 44px; max-height: 300px; resize: none; overflow-y: auto; }
+.ai-input-btns { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
 </style>

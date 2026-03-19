@@ -49,7 +49,7 @@ export const aiFeatures: AIFeature[] = [
   {
     id: '5',
     name: 'AI 翻译',
-    description: '不只是翻译，AI 还能对文本进行润色改写，让表达更地道、更专业，支持20+语言。',
+    description: '不只是翻译，AI 还能对文本进行润色改写，让表达更地道、更专业，支持多语言。',
     icon: 'mdi:translate',
     category: 'writing',
     tags: ['翻译', '多语言', '语言'],
@@ -92,7 +92,7 @@ export const aiFeatures: AIFeature[] = [
   },
   {
     id: '9',
-    name: 'AI 食谱工坊',
+    name: 'AI 食谱',
     description: '输入任意一道菜，AI 给出最正宗的历史渊源、食材配比、详细烹饪步骤与小贴士。',
     icon: 'mdi:food',
     category: 'creative',

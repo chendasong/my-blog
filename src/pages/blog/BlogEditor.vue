@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useToast } from '@/composables/useToast'
 import { useRoute, useRouter } from 'vue-router'
 import { articleApi, uploadImage } from '@/api'
+import { generateImages } from '@/api/siliconflow'
 import { categories } from '@/data'
 import AppButton from '@/components/common/AppButton.vue'
 import dayjs from 'dayjs'
@@ -14,6 +15,17 @@ const isEdit = !!route.params.id
 
 const loading = ref(false)
 const saving = ref(false)
+const generatingCovers = ref(false)
+
+// 封面状态独立管理，互不干扰
+// uploadedCover: 本地预览 URL（未上传）
+const uploadedFile = ref<File | null>(null)        // 待上传的文件
+const uploadedPreview = ref('')                  // 本地预览 URL
+const generatedCovers = ref<string[]>([])          // AI 生成的图 (远程 URL)
+const selectedUpload = ref('')                   // 当前选中的自定义图
+const selectedAI = ref('')                       // 当前选中的 AI 图
+// activeSource: 'upload' | 'ai' | '' - 最后操作的来源
+const activeSource = ref<'upload' | 'ai' | ''>('')
 
 const form = ref({
   title: '',
@@ -21,33 +33,10 @@ const form = ref({
   content: '',
   category: '技术',
   tags: '',
-  cover: '/images/article-1.svg',
+  cover: '',
   author: '晨光',
   featured: false,
 })
-
-const coverOptions = [
-  '/images/article-1.svg',
-  '/images/article-2.svg',
-  '/images/article-3.svg',
-  '/images/article-4.svg',
-  '/images/article-5.svg',
-  '/images/article-6.svg',
-]
-
-const uploadingCover = ref(false)
-async function handleCoverUpload(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0]
-  if (!file) return
-  uploadingCover.value = true
-  try {
-    form.value.cover = await uploadImage(file)
-  } catch {
-    toast.error('图片上传失败，请重试')
-  } finally {
-    uploadingCover.value = false
-  }
-}
 
 onMounted(async () => {
   if (isEdit) {
@@ -70,6 +59,47 @@ onMounted(async () => {
   }
 })
 
+function handleCoverUpload(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  uploadedFile.value = file
+  // 本地预览，不上传服务器
+  if (uploadedPreview.value) URL.revokeObjectURL(uploadedPreview.value)
+  uploadedPreview.value = URL.createObjectURL(file)
+  selectedUpload.value = uploadedPreview.value
+  activeSource.value = 'upload'
+  toast.success('图片已选择，发布后自动上传')
+}
+
+async function handleGenerateCovers() {
+  if (!form.value.title.trim()) {
+    toast.warning('请先输入文章标题')
+    return
+  }
+  generatingCovers.value = true
+  generatedCovers.value = []
+  try {
+    const prompt = `主题：${form.value.title}，要求：16:9比例，小红书封面风格，极简排版，干净纯色背景，柔和渐变，高级质感，无多余图案，视觉冲击力强，适合做文章封面`
+    generatedCovers.value = await generateImages(prompt, 3)
+    if (generatedCovers.value.length > 0) {
+      selectedAI.value = generatedCovers.value[0]
+      activeSource.value = 'ai'
+    }
+    toast.success('封面生成成功，已自动选中')
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : 'AI生成失败')
+  } finally {
+    generatingCovers.value = false
+  }
+}
+
+// 得到最终封面：优先取最后操作来源的图
+function getActiveCover(): string {
+  if (activeSource.value === 'upload') return selectedUpload.value
+  if (activeSource.value === 'ai') return selectedAI.value
+  return form.value.cover
+}
+
 async function handleSubmit() {
   if (!form.value.title.trim() || !form.value.content.trim()) {
     toast.error('标题和内容不能为空')
@@ -77,9 +107,20 @@ async function handleSubmit() {
   }
   saving.value = true
   try {
+    let coverUrl = getActiveCover()
+    // 如果有本地上传的文件，且封面选的是自定义图，现在才上传
+    if (uploadedFile.value && activeSource.value === 'upload') {
+      try {
+        coverUrl = await uploadImage(uploadedFile.value)
+      } catch {
+        toast.error('封面上传失败，将使用旧封面')
+        coverUrl = form.value.cover
+      }
+    }
     const now = dayjs().format('YYYY-MM-DD')
     const data = {
       ...form.value,
+      cover: coverUrl,
       tags: form.value.tags.split(',').map(t => t.trim()).filter(Boolean),
       publishedAt: now,
       updatedAt: now,
@@ -105,24 +146,23 @@ async function handleSubmit() {
       <button class="back-btn" @click="router.push('/blog')">← 返回列表</button>
       <h2 class="editor-title">{{ isEdit ? '编辑文章' : '写新文章' }}</h2>
     </div>
-
     <div v-if="loading" class="editor-loading">加载中...</div>
     <div v-else class="editor-body">
       <div class="editor-main">
         <div class="form-group">
-          <label class="form-label">文章标题 *</label>
-          <input v-model="form.title" class="form-input" placeholder="输入文章标题..." />
+          <input v-model="form.title" class="title-input" placeholder="文章标题..." />
         </div>
         <div class="form-group">
-          <label class="form-label">摘要</label>
-          <textarea v-model="form.summary" class="form-textarea" rows="3" placeholder="输入文章摘要，不填则自动截取正文..."/>
+          <label class="form-label">摘要 <span class="form-hint">（不填则自动截取正文）</span></label>
+          <textarea v-model="form.summary" class="form-textarea" rows="2" placeholder="输入文章摘要..."/>
         </div>
         <div class="form-group">
           <label class="form-label">正文内容 * <span class="form-hint">（支持 Markdown）</span></label>
-          <textarea v-model="form.content" class="form-textarea form-textarea--content" rows="20" placeholder="# 文章标题&#10;&#10;开始写作..."/>
+          <textarea v-model="form.content" class="content-textarea" rows="24"
+            placeholder="开始写文章...&#10;&#10;支持 Markdown 格式：&#10;## 标题&#10;- 列表项&#10;- [ ] 待办事项&#10;**加粗** *斜体* `代码`&#10;&#10;&gt; 引用文本"
+          />
         </div>
       </div>
-
       <aside class="editor-sidebar">
         <div class="sidebar-card">
           <h4 class="sidebar-card__title">文章设置</h4>
@@ -138,29 +178,46 @@ async function handleSubmit() {
           </div>
           <div class="form-group">
             <label class="form-label">封面图</label>
-            <div class="cover-upload">
-              <label class="cover-upload-btn">
-                <span v-if="uploadingCover">上传中...</span>
-                <span v-else>📤 上传自定义封面</span>
-                <input type="file" accept="image/*" style="display:none" @change="handleCoverUpload" :disabled="uploadingCover" />
+            <div class="cover-actions">
+              <label class="cover-btn">
+                <span v-if="saving">上传中...</span>
+                <span v-else>📤 自定义上传</span>
+                <input type="file" accept="image/*" style="display:none" @change="handleCoverUpload" />
               </label>
-              <div v-if="form.cover && !coverOptions.includes(form.cover)" class="cover-preview">
-                <img :src="form.cover" alt="封面预览" />
+              <button class="cover-btn cover-btn--ai" :disabled="generatingCovers || !form.title" @click="handleGenerateCovers">
+                <span v-if="generatingCovers">✨ 生成中...</span>
+                <span v-else>✨ AI 生成封面</span>
+              </button>
+            </div>
+            <div v-if="generatingCovers" class="cover-generating">
+              <div class="cover-gen-dots"><span/><span/><span/></div>
+              <p>AI 正在生成封面图...</p>
+            </div>
+            <div v-if="uploadedPreview" class="cover-section">
+              <p class="cover-section__label">📤 自定义上传</p>
+              <div :class="['cover-option', { 'cover-option--active': activeSource === 'upload' }]"
+                @click="activeSource = 'upload'; selectedUpload = uploadedPreview">
+                <img :src="uploadedPreview" alt="自定义封面" />
+                <span class="cover-option__label">{{ activeSource === 'upload' ? '✓ 已选择' : '点击选择' }}</span>
               </div>
             </div>
-            <p class="form-hint" style="margin-top:8px">或选择预设封面：</p>
-            <div class="cover-options">
-              <div
-                v-for="cover in coverOptions"
-                :key="cover"
-                :class="['cover-option', { 'cover-option--active': form.cover === cover }]"
-                @click="form.cover = cover"
-              >
-                <img :src="cover" :alt="cover" />
+            <div v-if="generatedCovers.length" class="cover-section">
+              <p class="cover-section__label">✨ AI 生成</p>
+              <div class="cover-grid">
+                <div v-for="(url, i) in generatedCovers" :key="i"
+                  :class="['cover-option', { 'cover-option--active': activeSource === 'ai' && selectedAI === url }]"
+                  @click="selectedAI = url; activeSource = 'ai'">
+                  <img :src="url" :alt="'AI封面' + (i+1)" />
+                  <span class="cover-option__label">{{ activeSource === 'ai' && selectedAI === url ? '✓ 已选择' : '方案 ' + (i+1) }}</span>
+                </div>
               </div>
+            </div>
+            <div v-if="form.cover && !uploadedPreview" class="cover-current">
+              <p class="cover-section__label">当前封面</p>
+              <img :src="form.cover" alt="封面预览" />
             </div>
           </div>
-          <div class="form-group form-group--checkbox">
+          <div class="form-group">
             <label class="form-label-check">
               <input v-model="form.featured" type="checkbox" />
               <span>设为精选文章</span>
@@ -178,34 +235,47 @@ async function handleSubmit() {
 <style scoped>
 .article-editor { max-width: 1200px; margin: 0 auto; padding: 32px 24px 80px; }
 .editor-header { display: flex; align-items: center; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
-.back-btn { color: var(--color-text-muted); font-size: var(--text-sm); cursor: pointer; transition: color var(--transition-fast); }
+.back-btn { color: var(--color-text-muted); font-size: var(--text-sm); cursor: pointer; background: none; border: none; transition: color var(--transition-fast); }
 .back-btn:hover { color: var(--color-primary); }
 .editor-title { font-size: var(--text-xl); font-weight: 700; color: var(--color-text-primary); flex: 1; }
 .editor-loading { text-align: center; padding: 80px; color: var(--color-text-muted); }
 .editor-body { display: grid; grid-template-columns: 1fr 300px; gap: 24px; align-items: start; }
 .editor-main { display: flex; flex-direction: column; gap: 20px; }
 .form-group { display: flex; flex-direction: column; gap: 6px; }
-.form-group--checkbox { flex-direction: row; align-items: center; }
 .form-label { font-size: var(--text-sm); font-weight: 600; color: var(--color-text-secondary); }
 .form-hint { font-weight: 400; color: var(--color-text-muted); }
-.form-input, .form-textarea, .form-select { padding: 11px 14px; background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); font-size: var(--text-sm); color: var(--color-text-primary); font-family: var(--font-sans); outline: none; transition: border-color var(--transition-fast); width: 100%; }
-.form-input:focus, .form-textarea:focus, .form-select:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(91,138,240,0.10); }
+.title-input { width: 100%; padding: 14px 0; background: transparent; border: none; border-bottom: 2px solid var(--color-border); font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 700; color: var(--color-text-primary); outline: none; font-family: var(--font-sans); transition: border-color var(--transition-fast); }
+.title-input:focus { border-color: var(--color-primary); }
+.title-input::placeholder { color: var(--color-text-muted); font-weight: 400; }
+.form-textarea, .form-input, .form-select { padding: 11px 14px; background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); font-size: var(--text-sm); color: var(--color-text-primary); font-family: var(--font-sans); outline: none; transition: border-color var(--transition-fast); width: 100%; }
+.form-textarea:focus, .form-input:focus, .form-select:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(91,138,240,0.10); }
 .form-textarea { resize: vertical; line-height: 1.6; }
-.form-textarea--content { font-family: var(--font-mono); font-size: var(--text-sm); }
+.content-textarea:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(91,138,240,0.10); }
+.content-textarea { width: 100%; padding: 16px; background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); font-size: var(--text-sm); color: var(--color-text-primary); font-family: var(--font-mono); line-height: 1.8; resize: vertical; outline: none; transition: border-color var(--transition-fast); }
 .form-label-check { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: var(--text-sm); color: var(--color-text-secondary); }
-.editor-sidebar {}
 .sidebar-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius-xl); padding: 20px; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 80px; }
 .sidebar-card__title { font-size: var(--text-base); font-weight: 600; color: var(--color-text-primary); margin-bottom: 4px; }
-.cover-upload { display: flex; flex-direction: column; gap: 8px; }
-.cover-upload-btn { display: inline-flex; align-items: center; justify-content: center; padding: 10px 18px; border-radius: var(--radius-full); border: 1.5px dashed var(--color-border); background: var(--color-bg-glass); font-size: var(--text-sm); color: var(--color-text-secondary); cursor: pointer; transition: all var(--transition-fast); }
-.cover-upload-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.cover-preview { width: 120px; border-radius: var(--radius-md); overflow: hidden; }
-.cover-preview img { width: 100%; display: block; }
-.cover-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.cover-option { border-radius: var(--radius-md); overflow: hidden; cursor: pointer; border: 2px solid transparent; transition: border-color var(--transition-fast); aspect-ratio: 16/9; }
-.cover-option img { width: 100%; height: 100%; object-fit: cover; }
-.cover-option--active { border-color: var(--color-primary); }
-@media (max-width: 900px) { .editor-body { grid-template-columns: 1fr; } }
-
 .sidebar-save { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--color-border); }
+.cover-actions { display: flex; gap: 8px; }
+.cover-btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; padding: 8px 12px; border-radius: var(--radius-md); border: 1.5px dashed var(--color-border); background: var(--color-bg-glass); font-size: var(--text-xs); color: var(--color-text-secondary); cursor: pointer; transition: all var(--transition-fast); text-align: center; }
+.cover-btn:hover:not(:disabled) { border-color: var(--color-primary); color: var(--color-primary); }
+.cover-btn--ai { border-style: solid; background: rgba(91,138,240,0.06); color: var(--color-primary); border-color: rgba(91,138,240,0.3); }
+.cover-btn--ai:hover:not(:disabled) { background: rgba(91,138,240,0.12); }
+.cover-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.cover-generating { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 20px; border: 1px dashed var(--color-border); border-radius: var(--radius-md); color: var(--color-text-muted); font-size: var(--text-xs); }
+.cover-gen-dots { display: flex; gap: 5px; }
+.cover-gen-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--color-primary); animation: bounce 1.2s ease-in-out infinite; }
+.cover-gen-dots span:nth-child(2) { animation-delay: 0.2s; }
+.cover-gen-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce { 0%,80%,100%{transform:scale(0.8);opacity:0.5} 40%{transform:scale(1.2);opacity:1} }
+.cover-grid { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 8px; }
+.cover-option { border-radius: var(--radius-md); overflow: hidden; cursor: pointer; border: 2px solid transparent; transition: border-color var(--transition-fast); position: relative; }
+.cover-option img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; }
+.cover-option__label { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; background: rgba(0,0,0,0.5); color: white; font-size: 11px; padding: 3px; }
+.cover-option--active { border-color: var(--color-primary); }
+.cover-current { border-radius: var(--radius-md); overflow: hidden; margin-top: 8px; }
+.cover-current img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; }
+@media (max-width: 900px) { .editor-body { grid-template-columns: 1fr; } }
+.cover-section__label { font-size: 11px; color: var(--color-text-muted); margin-bottom: 6px; font-weight: 600; }
+.cover-section { margin-top: 10px; }
 </style>

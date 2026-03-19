@@ -50,6 +50,32 @@ export interface StreamOptions {
   onError: (err: string) => void
 }
 
+export async function generateImages(prompt: string, _n = 3): Promise<string[]> {
+  const VOLC_KEY = '3be8c7bf-40b3-47ff-9e42-d2cc2a33fd55'
+  const VOLC_MODEL = 'doubao-seedream-4-5-251128'
+  const VOLC_URL = 'https://ark.cn-beijing.volces.com/api/v3/images/generations'
+  const resp = await fetch(VOLC_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${VOLC_KEY}`,
+    },
+    body: JSON.stringify({
+      model: VOLC_MODEL,
+      prompt,
+      size: '2048x1800',
+      response_format: 'url',
+    }),
+  })
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}))
+    throw new Error(err?.error?.message || `图片生成失败 (${resp.status})`)
+  }
+  const data = await resp.json()
+  const url = (data.data as Array<{ url: string }>)?.[0]?.url
+  return url ? [url] : []
+}
+
 export async function streamChat(options: StreamOptions) {
   const { featureId, userInput, onChunk, onDone, onError } = options
   const systemPrompt = SYSTEM_PROMPTS[featureId] || '你是一个智能助手。'
