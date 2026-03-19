@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF0F5"/>
+      <stop offset="100%" stop-color="#FFE8EE"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="450" fill="url(#bg)"/>
+  <!-- Grid -->
+  <rect x="60" y="60" width="680" height="330" rx="20" fill="rgba(255,255,255,0.7)"/>
+  <!-- Atoms -->
+  <circle cx="200" cy="180" r="30" fill="#E8607A" opacity="0.2"/>
+  <circle cx="200" cy="180" r="16" fill="#E8607A" opacity="0.9"/>
+  <text x="200" y="186" text-anchor="middle" font-size="10" fill="white" font-family="sans-serif">r</text>
+  <circle cx="300" cy="140" r="22" fill="#F0A05B" opacity="0.2"/>
+  <circle cx="300" cy="140" r="12" fill="#F0A05B" opacity="0.9"/>
+  <circle cx="400" cy="200" r="26" fill="#5B8AF0" opacity="0.2"/>
+  <circle cx="400" cy="200" r="14" fill="#5B8AF0" opacity="0.9"/>
+  <text x="400" y="205" text-anchor="middle" font-size="10" fill="white" font-family="sans-serif">ôÝ</text>
+  <circle cx="520" cy="160" r="20" fill="#8B6FF0" opacity="0.2"/>
+  <circle cx="520" cy="160" r="11" fill="#8B6FF0" opacity="0.9"/>
+  <!-- Lines connecting -->
+  <line x1="216" y1="180" x2="288" y2="148" stroke="#E8607A" stroke-width="1.5" opacity="0.4"/>
+  <line x1="312" y1="148" x2="386" y2="196" stroke="#F0A05B" stroke-width="1.5" opacity="0.4"/>
+  <line x1="414" y1="196" x2="509" y2="164" stroke="#5B8AF0" stroke-width="1.5" opacity="0.4"/>
+  <!-- Components -->
+  <rect x="140" y="260" width="120" height="60" rx="10" fill="#E8607A" opacity="0.15"/>
+  <rect x="144" y="264" width="112" height="52" rx="8" fill="#E8607A" opacity="0.1" stroke="#E8607A" stroke-width="1"/>
+  <text x="200" y="295" text-anchor="middle" font-size="11" fill="#E8607A" font-family="sans-serif" font-weight="bold">Button</text>
+  <rect x="290" y="260" width="120" height="60" rx="10" fill="#5B8AF0" opacity="0.1" stroke="#5B8AF0" stroke-width="1"/>
+  <text x="350" y="295" text-anchor="middle" font-size="11" fill="#5B8AF0" font-family="sans-serif" font-weight="bold">Input</text>
+  <rect x="440" y="260" width="120" height="60" rx="10" fill="#8B6FF0" opacity="0.1" stroke="#8B6FF0" stroke-width="1"/>
+  <text x="500" y="295" text-anchor="middle" font-size="11" fill="#8B6FF0" font-family="sans-serif" font-weight="bold">Card</text>
+  <text x="400" y="420" text-anchor="middle" font-size="13" fill="#8B93B8" font-family="sans-serif">¾¡ûß„úW</text>
+</svg>

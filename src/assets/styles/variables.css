@@ -1,0 +1,92 @@
+:root {
+  /* ===== Brand Colors ===== */
+  --color-primary: #5B8AF0;
+  --color-primary-light: #7EA3F4;
+  --color-primary-dark: #3D6FE8;
+  --color-secondary: #F0A05B;
+  --color-accent: #E8607A;
+
+  /* ===== Neutral ===== */
+  --color-bg: #F4F6FB;
+  --color-bg-card: rgba(255, 255, 255, 0.72);
+  --color-bg-glass: rgba(255, 255, 255, 0.52);
+  --color-bg-overlay: rgba(244, 246, 251, 0.85);
+  --color-surface: #FFFFFF;
+  --color-border: rgba(91, 138, 240, 0.12);
+  --color-border-strong: rgba(91, 138, 240, 0.24);
+
+  /* ===== Text ===== */
+  --color-text-primary: #1A1D2E;
+  --color-text-secondary: #4B5275;
+  --color-text-muted: #8B93B8;
+  --color-text-inverse: #FFFFFF;
+
+  /* ===== Semantic ===== */
+  --color-success: #4CAF82;
+  --color-warning: #F0B429;
+  --color-error: #E8607A;
+  --color-info: #5B8AF0;
+
+  /* ===== Gradients ===== */
+  --gradient-primary: linear-gradient(135deg, #5B8AF0 0%, #8B6FF0 100%);
+  --gradient-warm: linear-gradient(135deg, #F0A05B 0%, #E8607A 100%);
+  --gradient-cool: linear-gradient(135deg, #5BC8F0 0%, #5B8AF0 100%);
+  --gradient-hero: linear-gradient(135deg, #EEF2FF 0%, #F5F0FF 50%, #FFF0F5 100%);
+  --gradient-card: linear-gradient(145deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.6) 100%);
+
+  /* ===== Shadows ===== */
+  --shadow-xs: 0 1px 3px rgba(91, 138, 240, 0.08);
+  --shadow-sm: 0 2px 8px rgba(91, 138, 240, 0.10);
+  --shadow-md: 0 4px 20px rgba(91, 138, 240, 0.12);
+  --shadow-lg: 0 8px 40px rgba(91, 138, 240, 0.16);
+  --shadow-xl: 0 16px 64px rgba(91, 138, 240, 0.20);
+  --shadow-glow: 0 0 24px rgba(91, 138, 240, 0.30);
+
+  /* ===== Spacing ===== */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+
+  /* ===== Border Radius ===== */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+  --radius-full: 9999px;
+
+  /* ===== Typography ===== */
+  --font-sans: 'Sora', 'Noto Serif SC', system-ui, sans-serif;
+  --font-serif: 'Noto Serif SC', Georgia, serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.25rem;
+  --text-5xl: 3rem;
+
+  /* ===== Transitions ===== */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ===== Blur ===== */
+  --blur-sm: blur(8px);
+  --blur-md: blur(16px);
+  --blur-lg: blur(24px);
+  --blur-xl: blur(40px);
+}

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F0F8FF"/>
+      <stop offset="100%" stop-color="#E8F4FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="450" fill="url(#bg)"/>
+  <!-- Browser frame -->
+  <rect x="60" y="60" width="680" height="330" rx="16" fill="rgba(255,255,255,0.85)"/>
+  <rect x="60" y="60" width="680" height="42" rx="16" fill="#F4F6FB"/>
+  <circle cx="88" cy="81" r="7" fill="#FF5F57"/>
+  <circle cx="108" cy="81" r="7" fill="#FFBD2E"/>
+  <circle cx="128" cy="81" r="7" fill="#28CA41"/>
+  <!-- Desktop layout -->
+  <rect x="80" y="120" width="200" height="240" rx="8" fill="#E8EDFF" opacity="0.6"/>
+  <rect x="300" y="120" width="420" height="110" rx="8" fill="#5B8AF0" opacity="0.12"/>
+  <rect x="300" y="242" width="200" height="118" rx="8" fill="#8B6FF0" opacity="0.10"/>
+  <rect x="516" y="242" width="204" height="118" rx="8" fill="#4CAF82" opacity="0.10"/>
+  <!-- Mobile overlay -->
+  <rect x="560" y="90" width="120" height="210" rx="16" fill="white" stroke="#5B8AF0" stroke-width="2" opacity="0.9"/>
+  <rect x="568" y="106" width="104" height="178" rx="10" fill="#EEF2FF"/>
+  <rect x="576" y="118" width="88" height="50" rx="6" fill="#5B8AF0" opacity="0.2"/>
+  <rect x="576" y="178" width="88" height="30" rx="6" fill="#8B6FF0" opacity="0.15"/>
+  <rect x="576" y="218" width="88" height="30" rx="6" fill="#4CAF82" opacity="0.15"/>
+  <!-- Container query indicator -->
+  <rect x="300" y="122" width="80" height="20" rx="6" fill="#5B8AF0" opacity="0.8"/>
+  <text x="340" y="136" text-anchor="middle" font-size="9" fill="white" font-family="monospace">@container</text>
+  <text x="400" y="420" text-anchor="middle" font-size="13" fill="#8B93B8" font-family="sans-serif">CSS ¹håâÍ”¾¡„°</text>
+</svg>

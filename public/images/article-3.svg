@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450">
+  <defs>
+    <linearGradient id="sky" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#87CEEB"/>
+      <stop offset="100%" stop-color="#E8F4FF"/>
+    </linearGradient>
+    <linearGradient id="sun" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFE066"/>
+      <stop offset="100%" stop-color="#F0A05B"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="450" fill="url(#sky)"/>
+  <circle cx="650" cy="100" r="60" fill="#FFE066" opacity="0.85"/>
+  <ellipse cx="400" cy="450" rx="400" ry="80" fill="#82B366" opacity="0.5"/>
+  <ellipse cx="200" cy="400" rx="160" ry="60" fill="#4CAF82" opacity="0.4"/>
+  <ellipse cx="620" cy="420" rx="140" ry="50" fill="#82B366" opacity="0.5"/>
+  <!-- Trees -->
+  <rect x="130" y="300" width="16" height="80" fill="#5D4037"/>
+  <ellipse cx="138" cy="290" rx="40" ry="50" fill="#4CAF82" opacity="0.8"/>
+  <rect x="300" y="310" width="14" height="70" fill="#5D4037"/>
+  <ellipse cx="307" cy="300" rx="35" ry="45" fill="#388E3C" opacity="0.8"/>
+  <!-- Clouds -->
+  <ellipse cx="200" cy="120" rx="70" ry="30" fill="white" opacity="0.8"/>
+  <ellipse cx="250" cy="108" rx="50" ry="25" fill="white" opacity="0.8"/>
+  <ellipse cx="500" cy="90" rx="80" ry="28" fill="white" opacity="0.7"/>
+  <text x="400" y="420" text-anchor="middle" font-size="13" fill="#5D7A5D" font-family="sans-serif">ñ3„%)</text>
+</svg>
