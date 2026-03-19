@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useNoteStore } from '@/stores/note'
-import NoteCard from '@/components/notes/NoteCard.vue'
+import { useAuthStore } from '@/stores/auth'
 import AppButton from '@/components/common/AppButton.vue'
 import type { Note, NoteCategory } from '@/types'
 
 const store = useNoteStore()
+const authStore = useAuthStore()
 const selectedNote = ref<Note | null>(null)
 const activeCategory = ref<NoteCategory | 'all'>('all')
 const searchQuery = ref('')
@@ -89,146 +90,149 @@ function tagsInput(e: Event) {
   editingNote.value.tags = val.split(',').map(t => t.trim()).filter(Boolean)
 }
 </script>
+
 <template>
   <div class="notes-page">
-    <aside class="notes-sidebar">
-      <div class="notes-sidebar__header">
-        <div class="notes-sidebar__top">
-          <h2 class="notes-sidebar__title">我的笔记</h2>
-          <button class="new-note-btn" @click="openNew">+ 新建</button>
+    <div class="notes-hero">
+      <div class="container">
+        <h1 class="notes-title">笔记</h1>
+        <p class="notes-subtitle">记录灵感、工作与生活，随时查阅。</p>
+        <div class="search-row">
+          <input v-model="searchQuery" class="search-input" placeholder="搜索笔记标题或内容..." />
+          <button v-if="authStore.isLoggedIn" class="new-note-btn" @click="openNew">+ 新建笔记</button>
         </div>
-        <p class="notes-sidebar__count">{{ store.notes.length }} 条记录</p>
+        <div class="category-filter">
+          <button v-for="(label, key) in categoryLabels" :key="key"
+            :class="['cat-btn', {'cat-btn--active': activeCategory === key}]"
+            @click="activeCategory = key as NoteCategory | 'all'"
+          >{{ categoryIcons[key] }} {{ label }}</button>
+        </div>
       </div>
-      <div class="notes-search">
-        <input v-model="searchQuery" class="notes-search__input" placeholder="搜索笔记..." />
-      </div>
-      <div class="notes-categories">
-        <button v-for="(label, key) in categoryLabels" :key="key"
-          :class="['cat-chip', { 'cat-chip--active': activeCategory === key }]"
-          @click="activeCategory = key as NoteCategory | 'all'"
-        >{{ categoryIcons[key] }} {{ label }}</button>
-      </div>
-      <div v-if="store.loading" class="notes-loading">加载中...</div>
-      <div v-else class="notes-list">
-        <NoteCard v-for="note in filtered" :key="note.id" :note="note" :active="selectedNote?.id === note.id"
-          @select="selectedNote = $event; showEditor = false" />
-        <div v-if="!filtered.length" class="notes-empty">没有找到笔记</div>
-      </div>
-    </aside>
-
-    <main class="notes-main">
-      <Transition name="note-fade" mode="out-in">
-        <div v-if="showEditor" key="editor" class="note-editor glass-card">
-          <div class="note-editor__header">
-            <h3>{{ editingNote.id ? '编辑笔记' : '新建笔记' }}</h3>
-            <div class="note-editor__actions">
-              <button class="tag" @click="showEditor = false">取消</button>
-              <AppButton size="sm" :loading="saving" @click="handleSave">保存</AppButton>
+    </div>
+    <div class="container notes-body">
+      <div v-if="store.loading" class="loading-state"><div class="loading-dots"><span/><span/><span/></div><p>加载中...</p></div>
+      <div v-else-if="filtered.length" class="notes-grid">
+        <div v-for="note in filtered" :key="note.id" class="note-wrap">
+          <div class="note-card glass-card" :style="{borderLeftColor: note.color}" @click="selectedNote = note; showEditor = false">
+            <div class="note-card__header">
+              <span v-if="note.pinned">📌</span>
+              <span class="note-card__cat" :style="{color: note.color}">{{ categoryIcons[note.category] }} {{ categoryLabels[note.category] }}</span>
+            </div>
+            <h3 class="note-card__title">{{ note.title }}</h3>
+            <p class="note-card__preview">{{ note.content.slice(0,80) }}...</p>
+            <div class="note-card__footer">
+              <span class="note-card__date">{{ note.updatedAt }}</span>
+              <div v-if="authStore.isLoggedIn" class="note-card__ops" @click.stop>
+                <button class="op-btn" @click="handleTogglePin(note)">{{ note.pinned ? '取消置顶' : '置顶' }}</button>
+                <button class="op-btn" @click="openEdit(note)">✏️</button>
+                <button class="op-btn op-btn--danger" @click="handleDelete(note)">🗑️</button>
+              </div>
             </div>
           </div>
-          <div class="note-editor__form">
-            <input v-model="editingNote.title" class="ne-title-input" placeholder="笔记标题..." />
-            <div class="ne-row">
-              <select v-model="editingNote.category" class="ne-select">
-                <option value="work">工作</option><option value="life">生活</option><option value="study">学习</option><option value="idea">想法</option><option value="todo">待办</option>
-              </select>
-              <input class="ne-input" placeholder="标签（逗号分隔）"
-                :value="Array.isArray(editingNote.tags) ? editingNote.tags.join(', ') : ''"
-                @input="tagsInput" />
-            </div>
-            <div class="ne-colors">
-              <span class="ne-label">颜色：</span>
-              <button v-for="c in colorOptions" :key="c" class="color-dot"
-                :style="{ background: c, outline: editingNote.color === c ? `3px solid ${c}` : 'none', outlineOffset: '2px' }"
-                @click="editingNote.color = c" />
-            </div>
-            <textarea v-model="editingNote.content" class="ne-content" rows="16" placeholder="开始写笔记...（支持 Markdown）" />
-          </div>
         </div>
-
-        <div v-else-if="selectedNote" :key="selectedNote.id" class="note-detail">
-          <div class="note-detail__header">
-            <div class="note-detail__header-top">
-              <span class="note-detail__category-dot" :style="{ background: selectedNote.color }" />
-              <span class="note-detail__category">{{ categoryLabels[selectedNote.category] }}</span>
-              <span v-if="selectedNote.pinned">📌</span>
-              <div class="note-detail__ops">
-                <button class="op-btn" @click="handleTogglePin(selectedNote)">{{ selectedNote.pinned ? '取消置顶' : '置顶' }}</button>
-                <button class="op-btn" @click="openEdit(selectedNote)">✏️ 编辑</button>
-                <button class="op-btn op-btn--danger" @click="handleDelete(selectedNote)">🗑️ 删除</button>
+      </div>
+      <div v-else class="empty-state"><span class="empty-icon">📔</span><p>还没有笔记，新建一条吧！</p><button v-if="authStore.isLoggedIn" class="new-note-btn" @click="openNew">+ 新建笔记</button></div>
+    </div>
+    <Transition name="overlay">
+      <div v-if="selectedNote || showEditor" class="overlay" @click.self="selectedNote = null; showEditor = false">
+        <div class="modal glass-card" @click.stop>
+          <div v-if="showEditor">
+            <div class="modal-header">
+              <h3>{{ editingNote.id ? '编辑笔记' : '新建笔记' }}</h3>
+              <div class="modal-actions"><button class="tag" @click="showEditor=false;selectedNote=null">取消</button><AppButton size="sm" :loading="saving" @click="handleSave">保存</AppButton></div>
+            </div>
+            <div class="note-editor__form">
+              <input v-model="editingNote.title" class="ne-title-input" placeholder="笔记标题..." />
+              <div class="ne-row">
+                <select v-model="editingNote.category" class="ne-select"><option value="work">工作</option><option value="life">生活</option><option value="study">学习</option><option value="idea">想法</option><option value="todo">待办</option></select>
+                <input class="ne-input" placeholder="标签(逗号分隔)" :value="Array.isArray(editingNote.tags)?editingNote.tags.join(', '):''" @input="tagsInput" />
+              </div>
+              <div class="ne-colors"><span class="ne-label">颜色：</span><button v-for="c in colorOptions" :key="c" class="color-dot" :style="{background:c,outline:editingNote.color===c?`3px solid ${c}`:'none',outlineOffset:'2px'}" @click="editingNote.color=c" /></div>
+              <textarea v-model="editingNote.content" class="ne-content" rows="14" placeholder="开始写笔记...（支持 Markdown）" />
+            </div>
+          </div>
+          <div v-else-if="selectedNote">
+            <div class="modal-header">
+              <div style="display:flex;align-items:center;gap:8px"><span :style="{color:selectedNote.color}">{{ categoryIcons[selectedNote.category] }} {{ categoryLabels[selectedNote.category] }}</span><span v-if="selectedNote.pinned">📌</span></div>
+              <div class="modal-actions">
+                <div v-if="authStore.isLoggedIn" style="display:flex;gap:6px">
+                  <button class="op-btn" @click="handleTogglePin(selectedNote)">{{ selectedNote.pinned ? '取消置顶' : '置顶' }}</button>
+                  <button class="op-btn" @click="openEdit(selectedNote)">✏️ 编辑</button>
+                  <button class="op-btn op-btn--danger" @click="handleDelete(selectedNote)">🗑️ 删除</button>
+                </div>
+                <button class="close-btn" @click="selectedNote=null">✕</button>
               </div>
             </div>
             <h1 class="note-detail__title">{{ selectedNote.title }}</h1>
-            <div class="note-detail__meta">
-              <span>创建 {{ selectedNote.createdAt }}</span>
-              <span>更新 {{ selectedNote.updatedAt }}</span>
-            </div>
-            <div class="note-detail__tags">
-              <span v-for="tag in selectedNote.tags" :key="tag" class="tag">{{ tag }}</span>
-            </div>
+            <div class="note-detail__dates"><span>创建 {{ selectedNote.createdAt }}</span><span>更新 {{ selectedNote.updatedAt }}</span></div>
+            <div class="note-detail__tags"><span v-for="tag in selectedNote.tags" :key="tag" class="tag">{{ tag }}</span></div>
+            <div class="prose" v-html="renderContent(selectedNote.content)" />
           </div>
-          <div class="note-detail__body prose" v-html="renderContent(selectedNote.content)" />
         </div>
-
-        <div v-else key="empty" class="note-detail-empty">
-          <span>📔</span>
-          <p>选择笔记查看，或新建一条</p>
-          <AppButton variant="secondary" @click="openNew">+ 新建笔记</AppButton>
-        </div>
-      </Transition>
-    </main>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <style scoped>
-.notes-page { display: flex; min-height: calc(100vh - 64px); max-width: 1200px; margin: 0 auto; padding: 0 24px; gap: 24px; }
-.notes-sidebar { width: 320px; flex-shrink: 0; padding: 32px 0; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 80px; max-height: calc(100vh - 80px); overflow-y: auto; }
-.notes-sidebar__top { display: flex; align-items: center; justify-content: space-between; }
-.notes-sidebar__title { font-size: var(--text-xl); font-weight: 700; color: var(--color-text-primary); }
-.new-note-btn { padding: 6px 14px; border-radius: var(--radius-full); background: var(--gradient-primary); color: white; font-size: var(--text-sm); cursor: pointer; border: none; }
-.new-note-btn:hover { opacity: 0.85; }
-.notes-sidebar__count { font-size: var(--text-sm); color: var(--color-text-muted); }
-.notes-search__input { width: 100%; padding: 10px 16px; background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius-full); font-size: var(--text-sm); color: var(--color-text-primary); outline: none; }
-.notes-search__input:focus { border-color: var(--color-primary); }
-.notes-categories { display: flex; flex-wrap: wrap; gap: 6px; }
-.cat-chip { display: flex; align-items: center; gap: 4px; padding: 5px 12px; border-radius: var(--radius-full); border: 1px solid var(--color-border); background: var(--color-bg-card); font-size: var(--text-xs); color: var(--color-text-secondary); cursor: pointer; transition: all var(--transition-fast); }
-.cat-chip:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.cat-chip--active { background: rgba(91,138,240,0.10); border-color: rgba(91,138,240,0.3); color: var(--color-primary); font-weight: 600; }
-.notes-list { display: flex; flex-direction: column; gap: 8px; }
-.notes-loading, .notes-empty { text-align: center; color: var(--color-text-muted); font-size: var(--text-sm); padding: 20px; }
-.notes-main { flex: 1; min-width: 0; padding: 32px 0 80px; }
-.note-editor { padding: 32px; }
-.note-editor__header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--color-border); }
-.note-editor__header h3 { font-size: var(--text-lg); font-weight: 700; color: var(--color-text-primary); }
-.note-editor__actions { display: flex; gap: 8px; align-items: center; }
+.container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+.notes-page { min-height: calc(100vh - 64px); }
+.notes-hero { padding: 48px 0 20px; border-bottom: 1px solid var(--color-border); margin-bottom: 32px; }
+.notes-title { font-size: clamp(2rem,4vw,3rem); font-weight: 700; color: var(--color-text-primary); letter-spacing: -0.03em; margin-bottom: 6px; }
+.notes-subtitle { font-size: var(--text-base); color: var(--color-text-muted); font-family: var(--font-serif); margin-bottom: 16px; }
+.search-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.search-input { flex: 1; padding: 11px 18px; background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius-full); font-size: var(--text-sm); color: var(--color-text-primary); outline: none; transition: all var(--transition-fast); }
+.search-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(91,138,240,0.12); }
+.search-input::placeholder { color: var(--color-text-muted); }
+.new-note-btn { flex-shrink: 0; padding: 10px 20px; border-radius: var(--radius-full); background: var(--gradient-primary); color: white; font-size: var(--text-sm); font-weight: 600; cursor: pointer; border: none; white-space: nowrap; }
+.new-note-btn:hover { opacity: 0.88; }
+.category-filter { display: flex; flex-wrap: wrap; gap: 8px; }
+.cat-btn { padding: 6px 14px; border-radius: var(--radius-full); border: 1px solid var(--color-border); background: var(--color-bg-card); font-size: var(--text-sm); color: var(--color-text-secondary); cursor: pointer; transition: all var(--transition-fast); }
+.cat-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.cat-btn--active { background: rgba(91,138,240,0.10); color: var(--color-primary); border-color: rgba(91,138,240,0.3); font-weight: 600; }
+.notes-body { padding-bottom: 80px; }
+.notes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+.note-card { padding: 20px; cursor: pointer; border-left: 4px solid var(--color-primary); transition: all var(--transition-base); }
+.note-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+.note-card__header { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+.note-card__cat { font-size: var(--text-xs); font-weight: 600; }
+.note-card__title { font-size: var(--text-base); font-weight: 700; color: var(--color-text-primary); margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.note-card__preview { font-size: var(--text-xs); color: var(--color-text-muted); line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 12px; }
+.note-card__footer { display: flex; align-items: center; justify-content: space-between; }
+.note-card__date { font-size: var(--text-xs); color: var(--color-text-muted); }
+.note-card__ops { display: flex; gap: 4px; }
+.op-btn { padding: 3px 8px; border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-bg-glass); font-size: var(--text-xs); cursor: pointer; transition: all var(--transition-fast); }
+.op-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.op-btn--danger:hover { border-color: #E8607A; color: #E8607A; }
+.loading-state { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 80px 24px; color: var(--color-text-muted); }
+.loading-dots { display: flex; gap: 6px; }
+.loading-dots span { width: 10px; height: 10px; border-radius: 50%; background: var(--color-primary); animation: bounce 1.2s ease-in-out infinite; }
+.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce { 0%,80%,100%{transform:scale(0.8);opacity:0.5}40%{transform:scale(1.2);opacity:1} }
+.empty-state { text-align: center; padding: 80px 24px; display: flex; flex-direction: column; align-items: center; gap: 16px; color: var(--color-text-muted); }
+.empty-icon { font-size: 3rem; }
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.overlay-enter-active, .overlay-leave-active { transition: opacity 0.2s ease; }
+.overlay-enter-from, .overlay-leave-to { opacity: 0; }
+.modal { width: 100%; max-width: 700px; max-height: 90vh; overflow-y: auto; padding: 32px; }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--color-border); }
+.modal-header h3 { font-size: var(--text-lg); font-weight: 700; color: var(--color-text-primary); }
+.modal-actions { display: flex; gap: 8px; align-items: center; }
+.close-btn { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--color-border); background: var(--color-bg-glass); cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; }
+.close-btn:hover { background: rgba(232,96,122,0.1); color: #E8607A; }
 .note-editor__form { display: flex; flex-direction: column; gap: 14px; }
 .ne-title-input { width: 100%; padding: 12px 0; background: transparent; border: none; border-bottom: 2px solid var(--color-border); font-size: var(--text-xl); font-weight: 600; color: var(--color-text-primary); outline: none; font-family: var(--font-sans); }
 .ne-title-input:focus { border-color: var(--color-primary); }
 .ne-row { display: flex; gap: 12px; }
 .ne-select, .ne-input { flex: 1; padding: 9px 12px; background: var(--color-bg-glass); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-sm); color: var(--color-text-primary); outline: none; font-family: var(--font-sans); }
-.ne-select:focus, .ne-input:focus { border-color: var(--color-primary); }
 .ne-colors { display: flex; align-items: center; gap: 8px; }
 .ne-label { font-size: var(--text-xs); color: var(--color-text-muted); }
 .color-dot { width: 20px; height: 20px; border-radius: 50%; border: none; cursor: pointer; transition: transform var(--transition-fast); }
 .color-dot:hover { transform: scale(1.2); }
 .ne-content { width: 100%; padding: 14px; background: var(--color-bg-glass); border: 1px solid var(--color-border); border-radius: var(--radius-lg); font-size: var(--text-sm); color: var(--color-text-primary); font-family: var(--font-mono); line-height: 1.7; resize: vertical; outline: none; }
 .ne-content:focus { border-color: var(--color-primary); }
-.note-detail { background: var(--color-bg-card); backdrop-filter: var(--blur-md); border: 1px solid var(--color-border); border-radius: var(--radius-xl); padding: 40px; box-shadow: var(--shadow-md); }
-.note-detail__header { margin-bottom: 28px; border-bottom: 1px solid var(--color-border); padding-bottom: 24px; }
-.note-detail__header-top { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-.note-detail__category-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-.note-detail__category { font-size: var(--text-xs); font-weight: 600; color: var(--color-primary); text-transform: uppercase; letter-spacing: 0.05em; }
-.note-detail__ops { display: flex; gap: 6px; margin-left: auto; }
-.op-btn { padding: 4px 10px; border-radius: var(--radius-full); border: 1px solid var(--color-border); background: var(--color-bg-card); font-size: var(--text-xs); cursor: pointer; transition: all var(--transition-fast); }
-.op-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.op-btn--danger:hover { border-color: var(--color-error); color: var(--color-error); }
-.note-detail__title { font-size: var(--text-2xl); font-weight: 700; color: var(--color-text-primary); margin-bottom: 10px; }
-.note-detail__meta { display: flex; gap: 16px; font-size: var(--text-xs); color: var(--color-text-muted); margin-bottom: 12px; }
-.note-detail__tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.note-detail__body { line-height: 1.8; }
-.note-detail-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; gap: 16px; color: var(--color-text-muted); font-size: 3rem; }
-.note-detail-empty p { font-size: var(--text-base); }
-.note-fade-enter-active, .note-fade-leave-active { transition: all 0.25s ease; }
-.note-fade-enter-from, .note-fade-leave-to { opacity: 0; transform: translateY(8px); }
-@media (max-width: 768px) { .notes-page { flex-direction: column; } .notes-sidebar { width: 100%; position: static; max-height: none; } .note-detail { padding: 20px; } }
+.note-detail__title { font-size: clamp(1.4rem,3vw,2rem); font-weight: 700; color: var(--color-text-primary); margin: 12px 0 8px; line-height: 1.3; }
+.note-detail__dates { display: flex; gap: 16px; font-size: var(--text-xs); color: var(--color-text-muted); margin-bottom: 12px; }
+.note-detail__tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
 </style>
