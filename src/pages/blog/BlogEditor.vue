@@ -104,7 +104,6 @@ async function handleSubmit() {
     <div class="editor-header">
       <button class="back-btn" @click="router.push('/blog')">← 返回列表</button>
       <h2 class="editor-title">{{ isEdit ? '编辑文章' : '写新文章' }}</h2>
-      <AppButton :loading="saving" @click="handleSubmit">{{ isEdit ? '保存修改' : '发布文章' }}</AppButton>
     </div>
 
     <div v-if="loading" class="editor-loading">加载中...</div>
@@ -167,6 +166,9 @@ async function handleSubmit() {
               <span>设为精选文章</span>
             </label>
           </div>
+          <div class="sidebar-save">
+            <AppButton :loading="saving" @click="handleSubmit" style="width:100%">{{ isEdit ? '保存修改' : '📢 发布文章' }}</AppButton>
+          </div>
         </div>
       </aside>
     </div>
@@ -204,4 +206,6 @@ async function handleSubmit() {
 .cover-option img { width: 100%; height: 100%; object-fit: cover; }
 .cover-option--active { border-color: var(--color-primary); }
 @media (max-width: 900px) { .editor-body { grid-template-columns: 1fr; } }
+
+.sidebar-save { margin-top: 4px; padding-top: 12px; border-top: 1px solid var(--color-border); }
 </style>

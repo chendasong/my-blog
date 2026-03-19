@@ -7,6 +7,8 @@ import type { Article } from '@/types'
 import AppBadge from '@/components/common/AppBadge.vue'
 import AppButton from '@/components/common/AppButton.vue'
 
+import { marked } from 'marked'
+
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
@@ -30,15 +32,7 @@ onMounted(async () => {
 })
 
 function renderMarkdown(content: string) {
-  return content
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/```[\w]*\n([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
-    .replace(/^\n/gm, '<br>')
-    .replace(/^(?![\u003c#]).+$/gm, (line) => line.trim() ? `<p>${line}</p>` : '')
+  return marked(content) as string
 }
 
 async function handleLike() {

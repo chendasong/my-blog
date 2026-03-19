@@ -34,6 +34,8 @@ const router = createRouter({
           meta: { requiresAuth: true },
         },
         { path: 'notes', name: 'notes', component: () => import('@/pages/notes/NotesPage.vue') },
+        { path: 'notes/new', name: 'notes-new', component: () => import('@/pages/notes/NoteEditor.vue'), meta: { requiresAuth: true } },
+        { path: 'notes/:id/edit', name: 'notes-edit', component: () => import('@/pages/notes/NoteEditor.vue'), meta: { requiresAuth: true } },
         { path: 'ai', name: 'ai', component: () => import('@/pages/ai/AIPage.vue') },
         { path: 'couple', name: 'couple-entry', component: () => import('@/pages/couple/CoupleEntry.vue') },
         {

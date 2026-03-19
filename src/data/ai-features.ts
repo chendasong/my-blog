@@ -32,6 +32,7 @@ export const aiFeatures: AIFeature[] = [
     tags: ['图片', '识别', '视觉'],
     isNew: true,
     isPro: false,
+    hidden: true,
     placeholder: '点击上传图片，或拖拽图片到此处...',
   },
   {
@@ -47,14 +48,14 @@ export const aiFeatures: AIFeature[] = [
   },
   {
     id: '5',
-    name: 'AI 翻译润色',
+    name: 'AI 翻译',
     description: '不只是翻译，AI 还能对文本进行润色改写，让表达更地道、更专业，支持20+语言。',
     icon: 'mdi:translate',
     category: 'writing',
-    tags: ['翻译', '润色', '多语言'],
+    tags: ['翻译', '多语言', '语言'],
     isNew: false,
     isPro: false,
-    placeholder: '输入需要翻译或润色的文本...',
+    placeholder: '输入需要翻译的内容...',
   },
   {
     id: '6',
@@ -88,5 +89,17 @@ export const aiFeatures: AIFeature[] = [
     isNew: false,
     isPro: false,
     placeholder: '粘贴需要提取摘要的长文本...',
+  },
+  {
+    id: '9',
+    name: 'AI 食谱工坊',
+    description: '输入任意一道菜，AI 给出最正宗的历史渊源、食材配比、详细烹饪步骤与小贴士。',
+    icon: 'mdi:food',
+    category: 'creative',
+    tags: ['食谱', '烹饪', '美食'],
+    isNew: true,
+    isPro: false,
+    hidden: false,
+    placeholder: '输入菜名，如：宫保鸡丁、红烧肉、鱼香茄子...',
   },
 ]

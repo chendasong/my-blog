@@ -67,6 +67,7 @@ export interface AIFeature {
   tags: string[]
   isNew: boolean
   isPro: boolean
+  hidden?: boolean
   placeholder: string
 }
 

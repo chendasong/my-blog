@@ -20,6 +20,7 @@ export interface SiteSettings {
   owner_bio: string
   owner_location: string
   icp_number: string
+  couple_password: string
 }
 
 async function verifyPassword(password: string, hash: string): Promise<boolean> {

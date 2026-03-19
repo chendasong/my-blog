@@ -26,6 +26,7 @@ create table if not exists site_settings (
   owner_bio text default '',
   owner_location text default '深圳',
   icp_number text default '',
+  couple_password text default '2024-11-09',
   updated_at timestamptz default now()
 );
 

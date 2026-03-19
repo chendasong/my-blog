@@ -1,30 +1,36 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
+import { useAuthStore } from '@/stores/auth'
+import { useToast } from '@/composables/useToast'
 import AppButton from '@/components/common/AppButton.vue'
 
 const router = useRouter()
 const appStore = useAppStore()
+const authStore = useAuthStore()
+const toast = useToast()
 
 const password = ref('')
-const error = ref('')
 const loading = ref(false)
 const showPwd = ref(false)
 
-// 密码：两人名字缩写+纪念日 演示用固定密码
-const COUPLE_PASSWORD = 'cy0714'
+onMounted(async () => {
+  if (!authStore.siteSettings) {
+    await authStore.fetchSiteSettings()
+  }
+})
 
 async function handleSubmit() {
-  if (!password.value) { error.value = '请输入密码'; return }
+  if (!password.value) { toast.warning('请输入密码'); return }
   loading.value = true
-  error.value = ''
-  await new Promise(r => setTimeout(r, 800))
-  if (password.value === COUPLE_PASSWORD) {
+  await new Promise(r => setTimeout(r, 600))
+  const correctPwd = authStore.siteSettings?.couple_password || '2024-11-09'
+  if (password.value === correctPwd) {
     appStore.setCoupleAuth(true)
     router.push('/couple/space')
   } else {
-    error.value = '密码不正确，请再试一次 💔'
+    toast.error('密码不正确，请再试一次 💔')
     password.value = ''
   }
   loading.value = false
@@ -57,50 +63,23 @@ async function handleSubmit() {
             {{ showPwd ? '🙈' : '👁️' }}
           </button>
         </div>
-        <Transition name="fade">
-          <p v-if="error" class="couple-entry__error">{{ error }}</p>
-        </Transition>
-        <AppButton
-          variant="warm"
-          size="lg"
-          :loading="loading"
-          style="width: 100%"
-          @click="handleSubmit"
-        >
+        <AppButton variant="warm" size="lg" :loading="loading" style="width: 100%" type="submit">
           进入我们的空间 →
         </AppButton>
       </form>
-      <p class="couple-entry__hint">提示：密码是我们名字的首字母 + 纪念日 🗝️</p>
+      <p class="couple-entry__hint">默认密码：2024-11-09，登录后可在管理设置中修改 🗝️</p>
     </div>
   </div>
 </template>
 
 <style scoped>
-.couple-entry {
-  min-height: calc(100vh - 64px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-  padding: 40px 24px;
-}
+.couple-entry { min-height: calc(100vh - 64px); display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; padding: 40px 24px; }
 .couple-entry__bg { position: absolute; inset: 0; pointer-events: none; }
-.blob {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(70px);
-  opacity: 0.4;
-}
+.blob { position: absolute; border-radius: 50%; filter: blur(70px); opacity: 0.4; }
 .blob--1 { width: 500px; height: 500px; background: rgba(240,96,122,0.18); top: -100px; right: -100px; animation: float 8s ease-in-out infinite; }
 .blob--2 { width: 400px; height: 400px; background: rgba(240,160,91,0.14); bottom: -80px; left: -80px; animation: float 10s ease-in-out infinite reverse; }
 .hearts { position: absolute; inset: 0; }
-.heart {
-  position: absolute;
-  font-size: 1.5rem;
-  opacity: 0.15;
-  animation: float calc(6s + var(--i) * 1.2s) ease-in-out infinite calc(var(--i) * 0.4s);
-}
+.heart { position: absolute; font-size: 1.5rem; opacity: 0.15; animation: float calc(6s + var(--i) * 1.2s) ease-in-out infinite calc(var(--i) * 0.4s); }
 .heart:nth-child(1) { top: 10%; left: 5%; }
 .heart:nth-child(2) { top: 20%; right: 8%; }
 .heart:nth-child(3) { top: 60%; left: 3%; }
@@ -109,69 +88,17 @@ async function handleSubmit() {
 .heart:nth-child(6) { top: 75%; right: 12%; }
 .heart:nth-child(7) { top: 5%; left: 45%; }
 .heart:nth-child(8) { bottom: 10%; left: 40%; }
-.couple-entry__card {
-  width: 100%;
-  max-width: 420px;
-  padding: 48px 40px;
-  text-align: center;
-  position: relative;
-  z-index: 1;
-}
+.couple-entry__card { width: 100%; max-width: 420px; padding: 48px 40px; text-align: center; position: relative; z-index: 1; }
 .couple-entry__icon { font-size: 3rem; margin-bottom: 16px; }
-.couple-entry__title {
-  font-size: var(--text-2xl);
-  font-weight: 700;
-  color: var(--color-text-primary);
-  margin-bottom: 12px;
-}
-.couple-entry__desc {
-  font-size: var(--text-base);
-  color: var(--color-text-muted);
-  font-family: var(--font-serif);
-  line-height: 1.7;
-  margin-bottom: 32px;
-}
+.couple-entry__title { font-size: var(--text-2xl); font-weight: 700; color: var(--color-text-primary); margin-bottom: 12px; }
+.couple-entry__desc { font-size: var(--text-base); color: var(--color-text-muted); font-family: var(--font-serif); line-height: 1.7; margin-bottom: 32px; }
 .couple-entry__form { display: flex; flex-direction: column; gap: 16px; }
-.pwd-field {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.pwd-input {
-  width: 100%;
-  padding: 14px 48px 14px 18px;
-  background: rgba(255,255,255,0.6);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-full);
-  font-size: var(--text-base);
-  color: var(--color-text-primary);
-  outline: none;
-  text-align: center;
-  letter-spacing: 0.1em;
-  transition: all var(--transition-fast);
-}
+.pwd-field { position: relative; display: flex; align-items: center; }
+.pwd-input { width: 100%; padding: 14px 48px 14px 18px; background: rgba(255,255,255,0.6); border: 1px solid var(--color-border-strong); border-radius: var(--radius-full); font-size: var(--text-base); color: var(--color-text-primary); outline: none; text-align: center; letter-spacing: 0.1em; transition: all var(--transition-fast); }
 .pwd-input:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px rgba(232,96,122,0.12); }
 .pwd-input::placeholder { letter-spacing: 0; color: var(--color-text-muted); }
-.pwd-toggle {
-  position: absolute;
-  right: 14px;
-  font-size: 1.1rem;
-  cursor: pointer;
-  background: none;
-  border: none;
-}
-.couple-entry__error {
-  font-size: var(--text-sm);
-  color: var(--color-error);
-  background: rgba(232,96,122,0.08);
-  padding: 8px 16px;
-  border-radius: var(--radius-md);
-}
-.couple-entry__hint {
-  margin-top: 20px;
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-}
+.pwd-toggle { position: absolute; right: 14px; font-size: 1.1rem; cursor: pointer; background: none; border: none; }
+.couple-entry__hint { margin-top: 20px; font-size: var(--text-xs); color: var(--color-text-muted); }
 .fade-enter-active, .fade-leave-active { transition: all 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-4px); }
 </style>
