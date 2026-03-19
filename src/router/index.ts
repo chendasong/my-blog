@@ -52,6 +52,12 @@ const router = createRouter({
           meta: { requiresCoupleAuth: true },
         },
         {
+          path: 'couple/memory/:id',
+          name: 'memory-detail',
+          component: () => import('@/pages/couple/MemoryDetail.vue'),
+          meta: { requiresCoupleAuth: true },
+        },
+        {
           path: 'couple/memory/:id/edit',
           name: 'memory-edit',
           component: () => import('@/pages/couple/MemoryEditor.vue'),

@@ -193,9 +193,7 @@ function copyOutput() {
                   <select v-model="thinkingMode" class="mode-select" :disabled="isLoading">
                     <option v-for="mode in thinkingModes" :key="mode.value" :value="mode.value">{{ mode.label }}</option>
                   </select>
-                  <button v-if="isLoading" class="stop-btn stop-btn--active" @click="handleStop">
-                    <span class="stop-btn__dot"></span> 停止
-                  </button>
+                  <button v-if="isLoading" class="stop-btn stop-btn--active" @click="handleStop"><span class="stop-btn__icon"></span> 停止</button>
                   <AppButton v-else :disabled="!inputText.trim()" @click="handleGenerate">✨ 生成</AppButton>
                 </div>
               </div>
@@ -220,7 +218,7 @@ function copyOutput() {
               </label>
               <div v-if="isLoading && !outputText.trim()" class="ai-loading">
                 <div class="ai-loading__dots"><span /><span /><span /></div>
-                <p>{{ isThinking ? 'AI 正在深度思考中...' : 'AI 正在生成中...' }}</p>
+                <p>{{ isThinking ? 'AI 正在思考中...' : 'AI 正在生成中...' }}</p>
               </div>
               <div v-else-if="outputText" class="ai-output">
                 <pre class="ai-output__text">{{ outputText }}<span v-if="isLoading" class="cursor-blink">▋</span></pre>
@@ -324,7 +322,7 @@ function copyOutput() {
 
 
 
-.mode-select { height: 40px; padding: 0 12px; border-radius: var(--radius-lg); border: 1px solid var(--color-border); background: var(--color-bg-glass); font-size: var(--text-sm); color: var(--color-text-secondary); outline: none; cursor: pointer; flex-shrink: 0; transition: border-color var(--transition-fast); }
+.mode-select { height: 40px; padding: 0 12px; border-radius: var(--radius-full); border: 1px solid var(--color-border); background: var(--color-bg-glass); font-size: var(--text-sm); color: var(--color-text-secondary); outline: none; cursor: pointer; flex-shrink: 0; transition: all var(--transition-fast); }
 .mode-select:focus { border-color: var(--color-primary); }
 .mode-select:disabled { opacity: 0.6; cursor: not-allowed; }
 </style>

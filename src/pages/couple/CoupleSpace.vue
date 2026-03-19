@@ -109,7 +109,7 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
         </div>
         <div v-if="store.loading" class="memories-loading">加载中...</div>
         <div v-else class="memories-grid">
-          <div v-for="mem in store.memories" :key="mem.id" class="memory-card glass-card animate-fade-in-up" style="cursor:pointer" @click="openEdit(mem)">
+          <div v-for="mem in store.memories" :key="mem.id" class="memory-card glass-card animate-fade-in-up" style="cursor:pointer" @click="router.push(`/couple/memory/${mem.id}`)">
             <div class="memory-card__cover">
               <img :src="getCarouselImages(mem)[carouselIndexes[mem.id] || 0] || mem.image" :alt="mem.title" />
               <div class="memory-card__emotion" :style="{ background: emotionColors[mem.emotion] }">{{ emotionLabels[mem.emotion] }}</div>
