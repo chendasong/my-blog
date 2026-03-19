@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { useToast } from '@/composables/useToast'
 import { useRouter } from 'vue-router'
 import { coupleInfo } from '@/data'
 import { useCoupleStore } from '@/stores/couple'
@@ -11,7 +10,6 @@ import AppButton from '@/components/common/AppButton.vue'
 import type { CoupleMemory } from '@/types'
 
 const router = useRouter()
-const toast = useToast()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 const store = useCoupleStore()
