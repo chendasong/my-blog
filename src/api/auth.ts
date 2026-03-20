@@ -29,6 +29,7 @@ export interface SiteSettings {
   hero_background_image?: string
   hero_background_opacity?: number
   music_urls?: string
+  music_names?: string
 }
 
 async function verifyPassword(password: string, hash: string): Promise<boolean> {

@@ -125,6 +125,8 @@ export async function streamChat(options: StreamOptions) {
         model: MODEL,
         stream: true,
         max_tokens,
+        budget_tokens: thinking_budget,
+        thinking_budget,
         temperature: 0.7,
         thinking: { type: 'enabled', budget_tokens: thinking_budget },
         messages: [

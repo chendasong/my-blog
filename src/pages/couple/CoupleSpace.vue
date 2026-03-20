@@ -107,17 +107,22 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
     <section class="couple-memories">
       <div class="container">
         <div class="memories-header">
-          <h2 class="memories-title">我们的故事 📖</h2>
-          <div class="memories-header__right">
+          <div class="memories-header__left">
+            <h2 class="memories-title">我们的故事 📖</h2>
             <div class="memories-filter">
               <button v-for="(label, key) in typeLabels" :key="key"
                 :class="['mem-filter-btn', { 'mem-filter-btn--active': activeFilter === key }]"
                 @click="handleFilter(key)">{{ typeIcons[key] }} {{ label }}</button>
             </div>
-            <AppButton variant="warm" size="sm" @click="openNew">+ 添加记忆</AppButton>
           </div>
+          <AppButton variant="warm" size="sm" @click="openNew">💭 添加记忆</AppButton>
         </div>
         <div v-if="store.loading" class="memories-loading">加载中...</div>
+        <div v-else-if="store.memories.length === 0" class="empty-memories">
+          <div class="empty-memories__icon">📝</div>
+          <p class="empty-memories__text">还没有记忆呢</p>
+          <p class="empty-memories__hint">点击右上角的"添加记忆"按钮，记录我们的故事吧 💕</p>
+        </div>
         <div v-else class="memories-grid">
           <div v-for="mem in store.memories" :key="mem.id" class="memory-card glass-card animate-fade-in-up" style="cursor:pointer" @click="router.push(`/couple/memory/${mem.id}`)">
             <div class="memory-card__cover">
@@ -150,7 +155,6 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
         </div>
       </div>
     </section>
-    <div class="couple-logout"><AppButton variant="ghost" @click="handleLogout">🔒 退出空间</AppButton></div>
   </div>
 </template>
 
@@ -171,14 +175,19 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
 .couple-hero__counter { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 8px; }
 .couple-hero__counter-label, .couple-hero__since { font-size: var(--text-sm); color: var(--color-text-muted); }
 .couple-memories { padding: 40px 0 80px; }
-.memories-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 16px; }
-.memories-title { font-size: var(--text-2xl); font-weight: 700; color: var(--color-text-primary); }
-.memories-header__right { display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+.memories-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; gap: 16px; }
+.memories-header__left { flex: 1; }
+.memories-title { font-size: var(--text-2xl); font-weight: 700; color: var(--color-text-primary); margin-bottom: 16px; }
 .memories-filter { display: flex; flex-wrap: wrap; gap: 8px; }
 .mem-filter-btn { padding: 7px 16px; border-radius: var(--radius-full); border: 1px solid var(--color-border); background: var(--color-bg-card); font-size: var(--text-sm); color: var(--color-text-secondary); cursor: pointer; transition: all var(--transition-fast); }
 .mem-filter-btn:hover { border-color: #E8607A; color: #E8607A; }
 .mem-filter-btn--active { background: rgba(232,96,122,.10); border-color: rgba(232,96,122,.3); color: #E8607A; font-weight: 600; }
 .memories-loading { text-align: center; padding: 60px; color: var(--color-text-muted); }
+
+.empty-memories { text-align: center; padding: 80px 24px; }
+.empty-memories__icon { font-size: 3rem; margin-bottom: 16px; }
+.empty-memories__text { font-size: var(--text-lg); font-weight: 600; color: var(--color-text-primary); margin-bottom: 8px; }
+.empty-memories__hint { font-size: var(--text-sm); color: var(--color-text-muted); line-height: 1.6; }
 
 /* ---- inline form ---- */
 .memory-form { margin-bottom: 28px; overflow: hidden; }

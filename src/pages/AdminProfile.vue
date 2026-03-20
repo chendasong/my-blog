@@ -23,6 +23,7 @@ const settings = ref({
   hero_background_image: '',
   hero_background_opacity: 0.7,
   music_urls: '',
+  music_names: '',
 })
 const ownerAvatarFile = ref<File | null>(null)
 const ownerAvatarPreview = ref('')
@@ -71,6 +72,7 @@ onMounted(async () => {
     hero_background_image: s.hero_background_image || '',
     hero_background_opacity: s.hero_background_opacity || 0.7,
     music_urls: s.music_urls || '',
+    music_names: s.music_names || '',
   }
   coupleSettings.value = {
     couple_password: s.couple_password || '',
@@ -130,15 +132,19 @@ async function saveSettings() {
   savingSettings.value = true
   try {
     let musicUrls = settings.value.music_urls
+    let musicNames = ''
     
     // 上传新的音乐文件
     if (musicFiles.value.length > 0) {
       const { coupleApi } = await import('@/api')
       const uploadedUrls: string[] = []
-      for (const file of musicFiles.value) {
+      const uploadedNames: string[] = []
+      for (let i = 0; i < musicFiles.value.length; i++) {
+        const file = musicFiles.value[i]
         try {
           const url = await coupleApi.uploadImage(file)
           uploadedUrls.push(url)
+          uploadedNames.push(file.name)
         } catch (err) {
           toast.error(`音乐文件 ${file.name} 上传失败`)
           return
@@ -146,7 +152,9 @@ async function saveSettings() {
       }
       // 将新上传的URL添加到现有的URL列表中
       const existingUrls = musicUrls.split('\n').filter(url => url.trim())
+      const existingNames = musicNames.split('\n').filter(name => name.trim())
       musicUrls = [...existingUrls, ...uploadedUrls].join('\n')
+      musicNames = [...existingNames, ...uploadedNames].join('\n')
       musicFiles.value = []
       musicFileNames.value = []
     }
@@ -158,6 +166,7 @@ async function saveSettings() {
       hero_background_image: settings.value.hero_background_image,
       hero_background_opacity: settings.value.hero_background_opacity,
       music_urls: musicUrls,
+      music_names: musicNames,
       ...(ownerAvatarFile.value ? { avatar_file: ownerAvatarFile.value } : {}),
       ...(backgroundImageFile.value ? { background_file: backgroundImageFile.value } : {}),
     })
@@ -248,11 +257,6 @@ function handleLogout() { authStore.logout(); router.push('/') }
 
         <div class="sub-section">
           <h3 class="sub-title">网站配置</h3>
-          <div class="avatar-center">
-            <img :src="ownerAvatarPreview || settings.owner_avatar || '/images/avatar.svg'" alt="站主头像" class="avatar-img" />
-            <label class="avatar-upload-btn">📷 更换头像<input type="file" accept="image/*" style="display:none" @change="handleOwnerAvatarChange" /></label>
-            <span class="avatar-tip">首页展示的站主头像</span>
-          </div>
           <div class="form-stack">
             <div class="form-row">
               <div class="form-group">
@@ -277,52 +281,52 @@ function handleLogout() { authStore.logout(); router.push('/') }
               <input v-model="settings.icp_number" class="form-input" placeholder="粤ICP备XXXXXXXX号" />
             </div>
           </div>
-          <div class="sub-footer">
-            <AppButton :loading="savingSettings" @click="saveSettings">保存网站配置</AppButton>
-          </div>
         </div>
 
         <div class="sub-divider" />
 
-        <div class="sub-section">
-          <h3 class="sub-title">🎨 首页背景</h3>
-          <div class="bg-preview-wrap">
-            <div v-if="backgroundImagePreview || settings.hero_background_image" class="bg-preview" :style="{ backgroundImage: `url('${backgroundImagePreview || settings.hero_background_image}')` }" />
-            <div v-else class="bg-preview bg-preview--empty">暂无背景图</div>
-            <label class="avatar-upload-btn">📷 选择背景图<input type="file" accept="image/*" style="display:none" @change="handleBackgroundImageChange" /></label>
-          </div>
-          <div class="form-stack">
-            <div class="form-group">
-              <label class="form-label">背景透明度</label>
-              <div class="opacity-control">
-                <input v-model.number="settings.hero_background_opacity" type="range" min="0" max="1" step="0.1" class="opacity-slider" />
-                <span class="opacity-value">{{ (settings.hero_background_opacity * 100).toFixed(0) }}%</span>
+        <div class="hero-config">
+          <div>
+            <h3 class="sub-title">🎨 首页背景</h3>
+            <div class="bg-preview-wrap">
+              <div v-if="backgroundImagePreview || settings.hero_background_image" class="bg-preview" :style="{ backgroundImage: `url('${backgroundImagePreview || settings.hero_background_image}')` }" />
+              <div v-else class="bg-preview bg-preview--empty">暂无背景图</div>
+              <label class="avatar-upload-btn">📷 选择背景图<input type="file" accept="image/*" style="display:none" @change="handleBackgroundImageChange" /></label>
+            </div>
+            <div class="form-stack">
+              <div class="form-group">
+                <label class="form-label">背景透明度</label>
+                <div class="opacity-control">
+                  <input v-model.number="settings.hero_background_opacity" type="range" min="0" max="1" step="0.1" class="opacity-slider" />
+                  <span class="opacity-value">{{ (settings.hero_background_opacity * 100).toFixed(0) }}%</span>
+                </div>
+                <span class="form-hint-text">调整背景图片的透明度（0-100%）</span>
               </div>
-              <span class="form-hint-text">调整背景图片的透明度（0-100%）</span>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="sub-title">🎵 背景音乐</h3>
+            <div class="form-stack">
+              <div class="form-group">
+                <label class="avatar-upload-btn music-upload-btn">
+                  🎵 选择音乐文件（支持多选）
+                  <input type="file" accept="audio/*" multiple style="display:none" @change="handleMusicFilesChange" />
+                </label>
+                <span class="form-hint-text">支持 MP3、WAV、OGG 等音频格式</span>
+              </div>
+              <div v-if="musicFileNames.length > 0" class="music-list">
+                <div class="music-list-title">已选择的音乐文件：</div>
+                <div v-for="(name, idx) in musicFileNames" :key="idx" class="music-item">
+                  <span class="music-item__name">{{ name }}</span>
+                  <button type="button" class="music-item__remove" @click="removeMusicFile(idx)">✕</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-
-        <div class="sub-divider" />
-
-        <div class="sub-section">
-          <h3 class="sub-title">🎵 背景音乐</h3>
-          <div class="form-stack">
-            <div class="form-group">
-              <label class="avatar-upload-btn music-upload-btn">
-                🎵 选择音乐文件（支持多选）
-                <input type="file" accept="audio/*" multiple style="display:none" @change="handleMusicFilesChange" />
-              </label>
-              <span class="form-hint-text">支持 MP3、WAV、OGG 等音频格式</span>
-            </div>
-            <div v-if="musicFileNames.length > 0" class="music-list">
-              <div class="music-list-title">已选择的音乐文件：</div>
-              <div v-for="(name, idx) in musicFileNames" :key="idx" class="music-item">
-                <span class="music-item__name">{{ name }}</span>
-                <button type="button" class="music-item__remove" @click="removeMusicFile(idx)">✕</button>
-              </div>
-            </div>
-          </div>
+        <div class="sub-footer" style="grid-column: 1 / -1;">
+          <AppButton :loading="savingSettings" @click="saveSettings">保存网站配置</AppButton>
         </div>
       </section>
 
@@ -330,44 +334,55 @@ function handleLogout() { authStore.logout(); router.push('/') }
       <section class="admin-section glass-card couple-section">
         <h2 class="section-title">💕 情侣空间</h2>
         <div class="form-stack">
-          <div class="form-group">
-            <label class="form-label">访问密码</label>
-            <div class="password-wrap">
-              <input v-model="coupleSettings.couple_password" :type="showPassword ? 'text' : 'password'" class="form-input" placeholder="输入密码" />
-              <button type="button" class="eye-btn" @click="showPassword = !showPassword">{{ showPassword ? '🙈' : '👁️' }}</button>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">访问密码</label>
+              <div class="password-wrap">
+                <input v-model="coupleSettings.couple_password" :type="showPassword ? 'text' : 'password'" class="form-input" placeholder="输入密码" />
+                <button type="button" class="eye-btn" @click="showPassword = !showPassword">{{ showPassword ? '🙈' : '👁️' }}</button>
+              </div>
+              <span class="form-hint-text">进入情侣空间的验证密码</span>
             </div>
-            <span class="form-hint-text">进入情侣空间的验证密码</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">在一起的日期</label>
-            <input v-model="coupleSettings.couple_since" class="form-input" type="date" />
-            <span class="form-hint-text">用于显示天数计数</span>
-          </div>
-          <div class="sub-divider" />
-          <p class="sub-title">👦 男主配置</p>
-          <div class="person-row">
-            <div class="person-avatar-wrap">
-              <img :src="person1AvatarPreview || coupleSettings.person1_avatar || '/images/couple-avatar-1.svg'" class="person-avatar" />
-              <label class="avatar-upload-btn">📷 换头像<input type="file" accept="image/*" style="display:none" @change="handlePerson1Avatar" /></label>
-            </div>
-            <div class="form-group" style="flex:1">
-              <label class="form-label">昵称</label>
-              <input v-model="coupleSettings.person1_name" class="form-input" placeholder="晨晨" />
-            </div>
-          </div>
-          <div class="sub-divider" />
-          <p class="sub-title">👧 女主配置</p>
-          <div class="person-row">
-            <div class="person-avatar-wrap">
-              <img :src="person2AvatarPreview || coupleSettings.person2_avatar || '/images/couple-avatar-2.svg'" class="person-avatar" />
-              <label class="avatar-upload-btn">📷 换头像<input type="file" accept="image/*" style="display:none" @change="handlePerson2Avatar" /></label>
-            </div>
-            <div class="form-group" style="flex:1">
-              <label class="form-label">昵称</label>
-              <input v-model="coupleSettings.person2_name" class="form-input" placeholder="月月" />
+            <div class="form-group">
+              <label class="form-label">在一起的日期</label>
+              <input v-model="coupleSettings.couple_since" class="form-input" type="date" />
+              <span class="form-hint-text">用于显示天数计数</span>
             </div>
           </div>
         </div>
+
+        <div class="sub-divider" />
+
+        <div class="form-row">
+          <div>
+            <p class="sub-title">👦 男主配置</p>
+            <div class="person-row">
+              <div class="person-avatar-wrap">
+                <img :src="person1AvatarPreview || coupleSettings.person1_avatar || '/images/couple-avatar-1.svg'" class="person-avatar" />
+                <label class="avatar-upload-btn">📷 换头像<input type="file" accept="image/*" style="display:none" @change="handlePerson1Avatar" /></label>
+              </div>
+              <div class="form-group" style="flex:1">
+                <label class="form-label">昵称</label>
+                <input v-model="coupleSettings.person1_name" class="form-input" placeholder="晨晨" />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <p class="sub-title">👧 女主配置</p>
+            <div class="person-row">
+              <div class="person-avatar-wrap">
+                <img :src="person2AvatarPreview || coupleSettings.person2_avatar || '/images/couple-avatar-2.svg'" class="person-avatar" />
+                <label class="avatar-upload-btn">📷 换头像<input type="file" accept="image/*" style="display:none" @change="handlePerson2Avatar" /></label>
+              </div>
+              <div class="form-group" style="flex:1">
+                <label class="form-label">昵称</label>
+                <input v-model="coupleSettings.person2_name" class="form-input" placeholder="月月" />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="section-footer">
           <AppButton variant="warm" :loading="savingCouple" @click="saveCouple">保存情侣配置 💕</AppButton>
         </div>
@@ -383,14 +398,22 @@ function handleLogout() { authStore.logout(); router.push('/') }
 .back-btn { color: var(--color-text-muted); font-size: var(--text-sm); cursor: pointer; background: none; border: none; transition: color var(--transition-fast); }
 .back-btn:hover { color: var(--color-primary); }
 .admin-title { font-size: var(--text-xl); font-weight: 700; color: var(--color-text-primary); flex: 1; }
-.admin-layout { display: grid; grid-template-columns: 1fr 340px; gap: 24px; align-items: start; }
+.admin-layout { display: grid; grid-template-columns: 1fr; gap: 24px; align-items: start; }
 .admin-section { padding: 28px; }
 .section-title { font-size: var(--text-lg); font-weight: 700; color: var(--color-text-primary); margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid var(--color-border); }
 
 /* 子模块 */
-.sub-section { }
+.sub-section { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+.sub-section:first-of-type { grid-template-columns: 1fr; }
+.sub-section:nth-of-type(2) { grid-template-columns: 1fr; }
 .sub-title { font-size: var(--text-sm); font-weight: 700; color: var(--color-text-secondary); margin-bottom: 14px; }
-.sub-divider { height: 1px; background: var(--color-border); margin: 20px 0; }
+.sub-divider { height: 1px; background: var(--color-border); margin: 20px 0; grid-column: 1 / -1; }
+
+/* 首页背景和音乐配置 */
+.hero-config { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+.hero-config > div { display: flex; flex-direction: column; gap: 12px; }
+.hero-config .sub-title { margin-bottom: 14px; }
+.hero-config .form-stack { gap: 12px; }
 .sub-footer { display: flex; justify-content: flex-end; margin-top: 14px; }
 
 .avatar-center { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 16px; }
@@ -401,6 +424,7 @@ function handleLogout() { authStore.logout(); router.push('/') }
 
 .form-stack { display: flex; flex-direction: column; gap: 12px; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-row--three { grid-template-columns: 1fr 1fr 1fr; }
 .form-group { display: flex; flex-direction: column; gap: 5px; }
 .form-label { font-size: var(--text-xs); font-weight: 600; color: var(--color-text-secondary); }
 .form-hint-text { font-size: var(--text-xs); color: var(--color-text-muted); }
@@ -411,6 +435,7 @@ function handleLogout() { authStore.logout(); router.push('/') }
 
 /* 情侣空间 */
 .couple-section { background: linear-gradient(135deg, rgba(232,96,122,0.04) 0%, rgba(240,160,91,0.04) 100%); border: 1px solid rgba(232,96,122,0.15); }
+.couple-section .sub-section { grid-template-columns: 1fr 1fr; }
 .couple-icon { font-size: 2.5rem; text-align: center; margin-bottom: 8px; }
 .couple-desc { font-size: var(--text-sm); color: var(--color-text-muted); text-align: center; margin-bottom: 20px; }
 .couple-preview { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: rgba(232,96,122,0.08); border-radius: var(--radius-lg); border: 1px solid rgba(232,96,122,0.15); }

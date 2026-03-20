@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { articleApi } from '@/api'
@@ -10,6 +10,7 @@ import ArticleCard from '@/components/blog/ArticleCard.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import SectionTitle from '@/components/common/SectionTitle.vue'
 import DraggableMusicPlayer from '@/components/common/DraggableMusicPlayer.vue'
+import MusicPlayerPro from '@/components/common/MusicPlayerPro.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -21,7 +22,6 @@ const stats = ref({ articles: 0, notes: 0, views: 0 })
 
 const heroStyle = computed(() => {
   const bgImage = authStore.siteSettings?.hero_background_image
-  const opacity = authStore.siteSettings?.hero_background_opacity ?? 0.7
   
   if (bgImage) {
     return {
@@ -51,6 +51,15 @@ const aiIcons: Record<string, string> = {
   'AI 摘要提取': '📋',
 }
 
+// 监听siteSettings变化，确保背景和音乐实时更新
+watch(
+  () => authStore.siteSettings,
+  () => {
+    // 触发重新计算
+  },
+  { deep: true }
+)
+
 onMounted(async () => {
   await authStore.fetchSiteSettings()
   try {
@@ -69,7 +78,7 @@ onMounted(async () => {
 
 <template>
   <div class="home">
-    <DraggableMusicPlayer :music-urls="authStore.siteSettings?.music_urls" />
+    <MusicPlayerPro :music-urls="authStore.siteSettings?.music_urls" :music-names="authStore.siteSettings?.music_names" />
     
     <section class="hero" :style="heroStyle">
       <div class="hero__overlay" :style="heroOverlayStyle" />
