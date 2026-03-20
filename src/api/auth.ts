@@ -26,6 +26,9 @@ export interface SiteSettings {
   person1_avatar: string
   person2_name: string
   person2_avatar: string
+  hero_background_image?: string
+  hero_background_opacity?: number
+  music_urls?: string
 }
 
 async function verifyPassword(password: string, hash: string): Promise<boolean> {
@@ -90,8 +93,10 @@ export const authApi = {
     return data
   },
 
-  async updateSiteSettings(settings: Partial<SiteSettings> & { avatar_file?: File }): Promise<SiteSettings> {
+  async updateSiteSettings(settings: Partial<SiteSettings> & { avatar_file?: File; background_file?: File }): Promise<SiteSettings> {
     let avatarUrl = settings.owner_avatar
+    let backgroundUrl = settings.hero_background_image
+    
     if (settings.avatar_file) {
       const ext = settings.avatar_file.name.split('.').pop()
       const fileName = `owner-avatar-${Date.now()}.${ext}`
@@ -100,11 +105,26 @@ export const authApi = {
       const { data: urlData } = supabase.storage.from('images').getPublicUrl(fileName)
       avatarUrl = urlData.publicUrl
     }
+
+    if (settings.background_file) {
+      const ext = settings.background_file.name.split('.').pop()
+      const fileName = `hero-bg-${Date.now()}.${ext}`
+      const { error: upErr } = await supabase.storage.from('images').upload(fileName, settings.background_file, { upsert: true })
+      if (upErr) throw upErr
+      const { data: urlData } = supabase.storage.from('images').getPublicUrl(fileName)
+      backgroundUrl = urlData.publicUrl
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { avatar_file: _f, ...settingsData } = settings
+    const { avatar_file: _f, background_file: _bf, ...settingsData } = settings
     const { data, error } = await supabase
       .from('site_settings')
-      .update({ ...settingsData, owner_avatar: avatarUrl, updated_at: new Date().toISOString() })
+      .update({ 
+        ...settingsData, 
+        owner_avatar: avatarUrl,
+        hero_background_image: backgroundUrl,
+        updated_at: new Date().toISOString() 
+      })
       .eq('id', 1)
       .select()
       .single()

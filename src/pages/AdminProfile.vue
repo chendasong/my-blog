@@ -20,9 +20,16 @@ const avatarPreview = ref('')
 const settings = ref({
   site_name: '', site_subtitle: '', site_description: '',
   owner_location: '', icp_number: '', owner_avatar: '',
+  hero_background_image: '',
+  hero_background_opacity: 0.7,
+  music_urls: '',
 })
 const ownerAvatarFile = ref<File | null>(null)
 const ownerAvatarPreview = ref('')
+const backgroundImageFile = ref<File | null>(null)
+const backgroundImagePreview = ref('')
+const musicFiles = ref<File[]>([])
+const musicFileNames = ref<string[]>([])
 
 const showPassword = ref(false)
 const coupleSettings = ref({
@@ -61,6 +68,9 @@ onMounted(async () => {
     site_name: s.site_name, site_subtitle: s.site_subtitle,
     site_description: s.site_description, owner_location: s.owner_location,
     icp_number: s.icp_number, owner_avatar: s.owner_avatar,
+    hero_background_image: s.hero_background_image || '',
+    hero_background_opacity: s.hero_background_opacity || 0.7,
+    music_urls: s.music_urls || '',
   }
   coupleSettings.value = {
     couple_password: s.couple_password || '',
@@ -86,6 +96,26 @@ function handleOwnerAvatarChange(e: Event) {
   ownerAvatarPreview.value = URL.createObjectURL(file)
 }
 
+function handleBackgroundImageChange(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  backgroundImageFile.value = file
+  backgroundImagePreview.value = URL.createObjectURL(file)
+}
+
+function handleMusicFilesChange(e: Event) {
+  const files = Array.from((e.target as HTMLInputElement).files || [])
+  if (!files.length) return
+  musicFiles.value.push(...files)
+  musicFileNames.value.push(...files.map(f => f.name))
+  ;(e.target as HTMLInputElement).value = ''
+}
+
+function removeMusicFile(index: number) {
+  musicFiles.value.splice(index, 1)
+  musicFileNames.value.splice(index, 1)
+}
+
 async function saveProfile() {
   saving.value = true
   try {
@@ -99,13 +129,40 @@ async function saveProfile() {
 async function saveSettings() {
   savingSettings.value = true
   try {
+    let musicUrls = settings.value.music_urls
+    
+    // 上传新的音乐文件
+    if (musicFiles.value.length > 0) {
+      const { coupleApi } = await import('@/api')
+      const uploadedUrls: string[] = []
+      for (const file of musicFiles.value) {
+        try {
+          const url = await coupleApi.uploadImage(file)
+          uploadedUrls.push(url)
+        } catch (err) {
+          toast.error(`音乐文件 ${file.name} 上传失败`)
+          return
+        }
+      }
+      // 将新上传的URL添加到现有的URL列表中
+      const existingUrls = musicUrls.split('\n').filter(url => url.trim())
+      musicUrls = [...existingUrls, ...uploadedUrls].join('\n')
+      musicFiles.value = []
+      musicFileNames.value = []
+    }
+
     await authStore.updateSiteSettings({
       site_name: settings.value.site_name, site_subtitle: settings.value.site_subtitle,
       site_description: settings.value.site_description, owner_location: settings.value.owner_location,
       icp_number: settings.value.icp_number, owner_avatar: settings.value.owner_avatar,
+      hero_background_image: settings.value.hero_background_image,
+      hero_background_opacity: settings.value.hero_background_opacity,
+      music_urls: musicUrls,
       ...(ownerAvatarFile.value ? { avatar_file: ownerAvatarFile.value } : {}),
+      ...(backgroundImageFile.value ? { background_file: backgroundImageFile.value } : {}),
     })
     ownerAvatarFile.value = null; ownerAvatarPreview.value = ''
+    backgroundImageFile.value = null; backgroundImagePreview.value = ''
     toast.success('网站配置已保存')
   } catch (e) { toast.error(e instanceof Error ? e.message : '保存失败') }
   finally { savingSettings.value = false }
@@ -224,6 +281,49 @@ function handleLogout() { authStore.logout(); router.push('/') }
             <AppButton :loading="savingSettings" @click="saveSettings">保存网站配置</AppButton>
           </div>
         </div>
+
+        <div class="sub-divider" />
+
+        <div class="sub-section">
+          <h3 class="sub-title">🎨 首页背景</h3>
+          <div class="bg-preview-wrap">
+            <div v-if="backgroundImagePreview || settings.hero_background_image" class="bg-preview" :style="{ backgroundImage: `url('${backgroundImagePreview || settings.hero_background_image}')` }" />
+            <div v-else class="bg-preview bg-preview--empty">暂无背景图</div>
+            <label class="avatar-upload-btn">📷 选择背景图<input type="file" accept="image/*" style="display:none" @change="handleBackgroundImageChange" /></label>
+          </div>
+          <div class="form-stack">
+            <div class="form-group">
+              <label class="form-label">背景透明度</label>
+              <div class="opacity-control">
+                <input v-model.number="settings.hero_background_opacity" type="range" min="0" max="1" step="0.1" class="opacity-slider" />
+                <span class="opacity-value">{{ (settings.hero_background_opacity * 100).toFixed(0) }}%</span>
+              </div>
+              <span class="form-hint-text">调整背景图片的透明度（0-100%）</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="sub-divider" />
+
+        <div class="sub-section">
+          <h3 class="sub-title">🎵 背景音乐</h3>
+          <div class="form-stack">
+            <div class="form-group">
+              <label class="avatar-upload-btn music-upload-btn">
+                🎵 选择音乐文件（支持多选）
+                <input type="file" accept="audio/*" multiple style="display:none" @change="handleMusicFilesChange" />
+              </label>
+              <span class="form-hint-text">支持 MP3、WAV、OGG 等音频格式</span>
+            </div>
+            <div v-if="musicFileNames.length > 0" class="music-list">
+              <div class="music-list-title">已选择的音乐文件：</div>
+              <div v-for="(name, idx) in musicFileNames" :key="idx" class="music-item">
+                <span class="music-item__name">{{ name }}</span>
+                <button type="button" class="music-item__remove" @click="removeMusicFile(idx)">✕</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- 情侣空间配置 -->
@@ -324,5 +424,25 @@ function handleLogout() { authStore.logout(); router.push('/') }
 .person-row { display: flex; align-items: center; gap: 14px; }
 .person-avatar-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; }
 .person-avatar { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid rgba(232,96,122,.3); }
+
+.bg-preview-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 16px; }
+.bg-preview { width: 100%; height: 120px; border-radius: var(--radius-lg); border: 1px solid var(--color-border); background-size: cover; background-position: center; }
+.bg-preview--empty { background: var(--color-bg-glass); display: flex; align-items: center; justify-content: center; color: var(--color-text-muted); font-size: var(--text-sm); }
+
+.opacity-control { display: flex; align-items: center; gap: 12px; }
+.opacity-slider { flex: 1; height: 4px; border-radius: 2px; background: rgba(91, 138, 240, 0.1); outline: none; -webkit-appearance: none; appearance: none; }
+.opacity-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(135deg, #5b8af0 0%, #8b6ff0 100%); cursor: pointer; }
+.opacity-slider::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(135deg, #5b8af0 0%, #8b6ff0 100%); cursor: pointer; border: none; }
+.opacity-value { min-width: 45px; text-align: right; font-size: var(--text-sm); font-weight: 600; color: var(--color-text-primary); }
+
+.music-upload-btn { display: block; text-align: center; padding: 12px 16px; }
+.music-list { margin-top: 12px; padding: 12px; background: var(--color-bg-glass); border-radius: var(--radius-lg); border: 1px solid var(--color-border); }
+.music-list-title { font-size: var(--text-xs); font-weight: 600; color: var(--color-text-secondary); margin-bottom: 8px; }
+.music-item { display: flex; align-items: center; justify-content: space-between; padding: 8px; background: rgba(255, 255, 255, 0.5); border-radius: var(--radius-md); margin-bottom: 6px; }
+.music-item:last-child { margin-bottom: 0; }
+.music-item__name { font-size: var(--text-sm); color: var(--color-text-primary); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.music-item__remove { background: none; border: none; color: var(--color-text-muted); cursor: pointer; font-size: 1rem; padding: 0 4px; transition: color var(--transition-fast); }
+.music-item__remove:hover { color: #E8607A; }
+
 @media (max-width: 900px) { .admin-layout { grid-template-columns: 1fr; } .form-row { grid-template-columns: 1fr; } }
 </style>

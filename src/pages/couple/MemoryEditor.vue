@@ -19,6 +19,8 @@ const MAX_IMAGES = 20
 const imageFiles = ref<File[]>([])
 const imagePreviews = ref<string[]>([])
 const selectedIndex = ref(0)
+// 用对象来追踪每个预览：{ isNew: boolean, url: string, file?: File }
+const imageMetadata = ref<Array<{ isNew: boolean; url: string; file?: File }>>([])
 
 const typeLabels = { photo: '相册', milestone: '里程碑', wish: '心愿', diary: '日记' }
 const emotionLabels = { happy: '快乐', romantic: '浪漫', sweet: '甜蜜', funny: '搞笑' }
@@ -42,9 +44,11 @@ onMounted(async () => {
         form.value = { ...mem }
         if (mem.images && mem.images.length > 0) {
           imagePreviews.value = [...mem.images]
+          imageMetadata.value = mem.images.map(url => ({ isNew: false, url }))
           selectedIndex.value = 0
         } else if (mem.image) {
           imagePreviews.value = [mem.image]
+          imageMetadata.value = [{ isNew: false, url: mem.image }]
         }
       } else {
         toast.error('记忆不存在')
@@ -59,21 +63,25 @@ onMounted(async () => {
 function handleImageSelect(e: Event) {
   const files = Array.from((e.target as HTMLInputElement).files || [])
   if (!files.length) return
-  const remaining = MAX_IMAGES - imageFiles.value.length
+  const remaining = MAX_IMAGES - imagePreviews.value.length
   if (remaining <= 0) { toast.warning(`最多上传 ${MAX_IMAGES} 张图片`); return }
   const toAdd = files.slice(0, remaining)
   if (files.length > remaining) toast.warning(`已达上限，只添加了前 ${remaining} 张`)
-  const newPreviews = toAdd.map(f => URL.createObjectURL(f))
-  imageFiles.value.push(...toAdd)
-  imagePreviews.value.push(...newPreviews)
+  
+  for (const file of toAdd) {
+    const url = URL.createObjectURL(file)
+    imagePreviews.value.push(url)
+    imageMetadata.value.push({ isNew: true, url, file })
+  }
+  
   selectedIndex.value = imagePreviews.value.length - 1
   ;(e.target as HTMLInputElement).value = ''
 }
 
 function removeImage(idx: number) {
   URL.revokeObjectURL(imagePreviews.value[idx])
-  imageFiles.value.splice(idx, 1)
   imagePreviews.value.splice(idx, 1)
+  imageMetadata.value.splice(idx, 1)
   if (selectedIndex.value >= imagePreviews.value.length) {
     selectedIndex.value = Math.max(0, imagePreviews.value.length - 1)
   }
@@ -83,23 +91,31 @@ async function handleSubmit() {
   if (!form.value.title?.trim()) { toast.error('标题不能为空'); return }
   saving.value = true
   try {
-    let imageUrl = form.value.image || ''
-    let allImageUrls: string[] = form.value.images ? [...form.value.images] : (form.value.image ? [form.value.image] : [])
-    if (imageFiles.value.length > 0) {
-      try {
-        const { coupleApi } = await import('@/api')
-        const uploaded: string[] = []
-        for (const file of imageFiles.value) {
-          const url = await coupleApi.uploadImage(file)
-          uploaded.push(url)
+    const { coupleApi } = await import('@/api')
+    const allImageUrls: string[] = []
+    
+    // 处理所有图片
+    for (let i = 0; i < imageMetadata.value.length; i++) {
+      const meta = imageMetadata.value[i]
+      if (meta.isNew && meta.file) {
+        // 新上传的图片，需要上传
+        try {
+          const url = await coupleApi.uploadImage(meta.file)
+          allImageUrls.push(url)
+        } catch (err) {
+          toast.error(`第 ${i + 1} 张图片上传失败`)
+          console.error('Upload error:', err)
+          return
         }
-        allImageUrls = uploaded
-        // Cover is the selected index
-        imageUrl = uploaded[selectedIndex.value] || uploaded[0] || imageUrl
-      } catch { toast.error('图片上传失败') }
-    } else if (allImageUrls.length > 0) {
-      imageUrl = allImageUrls[selectedIndex.value] || allImageUrls[0]
+      } else {
+        // 已存在的图片URL，直接保留
+        allImageUrls.push(meta.url)
+      }
     }
+    
+    // 设置封面图
+    const imageUrl = allImageUrls[selectedIndex.value] || allImageUrls[0] || ''
+    
     const data = { ...form.value, image: imageUrl, images: allImageUrls }
     if (isEdit && route.params.id) {
       await store.update(route.params.id as string, data)
@@ -111,6 +127,7 @@ async function handleSubmit() {
     router.push('/couple/space')
   } catch (e) {
     toast.error(e instanceof Error ? e.message : '保存失败')
+    console.error('Submit error:', e)
   } finally {
     saving.value = false
   }

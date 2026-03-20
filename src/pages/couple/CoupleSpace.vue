@@ -16,6 +16,18 @@ const store = useCoupleStore()
 const activeFilter = ref('all')
 const carouselIndexes = ref<Record<string, number>>({})
 
+const person1 = computed(() => ({
+  name: authStore.siteSettings?.person1_name || coupleInfo.person1.name,
+  nickname: authStore.siteSettings?.person1_name || coupleInfo.person1.nickname,
+  avatar: authStore.siteSettings?.person1_avatar || coupleInfo.person1.avatar,
+}))
+
+const person2 = computed(() => ({
+  name: authStore.siteSettings?.person2_name || coupleInfo.person2.name,
+  nickname: authStore.siteSettings?.person2_name || coupleInfo.person2.nickname,
+  avatar: authStore.siteSettings?.person2_avatar || coupleInfo.person2.avatar,
+}))
+
 const typeLabels: Record<string, string> = { all:'全部',photo:'相册',milestone:'里程碑',wish:'心愿',diary:'日记' }
 const typeIcons: Record<string, string> = { all:'💝',photo:'📸',milestone:'🏆',wish:'🌠',diary:'📖' }
 const emotionColors: Record<string, string> = { happy:'#F0A05B',romantic:'#E8607A',sweet:'#8B6FF0',funny:'#4CAF82' }
@@ -77,9 +89,9 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
       <div class="couple-hero__bg"><div class="ch-blob ch-blob--1" /><div class="ch-blob ch-blob--2" /></div>
       <div class="couple-hero__inner">
         <div class="couple-hero__avatars animate-scale-in">
-          <div class="couple-avatar"><img :src="coupleInfo.person1.avatar" :alt="coupleInfo.person1.nickname" /><span class="couple-avatar__name">{{ coupleInfo.person1.nickname }}</span></div>
+          <div class="couple-avatar"><img :src="person1.avatar" :alt="person1.nickname" /><span class="couple-avatar__name">{{ person1.nickname }}</span></div>
           <div class="couple-heart animate-float">💗</div>
-          <div class="couple-avatar"><img :src="coupleInfo.person2.avatar" :alt="coupleInfo.person2.nickname" /><span class="couple-avatar__name">{{ coupleInfo.person2.nickname }}</span></div>
+          <div class="couple-avatar"><img :src="person2.avatar" :alt="person2.nickname" /><span class="couple-avatar__name">{{ person2.nickname }}</span></div>
         </div>
         <div class="couple-hero__info animate-fade-in-up delay-200">
           <p class="couple-hero__motto">「{{ coupleInfo.motto }}」</p>
