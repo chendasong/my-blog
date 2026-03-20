@@ -79,7 +79,7 @@ async function handleGenerateCovers() {
   generatingCovers.value = true
   generatedCovers.value = []
   try {
-    const prompt = `主题：${form.value.title}，要求：16:9比例，小红书封面风格，极简排版，干净纯色背景，柔和渐变，高级质感，无多余图案，视觉冲击力强，适合做文章封面`
+    const prompt = `宽高比: 16/9 吉伊卡哇风格科普插画风格，要求主题突出，吸引人 主题：${form.value.title}`
     generatedCovers.value = await generateImages(prompt, 3)
     if (generatedCovers.value.length > 0) {
       selectedAI.value = generatedCovers.value[0]

@@ -31,8 +31,63 @@ export interface Note {
 
 export type NoteCategory = 'work' | 'life' | 'study' | 'idea' | 'todo'
 
-// ===== 情侣空间类型 =====
-export interface CoupleMemory {
+// ===== 简历类型 =====
+export interface Resume {
+  id: string
+  personalInfo: {
+    name: string
+    title: string
+    email: string
+    phone: string
+    location: string
+    website: string
+    avatar: string
+  }
+  summary: string
+  experience: Array<{
+    id: string
+    company: string
+    position: string
+    startDate: string
+    endDate: string
+    current: boolean
+    description: string
+  }>
+  education: Array<{
+    id: string
+    school: string
+    degree: string
+    field: string
+    graduationDate: string
+    description: string
+  }>
+  skills: Array<{
+    id: string
+    category: string
+    items: string[]
+  }>
+  projects: Array<{
+    id: string
+    name: string
+    description: string
+    link: string
+    technologies: string[]
+  }>
+  certifications: Array<{
+    id: string
+    name: string
+    issuer: string
+    date: string
+    link: string
+  }>
+  languages: Array<{
+    id: string
+    language: string
+    proficiency: 'beginner' | 'intermediate' | 'advanced' | 'fluent'
+  }>
+}
+
+export interface CoupleInfo {
   id: string
   title: string
   description: string
@@ -73,6 +128,57 @@ export interface AIFeature {
 }
 
 export type AICategory = 'writing' | 'vision' | 'analysis' | 'creative' | 'productivity'
+
+// ===== 简历类型 =====
+export interface Resume {
+  id: string
+  personalInfo: {
+    name: string
+    title: string
+    email: string
+    phone: string
+    location: string
+    website: string
+    avatar: string
+  }
+  summary?: string
+  experience?: Array<{
+    id: string
+    company: string
+    position: string
+    startDate: string
+    endDate: string
+    current: boolean
+    description: string
+  }>
+  education?: Array<{
+    id: string
+    school: string
+    degree: string
+    field: string
+    graduationDate: string
+    description: string
+  }>
+  skills?: Array<{
+    id: string
+    category: string
+    items: string[]
+  }>
+  projects?: Array<{
+    id: string
+    name: string
+    description: string
+    link: string
+    technologies: string[]
+  }>
+  certifications?: Array<{
+    id: string
+    name: string
+    issuer: string
+    date: string
+    link: string
+  }>
+}
 
 // ===== 用户类型 =====
 export interface UserProfile {

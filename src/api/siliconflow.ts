@@ -80,7 +80,7 @@ export interface StreamOptions {
 
 export async function generateImages(prompt: string, _n = 3): Promise<string[]> {
   const VOLC_KEY = '3be8c7bf-40b3-47ff-9e42-d2cc2a33fd55'
-  const VOLC_MODEL = 'doubao-seedream-4-5-251128'
+  const VOLC_MODEL = 'doubao-seedream-5-0-260128'
   const VOLC_URL = 'https://ark.cn-beijing.volces.com/api/v3/images/generations'
   const resp = await fetch(VOLC_URL, {
     method: 'POST',
@@ -91,7 +91,7 @@ export async function generateImages(prompt: string, _n = 3): Promise<string[]> 
     body: JSON.stringify({
       model: VOLC_MODEL,
       prompt,
-      size: '2048x1800',
+      size: '2k',
       response_format: 'url',
     }),
   })
