@@ -15,7 +15,7 @@ const authStore = useAuthStore()
 
 const featuredArticles = ref<Article[]>([])
 const recentArticles = ref<Article[]>([])
-const topAI = aiFeatures.slice(0, 3)
+const topAI = aiFeatures.filter( i => i.isNew && !i.hidden ).slice(0, 3)
 const stats = ref({ articles: 0, notes: 0, views: 0 })
 const showScrollTop = ref(false)
 

@@ -207,7 +207,7 @@ async function saveSettings() {
       for (let i = 0; i < musicFiles.value.length; i++) {
         const file = musicFiles.value[i]
         try {
-          const url = await coupleApi.uploadImage(file)
+          const url = await coupleApi.uploadImage(file, 'music')
           uploadedUrls.push(url)
           uploadedNames.push(file.name)
         } catch (err) {
@@ -516,14 +516,14 @@ function handleLogout() {
                 v-if="musicFileNames.length > 0 || settings.music_names"
                 class="music-list"
               >
-                <div class="music-list-title">
+                <!-- <div class="music-list-title">
                   {{
                     musicFileNames.length > 0
                       ? "已选择的音乐文件："
                       : "已保存的音乐文件："
                   }}
-                </div>
-                <div v-if="musicFileNames.length > 0">
+                </div> -->
+                <div class="music-list-content" v-if="musicFileNames.length > 0">
                   <div
                     v-for="(name, idx) in musicFileNames"
                     :key="'new-' + idx"
@@ -1027,12 +1027,19 @@ function handleLogout() {
   background: var(--color-bg-glass);
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border);
+  max-height: 380px;
+  overflow-y: auto;
 }
 .music-list-title {
   font-size: var(--text-xs);
   font-weight: 600;
   color: var(--color-text-secondary);
   margin-bottom: 8px;
+  position: sticky;
+  top: 0;
+  background-color: #fff;
+}
+.music-list-content {
 }
 .music-item {
   display: flex;

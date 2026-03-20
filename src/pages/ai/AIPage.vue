@@ -254,34 +254,42 @@ function copyOutput() {
                   rows="1"
                   :disabled="isLoading"
                 />
-                <div class="ai-input-btns">
-                  <select
-                    v-model="thinkingMode"
-                    class="mode-select"
-                    :disabled="isLoading"
+              </div>
+            </div>
+            <div class="ai-button-row">
+              <label class="ai-label">
+                AI 输出
+                <span v-if="isLoading && !isThinking" class="ai-streaming-badge"
+                  >● 生成中</span
+                >
+              </label>
+              <div class="ai-input-btns">
+                <select
+                  v-model="thinkingMode"
+                  class="mode-select"
+                  :disabled="isLoading"
+                >
+                  <option
+                    v-for="mode in thinkingModes"
+                    :key="mode.value"
+                    :value="mode.value"
                   >
-                    <option
-                      v-for="mode in thinkingModes"
-                      :key="mode.value"
-                      :value="mode.value"
-                    >
-                      {{ mode.label }}
-                    </option>
-                  </select>
-                  <button
-                    v-if="isLoading"
-                    class="stop-btn stop-btn--active"
-                    @click="handleStop"
-                  >
-                    <span class="stop-btn__icon"></span> 停止
-                  </button>
-                  <AppButton
-                    v-else
-                    :disabled="!inputText.trim()"
-                    @click="handleGenerate"
-                    >✨ 生成</AppButton
-                  >
-                </div>
+                    {{ mode.label }}
+                  </option>
+                </select>
+                <button
+                  v-if="isLoading"
+                  class="stop-btn stop-btn--active"
+                  @click="handleStop"
+                >
+                ◼️ 停止
+                </button>
+                <AppButton
+                  v-else
+                  :disabled="!inputText.trim()"
+                  @click="handleGenerate"
+                  >✨ 生成</AppButton
+                >
               </div>
             </div>
             <div class="ai-output-area">
@@ -305,12 +313,6 @@ function copyOutput() {
                   </div>
                 </Transition>
               </div>
-              <label class="ai-label">
-                AI 输出
-                <span v-if="isLoading && !isThinking" class="ai-streaming-badge"
-                  >● 生成中</span
-                >
-              </label>
               <div v-if="isLoading && !outputText.trim()" class="ai-loading">
                 <div class="ai-loading__dots"><span /><span /><span /></div>
                 <p>
@@ -604,8 +606,8 @@ function copyOutput() {
     border-color var(--transition-fast),
     background var(--transition-fast);
 }
-.lang-swap-btn:hover {
-  transform: rotate(180deg);
+.lang-swap-btn:active {
+  transform: scale(1.2);
   border-color: var(--color-primary);
   background: rgba(91, 138, 240, 0.08);
 }
@@ -759,7 +761,10 @@ function copyOutput() {
     grid-template-columns: 1fr;
   }
 }
-
+.ai-button-row{
+  display: flex;
+  justify-content: space-between;
+}
 .ai-input-row {
   display: flex;
   align-items: center;

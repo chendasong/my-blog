@@ -21,7 +21,7 @@ const imagePreviews = ref<string[]>([])
 const selectedIndex = ref(0)
 // 用对象来追踪每个预览：{ isNew: boolean, url: string, file?: File }
 const imageMetadata = ref<Array<{ isNew: boolean; url: string; file?: File }>>([])
-
+const deletedImageUrls = ref<string[]>([])
 const typeLabels = { photo: '相册', milestone: '里程碑', wish: '心愿', diary: '日记' }
 const emotionLabels = { happy: '快乐', romantic: '浪漫', sweet: '甜蜜', funny: '搞笑' }
 
@@ -79,6 +79,12 @@ function handleImageSelect(e: Event) {
 }
 
 function removeImage(idx: number) {
+  const meta = imageMetadata.value[idx]
+  // 如果是已存在的图片（不是新上传的），记录为删除
+  if (!meta.isNew && meta.url) {
+    deletedImageUrls.value.push(meta.url)
+  }
+  
   URL.revokeObjectURL(imagePreviews.value[idx])
   imagePreviews.value.splice(idx, 1)
   imageMetadata.value.splice(idx, 1)
@@ -93,15 +99,6 @@ async function handleSubmit() {
   try {
     const { coupleApi } = await import('@/api')
     
-    // 如果是编辑，记录旧的图片列表用于清理
-    let oldImageUrls: string[] = []
-    if (isEdit && route.params.id) {
-      const mem = store.memories.find(m => m.id === route.params.id)
-      if (mem) {
-        oldImageUrls = mem.images || (mem.image ? [mem.image] : [])
-      }
-    }
-    
     const allImageUrls: string[] = []
     
     // 处理所有图片
@@ -110,7 +107,7 @@ async function handleSubmit() {
       if (meta.isNew && meta.file) {
         // 新上传的图片，需要上传
         try {
-          const url = await coupleApi.uploadImage(meta.file)
+          const url = await coupleApi.uploadImage(meta.file, 'love')
           allImageUrls.push(url)
         } catch (err) {
           toast.error(`第 ${i + 1} 张图片上传失败`)
@@ -131,9 +128,11 @@ async function handleSubmit() {
       await store.update(route.params.id as string, data)
       
       // 清理删除的图片
-      const deletedUrls = oldImageUrls.filter(url => !allImageUrls.includes(url))
-      if (deletedUrls.length > 0) {
-        await coupleApi.deleteFiles(deletedUrls)
+      console.log('需要删除的图片URL:', deletedImageUrls.value)
+      if (deletedImageUrls.value.length > 0) {
+        await coupleApi.deleteFiles(deletedImageUrls.value)
+        console.log('图片删除完成')
+        deletedImageUrls.value = []
       }
       
       toast.success('记忆已更新 💕')

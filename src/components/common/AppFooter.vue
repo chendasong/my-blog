@@ -13,7 +13,7 @@ onMounted(async () => {
     <div class="footer__inner">
       <div class="footer__brand">
         <span class="footer__logo">✦ {{ authStore.siteSettings?.site_name || 'Luminary' }}</span>
-        <p class="footer__bio">{{ authStore.siteSettings?.site_description || '热爱生活，热爱代码。' }}</p>
+        <p class="footer__bio">{{ authStore.siteSettings?.site_subtitle || '热爱生活，热爱代码。' }}</p>
       </div>
       <div class="footer__links">
         <div class="footer__col">
@@ -30,7 +30,7 @@ onMounted(async () => {
         <div class="footer__col">
           <h4 class="footer__col-title">项目</h4>
           <div class="footer__nav-row">
-            <a href="https://github.com" target="_blank">GitHub</a>
+            <a href="https://github.com/chendasong/my-blog" target="_blank">GitHub</a>
           </div>
         </div>
       </div>

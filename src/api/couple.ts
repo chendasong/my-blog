@@ -99,9 +99,9 @@ export const coupleApi = {
   },
 
   // 上传图片到 Supabase Storage
-  async uploadImage(file: File): Promise<string> {
+  async uploadImage(file: File, prefix: string = 'memory'): Promise<string> {
     const ext = file.name.split('.').pop()
-    const fileName = `memory-${Date.now()}.${ext}`
+    const fileName = `${prefix}-${Date.now()}.${ext}`
     const { error } = await supabase.storage.from('images').upload(fileName, file, {
       cacheControl: '3600',
       upsert: false,
