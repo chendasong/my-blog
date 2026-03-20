@@ -9,8 +9,6 @@ import type { Article } from '@/types'
 import ArticleCard from '@/components/blog/ArticleCard.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import SectionTitle from '@/components/common/SectionTitle.vue'
-import DraggableMusicPlayer from '@/components/common/DraggableMusicPlayer.vue'
-import MusicPlayerPro from '@/components/common/MusicPlayerPro.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -19,6 +17,7 @@ const featuredArticles = ref<Article[]>([])
 const recentArticles = ref<Article[]>([])
 const topAI = aiFeatures.slice(0, 3)
 const stats = ref({ articles: 0, notes: 0, views: 0 })
+const showScrollTop = ref(false)
 
 const heroStyle = computed(() => {
   const bgImage = authStore.siteSettings?.hero_background_image
@@ -36,7 +35,7 @@ const heroStyle = computed(() => {
 const heroOverlayStyle = computed(() => {
   const opacity = authStore.siteSettings?.hero_background_opacity ?? 0.7
   return {
-    background: `rgba(244, 246, 251, ${opacity})`,
+    background: `rgba(244, 246, 251, ${1 - opacity})`,
   }
 })
 
@@ -49,6 +48,14 @@ const aiIcons: Record<string, string> = {
   'AI 思维导图': '🗺️',
   'AI 诗词创作': '🪶',
   'AI 摘要提取': '📋',
+}
+
+const handleScroll = () => {
+  showScrollTop.value = window.scrollY > 300
+}
+
+const scrollToTop = () => {
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 // 监听siteSettings变化，确保背景和音乐实时更新
@@ -73,12 +80,13 @@ onMounted(async () => {
     const allNotes = await noteApi.getList()
     stats.value.notes = allNotes.length
   } catch {}
+  
+  window.addEventListener('scroll', handleScroll)
 })
 </script>
 
 <template>
   <div class="home">
-    <MusicPlayerPro :music-urls="authStore.siteSettings?.music_urls" :music-names="authStore.siteSettings?.music_names" />
     
     <section class="hero" :style="heroStyle">
       <div class="hero__overlay" :style="heroOverlayStyle" />
@@ -167,7 +175,7 @@ onMounted(async () => {
           <AppButton variant="ghost" @click="router.push('/ai')">探索全部 →</AppButton>
         </div>
         <div class="ai-preview">
-          <div v-for="(feat, i) in topAI" :key="feat.id" class="ai-preview-card animate-fade-in-up" :class="`delay-${(i+1)*100}`" @click="router.push('/ai')">
+          <div v-for="(feat, i) in topAI" :key="feat.id" class="ai-preview-card animate-fade-in-up" :class="`delay-${(i+1)*100}`" @click="router.push('/ai')" style="cursor: pointer;">
             <div class="ai-preview-card__icon">{{ aiIcons[feat.name] || '🤖' }}</div>
             <h4 class="ai-preview-card__name">{{ feat.name }}</h4>
             <p class="ai-preview-card__desc">{{ feat.description }}</p>
@@ -191,6 +199,13 @@ onMounted(async () => {
       </div>
     </section>
   </div>
+
+  <!-- 返回顶部按钮 -->
+  <transition name="fade">
+    <button v-if="showScrollTop" class="scroll-to-top" @click="scrollToTop" title="返回顶部">
+      <span class="scroll-to-top__icon">↑</span>
+    </button>
+  </transition>
 </template>
 
 <style scoped>
@@ -597,5 +612,51 @@ onMounted(async () => {
     flex-direction: column;
     text-align: center;
   }
+}
+
+/* 返回顶部按钮 */
+.scroll-to-top {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(91, 138, 240, 0.9) 0%, rgba(139, 111, 240, 0.9) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(91, 138, 240, 0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.scroll-to-top:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 48px rgba(91, 138, 240, 0.4);
+}
+
+.scroll-to-top:active {
+  transform: translateY(-2px);
+}
+
+.scroll-to-top__icon {
+  font-size: 1.5rem;
+  color: white;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

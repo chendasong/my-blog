@@ -1,57 +1,79 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useToast } from '@/composables/useToast'
-import { useNoteStore } from '@/stores/note'
-import { useAuthStore } from '@/stores/auth'
-import AppButton from '@/components/common/AppButton.vue'
-import type { Note, NoteCategory } from '@/types'
+import { ref, computed, onMounted } from "vue";
+import { useRouter } from "vue-router";
+import { useToast } from "@/composables/useToast";
+import { useNoteStore } from "@/stores/note";
+import { useAuthStore } from "@/stores/auth";
+import AppButton from "@/components/common/AppButton.vue";
+import type { Note, NoteCategory } from "@/types";
 
-const router = useRouter()
-const store = useNoteStore()
-const toast = useToast()
-const authStore = useAuthStore()
-const activeCategory = ref<NoteCategory | 'all'>('all')
-const searchQuery = ref('')
-const currentPage = ref(1)
-const PAGE_SIZE = 9
+const router = useRouter();
+const store = useNoteStore();
+const toast = useToast();
+const authStore = useAuthStore();
+const activeCategory = ref<NoteCategory | "all">("all");
+const searchQuery = ref("");
+const currentPage = ref(1);
+const PAGE_SIZE = 9;
 
 const categoryLabels: Record<string, string> = {
-  all: '全部', work: '工作', life: '生活', study: '学习', idea: '想法', todo: '待办',
-}
+  all: "全部",
+  work: "工作",
+  life: "生活",
+  study: "学习",
+  idea: "想法",
+  todo: "待办",
+};
 const categoryIcons: Record<string, string> = {
-  all: '📋', work: '💼', life: '🌿', study: '📚', idea: '💡', todo: '✅',
-}
+  all: "📋",
+  work: "💼",
+  life: "🌿",
+  study: "📚",
+  idea: "💡",
+  todo: "✅",
+};
 
-onMounted(() => store.fetchList())
+onMounted(() => store.fetchList());
 
 const filtered = computed(() => {
-  let list = [...store.notes].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0))
-  if (activeCategory.value !== 'all') list = list.filter(n => n.category === activeCategory.value)
+  let list = [...store.notes].sort(
+    (a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0),
+  );
+  if (activeCategory.value !== "all")
+    list = list.filter((n) => n.category === activeCategory.value);
   if (searchQuery.value.trim()) {
-    const q = searchQuery.value.toLowerCase()
-    list = list.filter(n => n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q))
+    const q = searchQuery.value.toLowerCase();
+    list = list.filter(
+      (n) =>
+        n.title.toLowerCase().includes(q) ||
+        n.content.toLowerCase().includes(q),
+    );
   }
-  return list
-})
+  return list;
+});
 
-const totalPages = computed(() => Math.ceil(filtered.value.length / PAGE_SIZE))
+const totalPages = computed(() => Math.ceil(filtered.value.length / PAGE_SIZE));
 const paged = computed(() => {
-  const start = (currentPage.value - 1) * PAGE_SIZE
-  return filtered.value.slice(start, start + PAGE_SIZE)
-})
+  const start = (currentPage.value - 1) * PAGE_SIZE;
+  return filtered.value.slice(start, start + PAGE_SIZE);
+});
 
-function doSearch() { currentPage.value = 1 }
-function setCategory(cat: NoteCategory | 'all') { activeCategory.value = cat; currentPage.value = 1 }
+function doSearch() {
+  currentPage.value = 1;
+}
+function setCategory(cat: NoteCategory | "all") {
+  activeCategory.value = cat;
+  currentPage.value = 1;
+}
 
 async function handleDelete(note: Note) {
-  if (!confirm('确定删除这条笔记吗？')) return
-  await store.remove(note.id)
-  toast.success('笔记已删除')
+  if (!confirm("确定删除这条笔记吗？")) return;
+  await store.remove(note.id);
+  toast.success("笔记已删除");
 }
 
 async function handleTogglePin(note: Note) {
-  await store.togglePin(note)
+  await store.togglePin(note);
 }
 </script>
 
@@ -60,57 +82,112 @@ async function handleTogglePin(note: Note) {
     <div class="notes-hero">
       <div class="container">
         <div class="notes-hero__inner">
-          <h1 class="notes-title"><span class="title-icon">📔</span>笔记</h1>
+          <h1 class="notes-title"><div class="title-icon animate-float">📔</div>笔记</h1>
           <p class="notes-subtitle">记录灵感、工作与生活，随时查阅。</p>
           <div class="search-row">
-            <input v-model="searchQuery" class="search-input" placeholder="搜索笔记标题或内容..." @keydown.enter="doSearch" />
+            <input
+              v-model="searchQuery"
+              class="search-input"
+              placeholder="搜索笔记标题或内容..."
+              @keydown.enter="doSearch"
+            />
             <button class="search-btn" @click="doSearch">🔍 搜索</button>
-            <AppButton v-if="authStore.isLoggedIn" @click="router.push('/notes/new')">✏️ 写笔记</AppButton>
+            <AppButton
+              v-if="authStore.isLoggedIn"
+              @click="router.push('/notes/new')"
+              >✏️ 写笔记</AppButton
+            >
           </div>
           <div class="category-filter">
-            <button v-for="(label, key) in categoryLabels" :key="key"
-              :class="['cat-btn', {'cat-btn--active': activeCategory === key}]"
+            <button
+              v-for="(label, key) in categoryLabels"
+              :key="key"
+              :class="[
+                'cat-btn',
+                { 'cat-btn--active': activeCategory === key },
+              ]"
               @click="setCategory(key as NoteCategory | 'all')"
-            >{{ categoryIcons[key] }} {{ label }}</button>
+            >
+              {{ categoryIcons[key] }} {{ label }}
+            </button>
           </div>
         </div>
       </div>
     </div>
     <div class="container notes-body">
       <div v-if="store.loading" class="loading-state">
-        <div class="loading-dots"><span/><span/><span/></div><p>加载中...</p>
+        <div class="loading-dots"><span /><span /><span /></div>
+        <p>加载中...</p>
       </div>
       <template v-else>
         <div v-if="!filtered.length" class="empty-state">
-          <span class="empty-icon">📔</span><p>还没有笔记，新建一条吧！</p>
-          <AppButton v-if="authStore.isLoggedIn" @click="router.push('/notes/new')">✏️ 写笔记</AppButton>
+          <span class="empty-icon">📔</span>
+          <p>还没有笔记，新建一条吧！</p>
+          <AppButton
+            v-if="authStore.isLoggedIn"
+            @click="router.push('/notes/new')"
+            >✏️ 写笔记</AppButton
+          >
         </div>
         <div v-else class="notes-grid">
-          <div v-for="note in paged" :key="note.id"
+          <div
+            v-for="note in paged"
+            :key="note.id"
             class="note-card glass-card"
             :style="{ borderLeftColor: note.color }"
             @click="router.push(`/notes/${note.id}`)"
           >
             <div class="note-card__header">
               <span v-if="note.pinned">📌</span>
-              <span class="note-card__cat" :style="{ color: note.color }">{{ categoryIcons[note.category] }} {{ categoryLabels[note.category] }}</span>
+              <span class="note-card__cat" :style="{ color: note.color }"
+                >{{ categoryIcons[note.category] }}
+                {{ categoryLabels[note.category] }}</span
+              >
             </div>
             <h3 class="note-card__title">{{ note.title }}</h3>
             <p class="note-card__preview">{{ note.content.slice(0, 80) }}...</p>
             <div class="note-card__footer">
               <span class="note-card__date">{{ note.updatedAt }}</span>
-              <div v-if="authStore.isLoggedIn" class="note-card__ops" @click.stop>
-                <button class="op-btn" @click="handleTogglePin(note)">{{ note.pinned ? '取消置顶' : '置顶' }}</button>
-                <button class="op-btn" @click="router.push(`/notes/${note.id}/edit`)">✏️</button>
-                <button class="op-btn op-btn--danger" @click="handleDelete(note)">🗑️</button>
+              <div
+                v-if="authStore.isLoggedIn"
+                class="note-card__ops"
+                @click.stop
+              >
+                <button class="op-btn" @click="handleTogglePin(note)">
+                  {{ note.pinned ? "取消置顶" : "置顶" }}
+                </button>
+                <button
+                  class="op-btn"
+                  @click="router.push(`/notes/${note.id}/edit`)"
+                >
+                  ✏️
+                </button>
+                <button
+                  class="op-btn op-btn--danger"
+                  @click="handleDelete(note)"
+                >
+                  🗑️
+                </button>
               </div>
             </div>
           </div>
         </div>
         <div v-if="totalPages > 1" class="pagination">
-          <button class="page-btn" :disabled="currentPage === 1" @click="currentPage--">← 上一页</button>
+          <button
+            class="page-btn"
+            :disabled="currentPage === 1"
+            @click="currentPage--"
+          >
+            ← 上一页
+          </button>
           <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
-          <button class="page-btn" :disabled="currentPage === totalPages" @click="currentPage++">下一页 →</button>
+          <button
+            class="page-btn"
+            :disabled="currentPage === totalPages"
+            @click="currentPage++"
+          >
+            下一页 →
+          </button>
         </div>
       </template>
     </div>
@@ -118,48 +195,265 @@ async function handleTogglePin(note: Note) {
 </template>
 
 <style scoped>
-.container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
-.notes-page { min-height: calc(100vh - 64px); }
-.notes-hero { padding: 60px 0 28px; border-bottom: 1px solid var(--color-border); margin-bottom: 32px; }
-.notes-hero__inner { text-align: left; }
-.notes-title { font-size: clamp(2rem,4vw,3rem); font-weight: 700; color: var(--color-text-primary); letter-spacing: -0.03em; margin-bottom: 6px; }
-.notes-subtitle { font-size: var(--text-base); color: var(--color-text-muted); font-family: var(--font-serif); margin-bottom: 20px; }
-.search-row { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
-.search-input { flex: 1; padding: 11px 18px; background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius-full); font-size: var(--text-sm); color: var(--color-text-primary); outline: none; transition: all var(--transition-fast); }
-.search-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(91,138,240,0.12); }
-.search-input::placeholder { color: var(--color-text-muted); }
-.search-btn { flex-shrink: 0; padding: 10px 18px; border-radius: var(--radius-full); border: 1px solid var(--color-border); background: var(--color-bg-card); font-size: var(--text-sm); cursor: pointer; transition: all var(--transition-fast); color: var(--color-text-secondary); white-space: nowrap; }
-.search-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.category-filter { display: flex; flex-wrap: wrap; gap: 8px; }
-.cat-btn { padding: 6px 14px; border-radius: var(--radius-full); border: 1px solid var(--color-border); background: var(--color-bg-card); font-size: var(--text-sm); color: var(--color-text-secondary); cursor: pointer; transition: all var(--transition-fast); }
-.cat-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.cat-btn--active { background: rgba(91,138,240,0.10); color: var(--color-primary); border-color: rgba(91,138,240,0.3); font-weight: 600; }
-.notes-body { padding-bottom: 80px; }
-.notes-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-.note-card { padding: 16px 18px; cursor: pointer; border-left: 4px solid var(--color-primary); transition: all var(--transition-base); }
-.note-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
-.note-card__header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-.note-card__cat { font-size: var(--text-xs); font-weight: 600; }
-.note-card__title { font-size: var(--text-sm); font-weight: 700; color: var(--color-text-primary); margin-bottom: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.note-card__preview { font-size: var(--text-xs); color: var(--color-text-muted); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 8px; }
-.note-card__footer { display: flex; align-items: center; justify-content: space-between; }
-.note-card__date { font-size: var(--text-xs); color: var(--color-text-muted); }
-.note-card__ops { display: flex; gap: 3px; }
-.op-btn { padding: 3px 8px; border-radius: var(--radius-sm); border: 1px solid var(--color-border); background: var(--color-bg-glass); font-size: var(--text-xs); cursor: pointer; transition: all var(--transition-fast); }
-.op-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.op-btn--danger:hover { border-color: #E8607A; color: #E8607A; }
-.pagination { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 40px; }
-.page-btn { padding: 8px 20px; border-radius: var(--radius-full); border: 1px solid var(--color-border); background: var(--color-bg-card); font-size: var(--text-sm); cursor: pointer; transition: all var(--transition-fast); color: var(--color-text-secondary); }
-.page-btn:hover:not(:disabled) { border-color: var(--color-primary); color: var(--color-primary); }
-.page-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.page-info { font-size: var(--text-sm); color: var(--color-text-muted); min-width: 60px; text-align: center; }
-.loading-state { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 80px 24px; color: var(--color-text-muted); }
-.loading-dots { display: flex; gap: 6px; }
-.loading-dots span { width: 10px; height: 10px; border-radius: 50%; background: var(--color-primary); animation: bounce 1.2s ease-in-out infinite; }
-.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
-.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
-@keyframes bounce { 0%,80%,100%{transform:scale(0.8);opacity:0.5}40%{transform:scale(1.2);opacity:1} }
-.empty-state { text-align: center; padding: 40px 24px; display: flex; flex-direction: column; align-items: center; gap: 16px; color: var(--color-text-muted); }
-.empty-icon { font-size: 3rem; }
-@media (max-width: 640px) { .notes-grid { grid-template-columns: 1fr; } }
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.notes-page {
+  min-height: calc(100vh - 64px);
+}
+.notes-hero {
+  padding: 60px 0 28px;
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 32px;
+}
+.notes-hero__inner {
+  text-align: left;
+}
+.notes-title {
+  display: flex;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  letter-spacing: -0.03em;
+  margin-bottom: 6px;
+  text-align: center;
+  justify-content: center;
+}
+.notes-subtitle {
+  font-size: var(--text-base);
+  color: var(--color-text-muted);
+  font-family: var(--font-serif);
+  margin-bottom: 20px;
+  text-align: center;
+}
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.search-input {
+  flex: 1;
+  padding: 11px 18px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  outline: none;
+  transition: all var(--transition-fast);
+}
+.search-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(91, 138, 240, 0.12);
+}
+.search-input::placeholder {
+  color: var(--color-text-muted);
+}
+.search-btn {
+  flex-shrink: 0;
+  padding: 10px 18px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+.search-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.category-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cat-btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.cat-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.cat-btn--active {
+  background: rgba(91, 138, 240, 0.1);
+  color: var(--color-primary);
+  border-color: rgba(91, 138, 240, 0.3);
+  font-weight: 600;
+}
+.notes-body {
+  padding-bottom: 80px;
+}
+.notes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.note-card {
+  padding: 16px 18px;
+  cursor: pointer;
+  border-left: 4px solid var(--color-primary);
+  transition: all var(--transition-base);
+}
+.note-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+}
+.note-card__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.note-card__cat {
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+.note-card__title {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.note-card__preview {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+.note-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.note-card__date {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.note-card__ops {
+  display: flex;
+  gap: 3px;
+}
+.op-btn {
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-glass);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+.op-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.op-btn--danger:hover {
+  border-color: #e8607a;
+  color: #e8607a;
+}
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 40px;
+}
+.page-btn {
+  padding: 8px 20px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  color: var(--color-text-secondary);
+}
+.page-btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.page-info {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  min-width: 60px;
+  text-align: center;
+}
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 80px 24px;
+  color: var(--color-text-muted);
+}
+.loading-dots {
+  display: flex;
+  gap: 6px;
+}
+.loading-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  animation: bounce 1.2s ease-in-out infinite;
+}
+.loading-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.loading-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes bounce {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+.empty-state {
+  text-align: center;
+  padding: 40px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  color: var(--color-text-muted);
+}
+.empty-icon {
+  font-size: 3rem;
+}
+@media (max-width: 640px) {
+  .notes-grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

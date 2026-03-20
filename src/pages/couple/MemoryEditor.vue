@@ -92,6 +92,16 @@ async function handleSubmit() {
   saving.value = true
   try {
     const { coupleApi } = await import('@/api')
+    
+    // 如果是编辑，记录旧的图片列表用于清理
+    let oldImageUrls: string[] = []
+    if (isEdit && route.params.id) {
+      const mem = store.memories.find(m => m.id === route.params.id)
+      if (mem) {
+        oldImageUrls = mem.images || (mem.image ? [mem.image] : [])
+      }
+    }
+    
     const allImageUrls: string[] = []
     
     // 处理所有图片
@@ -119,6 +129,13 @@ async function handleSubmit() {
     const data = { ...form.value, image: imageUrl, images: allImageUrls }
     if (isEdit && route.params.id) {
       await store.update(route.params.id as string, data)
+      
+      // 清理删除的图片
+      const deletedUrls = oldImageUrls.filter(url => !allImageUrls.includes(url))
+      if (deletedUrls.length > 0) {
+        await coupleApi.deleteFiles(deletedUrls)
+      }
+      
       toast.success('记忆已更新 💕')
     } else {
       await store.create(data as Omit<CoupleMemory, 'id'>)

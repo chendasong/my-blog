@@ -79,8 +79,8 @@ function handleLogout() {
         <Transition name="dropdown">
           <div v-if="showAdminMenu" class="admin-dropdown">
             <template v-if="authStore.isLoggedIn">
-              <button class="dropdown-item" @click="navigate('/admin/profile')">⚙️ 管理设置</button>
-              <button class="dropdown-item" @click="navigate('/blog/new')">✏️ 写文章</button>
+              <button class="dropdown-item" @click="navigate('/admin/profile')">⚙️ 配置中心</button>
+              <!-- <button class="dropdown-item" @click="navigate('/blog/new')">✏️ 写文章</button> -->
               <div class="dropdown-divider" />
               <button class="dropdown-item dropdown-item--danger" @click="handleLogout">🔒 退出登录</button>
             </template>

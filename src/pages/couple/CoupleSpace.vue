@@ -80,6 +80,14 @@ async function handleDelete(id: string) {
   await store.remove(id)
 }
 
+async function handleSetAsMainImage(mem: CoupleMemory, imageIndex: number) {
+  const images = getCarouselImages(mem)
+  const selectedImage = images[imageIndex]
+  if (selectedImage && selectedImage !== mem.image) {
+    await store.update(mem.id, { image: selectedImage })
+  }
+}
+
 function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
 </script>
 
@@ -126,7 +134,7 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
         <div v-else class="memories-grid">
           <div v-for="mem in store.memories" :key="mem.id" class="memory-card glass-card animate-fade-in-up" style="cursor:pointer" @click="router.push(`/couple/memory/${mem.id}`)">
             <div class="memory-card__cover">
-              <img :src="getCarouselImages(mem)[carouselIndexes[mem.id] || 0] || mem.image" :alt="mem.title" />
+              <img :src="getCarouselImages(mem)[carouselIndexes[mem.id] || 0]" :alt="mem.title" />
               <div class="memory-card__emotion" :style="{ background: emotionColors[mem.emotion] }">{{ emotionLabels[mem.emotion] }}</div>
               <template v-if="getCarouselImages(mem).length > 1">
                 <button class="carousel-btn carousel-btn--prev" @click="carouselPrev(mem, $event)">‹</button>
@@ -146,6 +154,7 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
               <div class="memory-card__footer">
                 <span class="memory-card__date">📅 {{ mem.date }}</span>
                 <div class="memory-card__ops">
+                  <button class="op-btn" :title="mem.image === getCarouselImages(mem)[carouselIndexes[mem.id] || 0] ? '已是主图' : '设为主图'" @click.stop="handleSetAsMainImage(mem, carouselIndexes[mem.id] || 0)">{{ mem.image === getCarouselImages(mem)[carouselIndexes[mem.id] || 0] ? '⭐' : '☆' }}</button>
                   <button class="op-btn" @click.stop="openEdit(mem)">✏️</button>
                   <button class="op-btn op-btn--danger" @click.stop="handleDelete(mem.id)">🗑️</button>
                 </div>

@@ -25,11 +25,32 @@ const currentTime = ref(0)
 const duration = ref(0)
 const volume = ref(0.7)
 const audioRef = ref<HTMLAudioElement | null>(null)
+const loopMode = ref<'off' | 'all' | 'one'>('all') // off: 不循环, all: 列表循环, one: 单曲循环
 
 // 拖动状态
 const isDragging = ref(false)
 const dragOffset = ref({ x: 0, y: 0 })
-const position = ref({ x: 24, y: 'auto', bottom: 24 })
+const position = ref({ x: window.innerWidth - 80, y: window.innerHeight / 2 - 28, bottom: 'auto' })
+let dragStartX = 0
+let dragStartY = 0
+let dragStartPosX = 0
+let dragStartPosY = 0
+
+const panelPosition = computed(() => {
+  const windowWidth = window.innerWidth
+  const playerWidth = 56
+  const panelWidth = 320
+  const centerX = (typeof position.value.x === 'number' ? position.value.x : 24) + playerWidth / 2
+  
+  // 如果按钮在左半边，面板显示在右边；如果在右半边，面板显示在左边
+  if (centerX < windowWidth / 2) {
+    // 按钮在左边，面板显示在右边
+    return { right: 'auto', left: (typeof position.value.x === 'number' ? position.value.x : 24) + playerWidth + 8 + 'px' }
+  } else {
+    // 按钮在右边，面板显示在左边
+    return { left: 'auto', right: windowWidth - (typeof position.value.x === 'number' ? position.value.x : 24) + 8 + 'px' }
+  }
+})
 
 // 音波动画
 const audioBars = ref([0, 0, 0, 0, 0])
@@ -139,6 +160,14 @@ watch(
   },
 )
 
+watch(
+  () => [props.musicUrls, props.musicNames],
+  () => {
+    // 当props改变时，重新计算playlist
+  },
+  { deep: true }
+)
+
 onMounted(() => {
   restoreState()
   if (currentTrack.value && audioRef.value) {
@@ -172,10 +201,14 @@ const nextTrack = () => {
   currentTrackIndex.value = (currentTrackIndex.value + 1) % playlist.value.length
   if (audioRef.value) {
     audioRef.value.src = currentTrack.value!.url
+    audioRef.value.addEventListener('canplay', () => {
+      if (isPlaying.value) {
+        audioRef.value?.play().catch(err => {
+          console.error('播放失败:', err)
+        })
+      }
+    }, { once: true })
     audioRef.value.load()
-    if (isPlaying.value) {
-      audioRef.value.play()
-    }
   }
 }
 
@@ -184,10 +217,14 @@ const prevTrack = () => {
   currentTrackIndex.value = (currentTrackIndex.value - 1 + playlist.value.length) % playlist.value.length
   if (audioRef.value) {
     audioRef.value.src = currentTrack.value!.url
+    audioRef.value.addEventListener('canplay', () => {
+      if (isPlaying.value) {
+        audioRef.value?.play().catch(err => {
+          console.error('播放失败:', err)
+        })
+      }
+    }, { once: true })
     audioRef.value.load()
-    if (isPlaying.value) {
-      audioRef.value.play()
-    }
   }
 }
 
@@ -195,11 +232,21 @@ const selectTrack = (index: number) => {
   currentTrackIndex.value = index
   if (audioRef.value) {
     audioRef.value.src = currentTrack.value!.url
+    // 等待音频加载完成后再播放
+    audioRef.value.addEventListener('canplay', () => {
+      audioRef.value?.play().catch(err => {
+        console.error('播放失败:', err)
+      })
+    }, { once: true })
     audioRef.value.load()
-    if (isPlaying.value) {
-      audioRef.value.play()
-    }
+    isPlaying.value = true
   }
+}
+
+const toggleLoopMode = () => {
+  const modes: Array<'off' | 'all' | 'one'> = ['all', 'one', 'off']
+  const currentIndex = modes.indexOf(loopMode.value)
+  loopMode.value = modes[(currentIndex + 1) % modes.length]
 }
 
 const handleTimeUpdate = () => {
@@ -215,7 +262,19 @@ const handleLoadedMetadata = () => {
 }
 
 const handleEnded = () => {
-  nextTrack()
+  if (loopMode.value === 'one') {
+    // 单曲循环
+    if (audioRef.value) {
+      audioRef.value.currentTime = 0
+      audioRef.value.play()
+    }
+  } else if (loopMode.value === 'all') {
+    // 列表循环
+    nextTrack()
+  } else {
+    // 不循环，停止播放
+    isPlaying.value = false
+  }
 }
 
 const handleProgressClick = (e: MouseEvent) => {
@@ -233,19 +292,39 @@ const handleVolumeChange = (e: Event) => {
   }
 }
 
+let volumeChangeTimeout: ReturnType<typeof setTimeout> | null = null
+const handleVolumeInput = (e: Event) => {
+  const value = (e.target as HTMLInputElement).value
+  volume.value = parseFloat(value)
+  
+  if (volumeChangeTimeout) clearTimeout(volumeChangeTimeout)
+  volumeChangeTimeout = setTimeout(() => {
+    if (audioRef.value) {
+      audioRef.value.volume = volume.value
+    }
+  }, 50)
+}
+
 const handleMouseDown = (e: MouseEvent) => {
   isDragging.value = true
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-  dragOffset.value = {
-    x: e.clientX - rect.left,
-    y: e.clientY - rect.top,
-  }
+  dragStartX = e.clientX
+  dragStartY = e.clientY
+  dragStartPosX = typeof position.value.x === 'number' ? position.value.x : 24
+  dragStartPosY = typeof position.value.y === 'number' ? position.value.y : 24
 }
 
 const handleMouseMove = (e: MouseEvent) => {
   if (!isDragging.value) return
-  const newX = e.clientX - dragOffset.value.x
-  const newY = e.clientY - dragOffset.value.y
+  const deltaX = e.clientX - dragStartX
+  const deltaY = e.clientY - dragStartY
+  
+  let newX = dragStartPosX + deltaX
+  let newY = dragStartPosY + deltaY
+  
+  // 边界限制
+  newX = Math.max(0, Math.min(newX, window.innerWidth - 56))
+  newY = Math.max(0, Math.min(newY, window.innerHeight - 56))
+  
   position.value = { x: newX, y: newY, bottom: 'auto' }
 }
 
@@ -267,10 +346,16 @@ const handleMouseUp = () => {
     }
   }
 }
+
+const handleButtonClick = (e: MouseEvent) => {
+  // 如果是拖动，不触发点击
+  if (isDragging.value) return
+  isExpanded.value = !isExpanded.value
+}
 </script>
 
 <template>
-  <div v-if="hasMusic" class="music-player" :style="{ left: position.x + 'px', top: position.y, bottom: position.bottom }" :class="{ 'music-player--dragging': isDragging }">
+  <div v-if="hasMusic" class="music-player" :style="{ left: position.x + 'px', top: position.y + 'px', bottom: position.bottom }" :class="{ 'music-player--dragging': isDragging }">
     <audio
       ref="audioRef"
       :src="currentTrack?.url"
@@ -279,7 +364,7 @@ const handleMouseUp = () => {
       @ended="handleEnded"
     />
 
-    <div class="music-player__button" @mousedown="handleMouseDown" @click="togglePlay">
+    <div class="music-player__button" @mousedown="handleMouseDown" @click="handleButtonClick">
       <div class="music-player__icon">
         <span v-if="!isPlaying" class="icon">🎵</span>
         <span v-else class="icon rotating">🎶</span>
@@ -287,11 +372,10 @@ const handleMouseUp = () => {
       <div v-if="isPlaying" class="music-player__bars">
         <div v-for="(bar, i) in audioBars" :key="i" class="bar" :style="{ height: bar + '%' }" />
       </div>
-      <div v-if="playlist.length > 1" class="music-player__badge">{{ currentTrackIndex + 1 }}/{{ playlist.length }}</div>
     </div>
 
     <transition name="slide-up">
-      <div v-if="isExpanded" class="music-player__panel" @mousedown.stop>
+      <div v-if="isExpanded" class="music-player__panel" :style="panelPosition" @mousedown.stop>
         <div class="music-player__header">
           <h4 class="music-player__title">🎵 {{ currentTrack?.name }}</h4>
           <button class="music-player__close" @click="isExpanded = false">✕</button>
@@ -303,6 +387,9 @@ const handleMouseUp = () => {
             {{ isPlaying ? '⏸' : '▶' }}
           </button>
           <button class="music-player__control-btn" @click="nextTrack" :disabled="playlist.length <= 1">⏭</button>
+          <button class="music-player__loop-btn" @click="toggleLoopMode" :title="`循环模式: ${loopMode === 'all' ? '列表循环' : loopMode === 'one' ? '单曲循环' : '不循环'}`">
+            {{ loopMode === 'all' ? '🔁' : loopMode === 'one' ? '🔂' : '➡️' }}
+          </button>
         </div>
 
         <div class="music-player__progress-container">
@@ -318,16 +405,16 @@ const handleMouseUp = () => {
             type="range"
             min="0"
             max="1"
-            step="0.1"
+            step="0.01"
             :value="volume"
             class="music-player__volume-slider"
-            @change="handleVolumeChange"
+            @input="handleVolumeInput"
           />
         </div>
 
         <div class="music-player__playlist-toggle">
           <button class="music-player__playlist-btn" @click="showPlaylist = !showPlaylist">
-            {{ showPlaylist ? '隐藏' : '显示' }}播放列表
+            {{ showPlaylist ? '▼ 隐藏播放列表' : '▶ 显示播放列表' }}
           </button>
         </div>
 
@@ -341,6 +428,7 @@ const handleMouseUp = () => {
             >
               <span class="music-player__playlist-index">{{ idx + 1 }}</span>
               <span class="music-player__playlist-name">{{ track.name }}</span>
+              <span v-if="idx === currentTrackIndex" class="music-player__playlist-playing">▶</span>
             </div>
           </div>
         </transition>
@@ -439,8 +527,7 @@ const handleMouseUp = () => {
 
 .music-player__panel {
   position: absolute;
-  bottom: 70px;
-  right: 0;
+  bottom: 0;
   width: 320px;
   background: rgba(20, 20, 30, 0.95);
   backdrop-filter: blur(20px);
@@ -493,6 +580,7 @@ const handleMouseUp = () => {
   justify-content: center;
   gap: 8px;
   margin-bottom: 16px;
+  position: relative;
 }
 
 .music-player__control-btn {
@@ -519,6 +607,29 @@ const handleMouseUp = () => {
 .music-player__control-btn:disabled {
   opacity: 0.3;
   cursor: not-allowed;
+}
+
+.music-player__loop-btn {
+  position: absolute;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(91, 138, 240, 0.2);
+  border: 1px solid rgba(91, 138, 240, 0.3);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+
+.music-player__loop-btn:hover {
+  background: rgba(91, 138, 240, 0.3);
+  border-color: rgba(91, 138, 240, 0.5);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .music-player__play-btn {
@@ -671,6 +782,12 @@ const handleMouseUp = () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.music-player__playlist-playing {
+  font-size: 0.75rem;
+  color: #8b6ff0;
+  margin-left: 4px;
 }
 
 .slide-up-enter-active,

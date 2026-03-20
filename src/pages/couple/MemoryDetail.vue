@@ -115,8 +115,8 @@ function goEdit() {
 
 /* Thumbnails Container */
 .md-thumbs-container { margin-bottom: 28px; }
-.md-thumbs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
-.md-thumb { width: 100px; height: 75px; object-fit: cover; border-radius: var(--radius-md); cursor: pointer; border: 2px solid transparent; transition: all var(--transition-fast); flex-shrink: 0; }
+.md-thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.md-thumb { width: 100%; aspect-ratio: 4/3; object-fit: cover; border-radius: var(--radius-md); cursor: pointer; border: 2px solid transparent; transition: all var(--transition-fast); }
 .md-thumb:hover { transform: scale(1.05); }
 .md-thumb--active { border-color: #E8607A; box-shadow: 0 2px 8px rgba(232, 96, 122, 0.3); }
 
@@ -268,6 +268,8 @@ function goEdit() {
 }
 
 @media (max-width: 768px) {
+  .md-thumbs { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  
   .md-carousel-modal {
     padding: 10px;
   }
@@ -292,5 +294,9 @@ function goEdit() {
     height: 36px;
     font-size: 1.2rem;
   }
+}
+
+@media (max-width: 480px) {
+  .md-thumbs { grid-template-columns: repeat(2, 1fr); gap: 8px; }
 }
 </style>

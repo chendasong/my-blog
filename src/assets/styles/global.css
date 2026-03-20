@@ -204,3 +204,6 @@ input, textarea, select {
   color: inherit;
   font-size: 0.9em;
 }
+select::after {
+  right: 12px;
+}
