@@ -66,6 +66,7 @@ export const aiFeatures: AIFeature[] = [
     tags: ['思维导图', '效率', '整理'],
     isNew: true,
     isPro: true,
+    hidden: true,
     placeholder: '输入主题，如：「如何学习 TypeScript」或「旅行计划」...',
   },
   {
@@ -114,5 +115,17 @@ export const aiFeatures: AIFeature[] = [
     isPro: false,
     hidden: false,
     placeholder: '描述你的症状或健康问题，如：「最近经常头晚、容易疲劳、舌苔、脉象」...',
+  },
+  {
+    id: '11',
+    name: 'AI 生图',
+    description: '描述症状或健康问题，AI 以中西医结合的方式从多个角度分析，偏重中医视角，给出实用建议。',
+    icon: 'mdi:medical-bag',
+    category: 'analysis',
+    tags: ['生图', 'gemi模型'],
+    isNew: true,
+    isPro: false,
+    hidden: false,
+    placeholder: '描述你的需要生成的图片主题，如：「一只狗在写代码」...',
   },
 ]

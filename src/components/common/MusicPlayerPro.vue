@@ -23,14 +23,14 @@ const showPlaylist = ref(false)
 const currentTrackIndex = ref(0)
 const currentTime = ref(0)
 const duration = ref(0)
-const volume = ref(0.7)
+const volume = ref(0.5)
 const audioRef = ref<HTMLAudioElement | null>(null)
 const loopMode = ref<'off' | 'all' | 'one'>('all') // off: 不循环, all: 列表循环, one: 单曲循环
 
 // 拖动状态
 const isDragging = ref(false)
 const dragOffset = ref({ x: 0, y: 0 })
-const position = ref({ x: window.innerWidth - 80, y: window.innerHeight / 2 - 28, bottom: 'auto' })
+const position = ref({ x: window.innerWidth - 80, y: window.innerHeight - 100 - 28, bottom: 'auto' })
 let dragStartX = 0
 let dragStartY = 0
 let dragStartPosX = 0

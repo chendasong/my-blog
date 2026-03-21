@@ -45,6 +45,7 @@ const aiIcons: Record<string, string> = {
   "AI 摘要提取": "📋",
   "AI 食谱": "🍼",
   "AI 医生": "🏥",
+  "AI 生图": "🖼️",
 };
 
 const thinkingModes = [

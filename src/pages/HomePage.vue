@@ -186,6 +186,21 @@ onMounted(async () => {
 
     <section class="section section--alt">
       <div class="container">
+        <div class="resume-entry-banner" @click="router.push('/resume')">
+          <div class="resume-entry-banner__content">
+            <div class="resume-entry-banner__emoji">📄</div>
+            <div>
+              <h3 class="resume-entry-banner__title">我的简历</h3>
+              <p class="resume-entry-banner__desc">在线简历编辑器，支持多种模块和实时预览 ✨</p>
+            </div>
+          </div>
+          <AppButton variant="warm">查看简历 →</AppButton>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container">
         <div class="couple-entry-banner" @click="router.push('/couple')">
           <div class="couple-entry-banner__content">
             <div class="couple-entry-banner__emoji">💑</div>
@@ -485,6 +500,48 @@ onMounted(async () => {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
   line-height: 1.6;
+}
+
+.resume-entry-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32px 40px;
+  background: linear-gradient(135deg, rgba(91, 138, 240, 0.08) 0%, rgba(139, 111, 240, 0.08) 100%);
+  border: 1px solid rgba(91, 138, 240, 0.18);
+  border-radius: var(--radius-2xl);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.resume-entry-banner:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 32px rgba(91, 138, 240, 0.15);
+  border-color: rgba(91, 138, 240, 0.3);
+}
+
+.resume-entry-banner__content {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.resume-entry-banner__emoji {
+  font-size: 3rem;
+}
+
+.resume-entry-banner__title {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 6px;
+}
+
+.resume-entry-banner__desc {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
 }
 
 .couple-entry-banner {

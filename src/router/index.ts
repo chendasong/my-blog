@@ -38,6 +38,13 @@ const router = createRouter({
         { path: 'notes/:id', name: 'notes-detail', component: () => import('@/pages/notes/NoteDetail.vue') },
         { path: 'notes/:id/edit', name: 'notes-edit', component: () => import('@/pages/notes/NoteEditor.vue'), meta: { requiresAuth: true } },
         { path: 'ai', name: 'ai', component: () => import('@/pages/ai/AIPage.vue') },
+        { path: 'resume', name: 'resume', component: () => import('@/pages/resume/ResumeView.vue') },
+        {
+          path: 'resume/edit',
+          name: 'resume-edit',
+          component: () => import('@/pages/resume/ResumeEditor.vue'),
+          meta: { requiresAuth: true },
+        },
         { path: 'couple', name: 'couple-entry', component: () => import('@/pages/couple/CoupleEntry.vue') },
         {
           path: 'couple/space',

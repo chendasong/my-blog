@@ -16,4 +16,5 @@ export async function uploadImage(file: File, bucket = 'images'): Promise<string
 export { articleApi } from './articles'
 export { noteApi } from './notes'
 export { coupleApi } from './couple'
+export { resumeApi } from './resume'
 export { supabase } from '@/lib/supabase'
