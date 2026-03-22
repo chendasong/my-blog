@@ -5,14 +5,23 @@ import type { Article } from '@/types'
 
 export const useArticleStore = defineStore('article', () => {
   const articles = ref<Article[]>([])
+  /** 当前筛选条件下的总条数（分页用） */
+  const listTotal = ref(0)
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  async function fetchList(params?: { category?: string; q?: string }) {
+  async function fetchList(params: {
+    category?: string
+    q?: string
+    limit: number
+    offset: number
+  }) {
     loading.value = true
     error.value = null
     try {
-      articles.value = await articleApi.getList(params)
+      const { items, total } = await articleApi.getPage(params)
+      articles.value = items
+      listTotal.value = total
     } catch (e) {
       error.value = '加载失败'
     } finally {
@@ -23,6 +32,7 @@ export const useArticleStore = defineStore('article', () => {
   async function remove(id: string) {
     await articleApi.remove(id)
     articles.value = articles.value.filter(a => a.id !== id)
+    listTotal.value = Math.max(0, listTotal.value - 1)
   }
 
   async function like(article: Article) {
@@ -31,5 +41,5 @@ export const useArticleStore = defineStore('article', () => {
     if (idx !== -1) articles.value[idx] = updated
   }
 
-  return { articles, loading, error, fetchList, remove, like }
+  return { articles, listTotal, loading, error, fetchList, remove, like }
 })

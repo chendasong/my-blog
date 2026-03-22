@@ -2,7 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useNoteStore } from '@/stores/note'
+import { noteApi } from '@/api/notes'
 import { useToast } from '@/composables/useToast'
 import { marked } from 'marked'
 import type { Note } from '@/types'
@@ -11,7 +11,6 @@ import AppButton from '@/components/common/AppButton.vue'
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const store = useNoteStore()
 const toast = useToast()
 
 const note = ref<Note | null>(null)
@@ -27,10 +26,9 @@ const categoryIcons: Record<string, string> = {
 
 onMounted(async () => {
   try {
-    await store.fetchList()
-    const found = store.notes.find(n => n.id === route.params.id)
-    if (found) note.value = found
-    else notFound.value = true
+    note.value = await noteApi.getById(route.params.id as string)
+  } catch {
+    notFound.value = true
   } finally {
     loading.value = false
   }
@@ -43,15 +41,14 @@ function renderContent(content: string) {
 async function handleDelete() {
   if (!note.value) return
   if (!confirm('确定删除这条笔记吗？')) return
-  await store.remove(note.value.id)
+  await noteApi.remove(note.value.id)
   toast.success('笔记已删除')
   router.push('/notes')
 }
 
 async function handleTogglePin() {
   if (!note.value) return
-  await store.togglePin(note.value)
-  note.value = { ...note.value, pinned: !note.value.pinned }
+  note.value = await noteApi.togglePin(note.value.id, note.value.pinned)
 }
 </script>
 

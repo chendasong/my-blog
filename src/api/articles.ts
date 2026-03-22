@@ -7,6 +7,16 @@ export interface ArticleQuery {
   featured?: boolean
 }
 
+export interface ArticlePageParams extends ArticleQuery {
+  limit: number
+  offset: number
+}
+
+export interface PageResult<T> {
+  items: T[]
+  total: number
+}
+
 // 将 Supabase 行数据转换为前端 Article 类型
 function toArticle(row: Record<string, unknown>): Article {
   return {
@@ -27,12 +37,38 @@ function toArticle(row: Record<string, unknown>): Article {
   }
 }
 
+function applyArticleFilters(query: {
+  order: (c: string, o: { ascending: boolean }) => typeof query
+  eq: (c: string, v: string | boolean) => typeof query
+  or: (f: string) => typeof query
+}, params?: ArticleQuery) {
+  let q = query.order('published_at', { ascending: false })
+  if (params?.category) q = q.eq('category', params.category)
+  if (params?.featured) q = q.eq('featured', true)
+  if (params?.q) q = q.or(`title.ilike.%${params.q}%,summary.ilike.%${params.q}%`)
+  return q
+}
+
 export const articleApi = {
+  /** 分页列表（列表页使用） */
+  async getPage(params: ArticlePageParams): Promise<PageResult<Article>> {
+    const { limit, offset, ...rest } = params
+    const from = Math.max(0, offset)
+    const to = from + Math.max(1, limit) - 1
+    let query = supabase.from('articles').select('*', { count: 'exact' })
+    query = applyArticleFilters(query, rest)
+    const { data, error, count } = await query.range(from, to)
+    if (error) throw error
+    return {
+      items: (data ?? []).map(toArticle),
+      total: count ?? 0,
+    }
+  },
+
+  /** 全量（首页统计等少量场景；大库慎用） */
   async getList(params?: ArticleQuery): Promise<Article[]> {
-    let query = supabase.from('articles').select('*').order('published_at', { ascending: false })
-    if (params?.category) query = query.eq('category', params.category)
-    if (params?.featured) query = query.eq('featured', true)
-    if (params?.q) query = query.or(`title.ilike.%${params.q}%,summary.ilike.%${params.q}%`)
+    let query = supabase.from('articles').select('*')
+    query = applyArticleFilters(query, params)
     const { data, error } = await query
     if (error) throw error
     return (data ?? []).map(toArticle)

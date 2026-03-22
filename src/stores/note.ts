@@ -6,14 +6,22 @@ import dayjs from 'dayjs'
 
 export const useNoteStore = defineStore('note', () => {
   const notes = ref<Note[]>([])
+  const listTotal = ref(0)
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  async function fetchList(params?: { category?: NoteCategory; q?: string }) {
+  async function fetchList(params: {
+    category?: NoteCategory
+    q?: string
+    limit: number
+    offset: number
+  }) {
     loading.value = true
     error.value = null
     try {
-      notes.value = await noteApi.getList(params)
+      const { items, total } = await noteApi.getPage(params)
+      notes.value = items
+      listTotal.value = total
     } catch (e) {
       error.value = '加载失败'
     } finally {
@@ -39,6 +47,7 @@ export const useNoteStore = defineStore('note', () => {
   async function remove(id: string) {
     await noteApi.remove(id)
     notes.value = notes.value.filter(n => n.id !== id)
+    listTotal.value = Math.max(0, listTotal.value - 1)
   }
 
   async function togglePin(note: Note) {
@@ -47,5 +56,5 @@ export const useNoteStore = defineStore('note', () => {
     if (idx !== -1) notes.value[idx] = updated
   }
 
-  return { notes, loading, error, fetchList, create, update, remove, togglePin }
+  return { notes, listTotal, loading, error, fetchList, create, update, remove, togglePin }
 })

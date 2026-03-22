@@ -5,6 +5,7 @@ import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import AppToast from '@/components/common/AppToast.vue'
 import MusicPlayerPro from '@/components/common/MusicPlayerPro.vue'
+import AIAssistantFloat from '@/components/common/AIAssistantFloat.vue'
 
 const appStore = useAppStore()
 const authStore = useAuthStore()
@@ -19,4 +20,5 @@ onMounted(() => {
   <RouterView />
   <AppToast />
   <MusicPlayerPro :music-urls="authStore.siteSettings?.music_urls" :music-names="authStore.siteSettings?.music_names" />
+  <AIAssistantFloat />
 </template>

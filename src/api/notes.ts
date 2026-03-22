@@ -7,6 +7,16 @@ export interface NoteQuery {
   q?: string
 }
 
+export interface NotePageParams extends NoteQuery {
+  limit: number
+  offset: number
+}
+
+export interface NotePageResult {
+  items: Note[]
+  total: number
+}
+
 function toNote(row: Record<string, unknown>): Note {
   return {
     id: row.id as string,
@@ -21,11 +31,37 @@ function toNote(row: Record<string, unknown>): Note {
   }
 }
 
+function applyNoteFilters(query: {
+  order: (c: string, o: { ascending: boolean }) => typeof query
+  eq: (c: string, v: string) => typeof query
+  or: (f: string) => typeof query
+}, params?: NoteQuery) {
+  let q = query
+    .order('pinned', { ascending: false })
+    .order('updated_at', { ascending: false })
+  if (params?.category) q = q.eq('category', params.category)
+  if (params?.q) q = q.or(`title.ilike.%${params.q}%,content.ilike.%${params.q}%`)
+  return q
+}
+
 export const noteApi = {
+  async getPage(params: NotePageParams): Promise<NotePageResult> {
+    const { limit, offset, ...rest } = params
+    const from = Math.max(0, offset)
+    const to = from + Math.max(1, limit) - 1
+    let query = supabase.from('notes').select('*', { count: 'exact' })
+    query = applyNoteFilters(query, rest)
+    const { data, error, count } = await query.range(from, to)
+    if (error) throw error
+    return {
+      items: (data ?? []).map(toNote),
+      total: count ?? 0,
+    }
+  },
+
   async getList(params?: NoteQuery): Promise<Note[]> {
-    let query = supabase.from('notes').select('*').order('pinned', { ascending: false }).order('updated_at', { ascending: false })
-    if (params?.category) query = query.eq('category', params.category)
-    if (params?.q) query = query.or(`title.ilike.%${params.q}%,content.ilike.%${params.q}%`)
+    let query = supabase.from('notes').select('*')
+    query = applyNoteFilters(query, params)
     const { data, error } = await query
     if (error) throw error
     return (data ?? []).map(toNote)

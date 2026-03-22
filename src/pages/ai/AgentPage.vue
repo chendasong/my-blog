@@ -294,13 +294,13 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
       <div class="agent-hero__inner">
         <div class="agent-hero-title-wrapper">
           <div class="agent-hero__icon animate-float">🤖</div>
-          <h1 class="agent-hero__title">AI Agent</h1>
+          <h1 class="agent-hero__title">写作 Agent</h1>
         </div>
         <p class="agent-hero__subtitle">
           选择任务、描述需求，由火山模型生成提示词与正文，再一键写入文章或笔记。
         </p>
         <div class="agent-hero__stats">
-          <span class="agent-stat">🔥 Doubao-Seed-2.0-Code</span>
+          <span class="agent-stat">🔥 豆包写作模型</span>
           <span class="agent-stat">✍️ 文章 / 笔记</span>
           <span class="agent-stat">🖼️ 文章封面 AI 生成</span>
         </div>

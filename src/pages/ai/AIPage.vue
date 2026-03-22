@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { ref, computed, watch, onMounted, nextTick } from "vue";
 import { aiFeatures } from "@/data";
 import { streamChat } from "@/api/siliconflow";
 import { useToast } from "@/composables/useToast";
+import { syncTextareaHeight } from "@/lib/autoResizeTextarea";
 import AppButton from "@/components/common/AppButton.vue";
 import type { AIFeature, AICategory } from "@/types";
 
@@ -17,6 +18,18 @@ const thinkExpanded = ref(false);
 const isLoading = ref(false);
 const isThinking = ref(false);
 let abortFlag = false;
+
+const inputRef = ref<HTMLTextAreaElement | null>(null);
+const TEXTAREA_MIN = 44;
+const TEXTAREA_MAX = 300;
+
+function resizeInput() {
+  nextTick(() =>
+    syncTextareaHeight(inputRef.value, TEXTAREA_MIN, TEXTAREA_MAX)
+  );
+}
+
+watch(inputText, resizeInput);
 
 const categoryLabels: Record<string, string> = {
   all: "全部",
@@ -131,6 +144,7 @@ function handleSelect(feature: AIFeature) {
   }
   selectedFeature.value = feature;
   inputText.value = "";
+  resizeInput();
   outputText.value = "";
   thinkText.value = "";
   thinkExpanded.value = false;
@@ -147,6 +161,8 @@ function copyOutput() {
   navigator.clipboard?.writeText(outputText.value);
   toast.success("复制成功");
 }
+
+onMounted(() => resizeInput());
 </script>
 
 <template>
@@ -249,6 +265,7 @@ function copyOutput() {
               </div>
               <div class="ai-input-row">
                 <textarea
+                  ref="inputRef"
                   v-model="inputText"
                   class="ai-textarea"
                   :placeholder="selectedFeature.placeholder"
@@ -622,7 +639,8 @@ function copyOutput() {
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   line-height: 1.6;
-  resize: vertical;
+  resize: none;
+  box-sizing: border-box;
   outline: none;
   transition: border-color var(--transition-fast);
 }
@@ -768,14 +786,13 @@ function copyOutput() {
 }
 .ai-input-row {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 12px;
 }
 .ai-input-row .ai-textarea {
   flex: 1;
   min-height: 44px;
   max-height: 300px;
-  resize: none;
   overflow-y: auto;
 }
 .ai-input-btns {

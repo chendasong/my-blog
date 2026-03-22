@@ -12,7 +12,9 @@ const store = useNoteStore();
 const toast = useToast();
 const authStore = useAuthStore();
 const activeCategory = ref<NoteCategory | "all">("all");
+/** 输入框草稿；仅点击「搜索」后写入 appliedSearch 才筛选 */
 const searchQuery = ref("");
+const appliedSearch = ref("");
 const currentPage = ref(1);
 const PAGE_SIZE = 9;
 
@@ -33,37 +35,58 @@ const categoryIcons: Record<string, string> = {
   todo: "✅",
 };
 
-onMounted(() => store.fetchList());
+const listParams = ref<{ category?: NoteCategory; q?: string }>({});
 
-const filtered = computed(() => {
-  let list = [...store.notes].sort(
-    (a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0),
-  );
-  if (activeCategory.value !== "all")
-    list = list.filter((n) => n.category === activeCategory.value);
-  if (searchQuery.value.trim()) {
-    const q = searchQuery.value.toLowerCase();
-    list = list.filter(
-      (n) =>
-        n.title.toLowerCase().includes(q) ||
-        n.content.toLowerCase().includes(q),
-    );
-  }
-  return list;
+function syncListParamsFromApplied() {
+  listParams.value = {
+    ...(activeCategory.value !== "all"
+      ? { category: activeCategory.value }
+      : {}),
+    ...(appliedSearch.value ? { q: appliedSearch.value } : {}),
+  };
+}
+
+function fetchNotesPage() {
+  store.fetchList({
+    ...listParams.value,
+    limit: PAGE_SIZE,
+    offset: (currentPage.value - 1) * PAGE_SIZE,
+  });
+}
+
+onMounted(() => {
+  syncListParamsFromApplied();
+  fetchNotesPage();
 });
 
-const totalPages = computed(() => Math.ceil(filtered.value.length / PAGE_SIZE));
-const paged = computed(() => {
-  const start = (currentPage.value - 1) * PAGE_SIZE;
-  return filtered.value.slice(start, start + PAGE_SIZE);
-});
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(store.listTotal / PAGE_SIZE)),
+);
 
 function doSearch() {
+  appliedSearch.value = searchQuery.value.trim();
   currentPage.value = 1;
+  syncListParamsFromApplied();
+  fetchNotesPage();
 }
+
 function setCategory(cat: NoteCategory | "all") {
   activeCategory.value = cat;
   currentPage.value = 1;
+  syncListParamsFromApplied();
+  fetchNotesPage();
+}
+
+function prevPage() {
+  if (currentPage.value <= 1) return;
+  currentPage.value--;
+  fetchNotesPage();
+}
+
+function nextPage() {
+  if (currentPage.value >= totalPages.value) return;
+  currentPage.value++;
+  fetchNotesPage();
 }
 
 async function handleDelete(note: Note) {
@@ -87,9 +110,11 @@ async function handleTogglePin(note: Note) {
           <div class="search-row">
             <input
               v-model="searchQuery"
+              type="search"
               class="search-input"
               placeholder="搜索笔记标题或内容..."
-              @keydown.enter="doSearch"
+              enterkeyhint="search"
+              autocomplete="off"
             />
             <button class="search-btn" @click="doSearch">🔍 搜索</button>
             <AppButton
@@ -120,7 +145,7 @@ async function handleTogglePin(note: Note) {
         <p>加载中...</p>
       </div>
       <template v-else>
-        <div v-if="!filtered.length" class="empty-state">
+        <div v-if="!store.listTotal" class="empty-state">
           <span class="empty-icon">📔</span>
           <p>还没有笔记，新建一条吧！</p>
           <AppButton
@@ -131,7 +156,7 @@ async function handleTogglePin(note: Note) {
         </div>
         <div v-else class="notes-grid">
           <div
-            v-for="note in paged"
+            v-for="note in store.notes"
             :key="note.id"
             class="note-card glass-card"
             :style="{ borderLeftColor: note.color }"
@@ -176,7 +201,7 @@ async function handleTogglePin(note: Note) {
           <button
             class="page-btn"
             :disabled="currentPage === 1"
-            @click="currentPage--"
+            @click="prevPage"
           >
             ← 上一页
           </button>
@@ -184,7 +209,7 @@ async function handleTogglePin(note: Note) {
           <button
             class="page-btn"
             :disabled="currentPage === totalPages"
-            @click="currentPage++"
+            @click="nextPage"
           >
             下一页 →
           </button>
@@ -251,6 +276,13 @@ async function handleTogglePin(note: Note) {
 }
 .search-input::placeholder {
   color: var(--color-text-muted);
+}
+.search-input::-webkit-search-cancel-button {
+  cursor: pointer;
+  opacity: 0.65;
+}
+.search-input::-webkit-search-cancel-button:hover {
+  opacity: 1;
 }
 .search-btn {
   flex-shrink: 0;

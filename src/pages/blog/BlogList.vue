@@ -30,26 +30,57 @@ const categoryIcons: Record<string, string> = {
   思考: "💡",
 };
 
-onMounted(() => store.fetchList());
+const listParams = ref<{ category?: string; q?: string }>({});
 
-const pagedArticles = computed(() => {
-  const start = (currentPage.value - 1) * PAGE_SIZE;
-  return store.articles.slice(start, start + PAGE_SIZE);
+function applyListParamsFromUi() {
+  listParams.value = {
+    ...(activeCategory.value !== "all"
+      ? { category: activeCategory.value }
+      : {}),
+    ...(searchQuery.value.trim() ? { q: searchQuery.value.trim() } : {}),
+  };
+}
+
+function fetchArticlesPage() {
+  store.fetchList({
+    ...listParams.value,
+    limit: PAGE_SIZE,
+    offset: (currentPage.value - 1) * PAGE_SIZE,
+  });
+}
+
+onMounted(() => {
+  applyListParamsFromUi();
+  fetchArticlesPage();
 });
-const totalPages = computed(() => Math.ceil(store.articles.length / PAGE_SIZE));
+
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(store.listTotal / PAGE_SIZE)),
+);
 
 function doSearch() {
   currentPage.value = 1;
-  const params: Record<string, string> = {};
-  if (activeCategory.value !== "all") params.category = activeCategory.value;
-  if (searchQuery.value.trim()) params.q = searchQuery.value.trim();
-  store.fetchList(params);
+  applyListParamsFromUi();
+  fetchArticlesPage();
 }
 
 function handleCategoryChange(cat: string) {
   activeCategory.value = cat;
   currentPage.value = 1;
-  doSearch();
+  applyListParamsFromUi();
+  fetchArticlesPage();
+}
+
+function prevPage() {
+  if (currentPage.value <= 1) return;
+  currentPage.value--;
+  fetchArticlesPage();
+}
+
+function nextPage() {
+  if (currentPage.value >= totalPages.value) return;
+  currentPage.value++;
+  fetchArticlesPage();
 }
 
 async function handleDelete(id: string) {
@@ -70,9 +101,11 @@ async function handleDelete(id: string) {
           <div class="search-row">
             <input
               v-model="searchQuery"
+              type="search"
               class="search-input"
               placeholder="搜索文章..."
-              @keydown.enter="doSearch"
+              enterkeyhint="search"
+              autocomplete="off"
             />
             <button class="search-btn" @click="doSearch">🔍 搜索</button>
             <AppButton
@@ -122,12 +155,12 @@ async function handleDelete(id: string) {
       </div>
       <div v-else-if="store.error" class="empty-state">
         <span>😕 {{ store.error }}</span>
-        <AppButton variant="secondary" @click="store.fetchList()"
+        <AppButton variant="secondary" @click="fetchArticlesPage()"
           >重试</AppButton
         >
       </div>
       <template v-else>
-        <div v-if="!store.articles.length" class="empty-state">
+        <div v-if="!store.listTotal" class="empty-state">
           <span class="empty-state__icon">📝</span>
           <p>还没有文章，去写第一篇吧！</p>
           <AppButton
@@ -139,7 +172,7 @@ async function handleDelete(id: string) {
         <template v-else>
           <div class="articles-grid">
             <div
-              v-for="(article, i) in pagedArticles"
+              v-for="(article, i) in store.articles"
               :key="article.id"
               class="article-wrap animate-fade-in-up"
               :class="`delay-${Math.min(i * 100, 500)}`"
@@ -157,7 +190,7 @@ async function handleDelete(id: string) {
             <button
               class="page-btn"
               :disabled="currentPage === 1"
-              @click="currentPage--"
+              @click="prevPage"
             >
               ← 上一页
             </button>
@@ -165,7 +198,7 @@ async function handleDelete(id: string) {
             <button
               class="page-btn"
               :disabled="currentPage === totalPages"
-              @click="currentPage++"
+              @click="nextPage"
             >
               下一页 →
             </button>
@@ -232,6 +265,13 @@ async function handleDelete(id: string) {
 }
 .search-input::placeholder {
   color: var(--color-text-muted);
+}
+.search-input::-webkit-search-cancel-button {
+  cursor: pointer;
+  opacity: 0.65;
+}
+.search-input::-webkit-search-cancel-button:hover {
+  opacity: 1;
 }
 .search-btn {
   flex-shrink: 0;

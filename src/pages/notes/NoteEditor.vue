@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from '@/composables/useToast'
 import { useNoteStore } from '@/stores/note'
+import { noteApi } from '@/api/notes'
 import AppButton from '@/components/common/AppButton.vue'
 import type { NoteCategory } from '@/types'
 
@@ -33,18 +34,18 @@ onMounted(async () => {
   if (isEdit) {
     loading.value = true
     try {
-      await store.fetchList()
-      const note = store.notes.find(n => n.id === route.params.id)
-      if (note) {
-        form.value = {
-          title: note.title,
-          content: note.content,
-          category: note.category,
-          tags: note.tags.join(', '),
-          color: note.color,
-          pinned: note.pinned,
-        }
+      const note = await noteApi.getById(route.params.id as string)
+      form.value = {
+        title: note.title,
+        content: note.content,
+        category: note.category,
+        tags: note.tags.join(', '),
+        color: note.color,
+        pinned: note.pinned,
       }
+    } catch {
+      toast.error('笔记不存在或加载失败')
+      router.push('/notes')
     } finally {
       loading.value = false
     }

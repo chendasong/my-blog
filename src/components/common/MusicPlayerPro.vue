@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { onMusicCommand } from '@/lib/musicBridge'
 
 interface Track {
   url: string
@@ -168,6 +169,8 @@ watch(
   { deep: true }
 )
 
+let unlistenMusicBridge: (() => void) | null = null
+
 onMounted(() => {
   restoreState()
   if (currentTrack.value && audioRef.value) {
@@ -175,9 +178,36 @@ onMounted(() => {
   }
   document.addEventListener('mousemove', handleMouseMove)
   document.addEventListener('mouseup', handleMouseUp)
+
+  unlistenMusicBridge = onMusicCommand((cmd) => {
+    if (!hasMusic.value) return
+    switch (cmd.type) {
+      case 'toggle_play':
+        togglePlay()
+        break
+      case 'next':
+        nextTrack()
+        break
+      case 'prev':
+        prevTrack()
+        break
+      case 'select_track': {
+        const n = playlist.value.length
+        if (n === 0) return
+        const i = Math.max(0, Math.min(n - 1, cmd.index))
+        selectTrack(i)
+        break
+      }
+      case 'set_loop':
+        loopMode.value = cmd.mode
+        break
+    }
+  })
 })
 
 onUnmounted(() => {
+  unlistenMusicBridge?.()
+  unlistenMusicBridge = null
   document.removeEventListener('mousemove', handleMouseMove)
   document.removeEventListener('mouseup', handleMouseUp)
   if (animationFrameId) {

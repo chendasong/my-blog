@@ -13,7 +13,7 @@ export function getVolcanoKey(): string {
 export function getVolcanoImageModel(): string {
   return (
     (import.meta.env.VITE_VOLCANO_IMAGE_MODEL as string | undefined)?.trim() ||
-    'doubao-seedream-5-0-260128'
+    ''
   )
 }
 
@@ -21,6 +21,6 @@ export function getVolcanoImageModel(): string {
 export function getVolcanoChatModel(): string {
   return (
     (import.meta.env.VITE_VOLCANO_CHAT_MODEL as string | undefined)?.trim() ||
-    'doubao-seed-2-0-code-preview-260215'
+    ''
   )
 }

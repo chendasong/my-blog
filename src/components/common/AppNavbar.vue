@@ -15,7 +15,7 @@ const navItems = [
   { label: '文章', path: '/blog', icon: '📝' },
   { label: '笔记', path: '/notes', icon: '📔' },
   { label: 'AI 工坊', path: '/ai', icon: '✨' },
-  { label: 'AI Agent', path: '/ai/agent', icon: '🤖' },
+  { label: '写作 Agent', path: '/ai/agent', icon: '🤖' },
   { label: '我的简历', path: '/resume', icon: '📄' },
   { label: '情侣空间', path: '/couple', icon: '💑' },
 ]
