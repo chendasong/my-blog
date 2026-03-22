@@ -176,3 +176,42 @@ export interface NavItem {
   icon: string
   children?: NavItem[]
 }
+
+// ===== AI Agent类型 =====
+export interface AgentMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: string
+  status?: 'pending' | 'success' | 'error'
+  error?: string
+}
+
+export interface AgentSession {
+  id: string
+  title: string
+  messages: AgentMessage[]
+  createdAt: string
+  updatedAt: string
+}
+
+/** AI Agent 流水线：文章草稿（第二步 JSON） */
+export interface AgentArticleDraft {
+  title: string
+  summary: string
+  content: string
+  category: string
+  tags: string[]
+  coverPrompt: string
+  featured: boolean
+}
+
+/** AI Agent 流水线：笔记草稿（第二步 JSON） */
+export interface AgentNoteDraft {
+  title: string
+  content: string
+  category: NoteCategory
+  tags: string[]
+  color: string
+  pinned: boolean
+}

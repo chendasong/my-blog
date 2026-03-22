@@ -71,5 +71,28 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.resume-view{min-height:100vh;background:linear-gradient(135deg,#f5f7fa 0%,#c3cfe2 100%);padding:40px 24px}.loading{text-align:center;padding:60px 24px;color:var(--color-text-muted)}.resume-container{max-width:900px;margin:0 auto}.resume-header{display:flex;justify-content:flex-end;align-items:center;margin-bottom:20px;gap:20px}
+.resume-view {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 40px 24px
+}
+
+.loading {
+  text-align: center;
+  padding: 60px 24px;
+  color: var(--color-text-muted)
+}
+
+.resume-container {
+  width: 700px;
+  margin: 0 auto
+}
+
+.resume-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 20px
+}
 </style>

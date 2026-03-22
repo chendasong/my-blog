@@ -196,11 +196,10 @@ const formatDate = (date: string) => {
 }
 
 .section-title {
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 1.2rem;
+  font-weight: 700;
   color: var(--color-text-primary);
   margin: 0 0 16px 0;
-  padding-bottom: 8px;
   border-bottom: 2px solid var(--color-primary)
 }
 
