@@ -119,13 +119,14 @@ export const aiFeatures: AIFeature[] = [
   {
     id: '11',
     name: 'AI 生图',
-    description: '描述症状或健康问题，AI 以中西医结合的方式从多个角度分析，偏重中医视角，给出实用建议。',
-    icon: 'mdi:medical-bag',
-    category: 'analysis',
-    tags: ['生图', 'gemi模型'],
+    description:
+      '用文字描述画面，火山模型生成配图；可选择吉伊卡哇、哆啦A梦、海绵宝宝等多种卡通画风。',
+    icon: 'mdi:image-area',
+    category: 'creative',
+    tags: ['生图', '配图', '火山'],
     isNew: true,
     isPro: false,
     hidden: false,
-    placeholder: '描述你的需要生成的图片主题，如：「一只狗在写代码」...',
+    placeholder: '描述想生成的画面，如：「一只柴犬在笔记本电脑前写代码，阳光从窗户照进来」...',
   },
 ]

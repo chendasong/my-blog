@@ -17,7 +17,6 @@ const featuredArticles = ref<Article[]>([])
 const recentArticles = ref<Article[]>([])
 const topAI = aiFeatures.filter( i => i.isNew && !i.hidden ).slice(0, 3)
 const stats = ref({ articles: 0, notes: 0, views: 0 })
-const showScrollTop = ref(false)
 
 const heroStyle = computed(() => {
   const bgImage = authStore.siteSettings?.hero_background_image
@@ -50,14 +49,6 @@ const aiIcons: Record<string, string> = {
   'AI 摘要提取': '📋',
 }
 
-const handleScroll = () => {
-  showScrollTop.value = window.scrollY > 300
-}
-
-const scrollToTop = () => {
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-}
-
 // 监听siteSettings变化，确保背景和音乐实时更新
 watch(
   () => authStore.siteSettings,
@@ -71,8 +62,8 @@ onMounted(async () => {
   await authStore.fetchSiteSettings()
   try {
     const allArticles = await articleApi.getList()
-    featuredArticles.value = allArticles.filter(a => a.featured).slice(0, 3)
-    recentArticles.value = allArticles.slice(0, 3)
+    featuredArticles.value = allArticles.filter(a => a.featured).slice(0, 4)
+    recentArticles.value = allArticles.slice(0, 4)
     stats.value.articles = allArticles.length
     stats.value.views = allArticles.reduce((sum, a) => sum + (a.views || 0), 0)
   } catch {}
@@ -80,8 +71,6 @@ onMounted(async () => {
     const allNotes = await noteApi.getList()
     stats.value.notes = allNotes.length
   } catch {}
-  
-  window.addEventListener('scroll', handleScroll)
 })
 </script>
 
@@ -214,13 +203,6 @@ onMounted(async () => {
       </div>
     </section>
   </div>
-
-  <!-- 返回顶部按钮 -->
-  <transition name="fade">
-    <button v-if="showScrollTop" class="scroll-to-top" @click="scrollToTop" title="返回顶部">
-      <span class="scroll-to-top__icon">↑</span>
-    </button>
-  </transition>
 </template>
 
 <style scoped>
@@ -443,16 +425,11 @@ onMounted(async () => {
   gap: 16px;
 }
 
-.featured-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-}
-
+.featured-grid,
 .recent-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
 }
 
 .empty-articles {
@@ -626,7 +603,14 @@ onMounted(async () => {
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
+  .featured-grid,
+  .recent-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
   .featured-grid,
   .recent-grid {
     grid-template-columns: 1fr;
@@ -671,49 +655,4 @@ onMounted(async () => {
   }
 }
 
-/* 返回顶部按钮 */
-.scroll-to-top {
-  position: fixed;
-  bottom: 32px;
-  right: 32px;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, rgba(91, 138, 240, 0.9) 0%, rgba(139, 111, 240, 0.9) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 8px 32px rgba(91, 138, 240, 0.3);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 99;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.scroll-to-top:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 48px rgba(91, 138, 240, 0.4);
-}
-
-.scroll-to-top:active {
-  transform: translateY(-2px);
-}
-
-.scroll-to-top__icon {
-  font-size: 1.5rem;
-  color: white;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
 </style>

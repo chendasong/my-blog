@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
+import dayjs from "dayjs";
 import { useAuthStore } from "@/stores/auth";
 import { articleApi } from "@/api";
 import type { Article } from "@/types";
@@ -42,6 +43,15 @@ async function handleLike() {
   if (!article.value) return;
   article.value = await articleApi.like(article.value.id, article.value.likes);
 }
+
+const displayDate = computed(() => {
+  const a = article.value;
+  if (!a) return "";
+  const raw = a.publishedAt || a.updatedAt;
+  if (!raw || typeof raw !== "string") return "";
+  const d = dayjs(raw);
+  return d.isValid() ? d.format("YYYY-MM-DD HH:mm") : raw;
+});
 </script>
 
 <template>
@@ -66,18 +76,20 @@ async function handleLike() {
       </div>
 
       <header class="article-header animate-fade-in-up">
-        <div class="article-header__cover">
-          <img :src="article.cover" :alt="article.title" />
-        </div>
         <div class="article-header__meta">
           <AppBadge :color="categoryColors[article.category]">{{
             article.category
           }}</AppBadge>
-          <span class="meta-text">📅 {{ article.publishedAt }}</span>
+          <span class="meta-text" :title="article.publishedAt || article.updatedAt"
+            >📅 {{ displayDate }}</span
+          >
           <span class="meta-text">👁 {{ article.views }} 次阅读</span>
         </div>
         <h1 class="article-header__title">{{ article.title }}</h1>
         <p class="article-header__summary">{{ article.summary }}</p>
+        <div v-if="article.cover" class="article-header__cover">
+          <img :src="article.cover" :alt="article.title" />
+        </div>
         <div class="article-header__tags">
           <span v-for="tag in article.tags" :key="tag" class="tag"
             ># {{ tag }}</span
@@ -152,7 +164,8 @@ async function handleLike() {
   border-radius: var(--radius-xl);
   overflow: hidden;
   aspect-ratio: 16/9;
-  margin-bottom: 24px;
+  margin-top: 8px;
+  margin-bottom: 20px;
   background: var(--gradient-hero);
 }
 .article-header__cover img {
@@ -184,12 +197,13 @@ async function handleLike() {
   color: var(--color-text-secondary);
   font-family: var(--font-serif);
   line-height: 1.7;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 .article-header__tags {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  margin-top: 4px;
 }
 .article-body {
   padding: 40px 48px;

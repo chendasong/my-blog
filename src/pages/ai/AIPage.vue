@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from "vue";
-import { aiFeatures } from "@/data";
-import { streamChat } from "@/api/siliconflow";
+import {
+  aiFeatures,
+  AI_IMAGE_STYLES,
+  DEFAULT_AI_IMAGE_STYLE_ID,
+  getAiImageStyleById,
+  buildCoverImagePrompt,
+} from "@/data";
+import { streamChat, generateImages } from "@/api/siliconflow";
 import { useToast } from "@/composables/useToast";
 import { syncTextareaHeight } from "@/lib/autoResizeTextarea";
 import AppButton from "@/components/common/AppButton.vue";
@@ -18,6 +24,11 @@ const thinkExpanded = ref(false);
 const isLoading = ref(false);
 const isThinking = ref(false);
 let abortFlag = false;
+
+const selectedImageStyleId = ref(DEFAULT_AI_IMAGE_STYLE_ID);
+/** 火山生图 API：与原生 select 用字符串，避免 value 被转成 string */
+const imageWatermarkChoice = ref<"off" | "on">("off");
+const generatedImageUrls = ref<string[]>([]);
 
 const inputRef = ref<HTMLTextAreaElement | null>(null);
 const TEXTAREA_MIN = 44;
@@ -97,12 +108,37 @@ async function handleGenerate() {
     abortFlag = true;
     return;
   }
+
+  if (selectedFeature.value.id === "11") {
+    isLoading.value = true;
+    generatedImageUrls.value = [];
+    outputText.value = "";
+    thinkText.value = "";
+    thinkExpanded.value = false;
+    try {
+      const style =
+        getAiImageStyleById(selectedImageStyleId.value) || AI_IMAGE_STYLES[0];
+      const prompt = buildCoverImagePrompt(inputText.value.trim(), style);
+      generatedImageUrls.value = await generateImages(prompt, 1, {
+        watermark: imageWatermarkChoice.value === "on",
+      });
+      if (!generatedImageUrls.value.length) toast.error("未返回图片地址");
+      else toast.success("生成完成");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "生图失败");
+    } finally {
+      isLoading.value = false;
+    }
+    return;
+  }
+
   isLoading.value = true;
   isThinking.value = false;
   abortFlag = false;
   outputText.value = "";
   thinkText.value = "";
   thinkExpanded.value = true;
+  generatedImageUrls.value = [];
 
   const userInput =
     selectedFeature.value.id === "5"
@@ -148,8 +184,10 @@ function handleSelect(feature: AIFeature) {
   outputText.value = "";
   thinkText.value = "";
   thinkExpanded.value = false;
-  thinkText.value = "";
-  thinkExpanded.value = true;
+  generatedImageUrls.value = [];
+  selectedImageStyleId.value = DEFAULT_AI_IMAGE_STYLE_ID;
+  imageWatermarkChoice.value = "off";
+  thinkExpanded.value = feature.id !== "11";
 }
 
 function handleStop() {
@@ -160,6 +198,40 @@ function handleStop() {
 function copyOutput() {
   navigator.clipboard?.writeText(outputText.value);
   toast.success("复制成功");
+}
+
+function copyImageUrl(url: string) {
+  navigator.clipboard?.writeText(url);
+  toast.success("图片链接已复制");
+}
+
+function extFromMime(mime: string) {
+  if (mime.includes("jpeg")) return "jpg";
+  if (mime.includes("webp")) return "webp";
+  if (mime.includes("gif")) return "gif";
+  return "png";
+}
+
+async function downloadGeneratedImage(url: string) {
+  const base = `ai-image-${Date.now()}`;
+  try {
+    const res = await fetch(url, { mode: "cors" });
+    if (!res.ok) throw new Error("fetch failed");
+    const blob = await res.blob();
+    const ext = extFromMime(blob.type || "");
+    const href = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = `${base}.${ext}`;
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(href);
+    toast.success("已开始下载");
+  } catch {
+    toast.error("无法直接下载（可能被跨域限制），请用「打开原图」后右键保存");
+  }
 }
 
 onMounted(() => resizeInput());
@@ -281,8 +353,51 @@ onMounted(() => resizeInput());
                   >● 生成中</span
                 >
               </label>
-              <div class="ai-input-btns">
+              <div
+                class="ai-input-btns"
+                :class="{ 'ai-input-btns--image': selectedFeature.id === '11' }"
+              >
+                <div
+                  v-if="selectedFeature.id === '11'"
+                  class="select-with-label ai-image-gen__style"
+                >
+                  <label class="select-with-label__text" for="ai-image-style-select"
+                    >生图风格</label
+                  >
+                  <select
+                    id="ai-image-style-select"
+                    v-model="selectedImageStyleId"
+                    class="mode-select ai-style-select"
+                    :disabled="isLoading"
+                  >
+                    <option
+                      v-for="s in AI_IMAGE_STYLES"
+                      :key="s.id"
+                      :value="s.id"
+                    >
+                      {{ s.label }}
+                    </option>
+                  </select>
+                </div>
+                <div
+                  v-if="selectedFeature.id === '11'"
+                  class="select-with-label ai-image-gen__watermark"
+                >
+                  <label class="select-with-label__text" for="ai-image-watermark-select"
+                    >水印</label
+                  >
+                  <select
+                    id="ai-image-watermark-select"
+                    v-model="imageWatermarkChoice"
+                    class="mode-select ai-wm-select"
+                    :disabled="isLoading"
+                  >
+                    <option value="off">无</option>
+                    <option value="on">添加</option>
+                  </select>
+                </div>
                 <select
+                  v-if="selectedFeature.id !== '11'"
                   v-model="thinkingMode"
                   class="mode-select"
                   :disabled="isLoading"
@@ -295,8 +410,14 @@ onMounted(() => resizeInput());
                     {{ mode.label }}
                   </option>
                 </select>
+                <AppButton
+                  v-if="isLoading && selectedFeature.id === '11'"
+                  loading
+                  disabled
+                  >生成中…</AppButton
+                >
                 <button
-                  v-if="isLoading"
+                  v-else-if="isLoading"
                   class="stop-btn stop-btn--active"
                   @click="handleStop"
                 >
@@ -311,6 +432,51 @@ onMounted(() => resizeInput());
               </div>
             </div>
             <div class="ai-output-area">
+              <template v-if="selectedFeature.id === '11'">
+                <div v-if="isLoading" class="ai-loading">
+                  <div class="ai-loading__dots"><span /><span /><span /></div>
+                  <p>AI 正在生成图片，请稍候…</p>
+                </div>
+                <div v-else-if="generatedImageUrls.length" class="ai-image-output">
+                  <div
+                    v-for="(url, i) in generatedImageUrls"
+                    :key="i"
+                    class="ai-image-output__cell"
+                  >
+                    <img :src="url" alt="AI 生成图" class="ai-image-output__img" />
+                    <div class="ai-output__actions">
+                      <button
+                        class="tag"
+                        type="button"
+                        @click="downloadGeneratedImage(url)"
+                      >
+                        ⬇️ 下载图片
+                      </button>
+                      <a
+                        :href="url"
+                        class="tag"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        >🔗 打开原图</a
+                      >
+                      <button class="tag" type="button" @click="copyImageUrl(url)">
+                        📋 复制链接
+                      </button>
+                      <button
+                        class="tag"
+                        type="button"
+                        @click="generatedImageUrls = []"
+                      >
+                        清除
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div v-else class="ai-output-empty">
+                  <p>输入图片描述，选择风格后点击「生成」</p>
+                </div>
+              </template>
+              <template v-else>
               <div v-if="thinkText" class="ai-think-block">
                 <button
                   class="ai-think-toggle"
@@ -357,6 +523,7 @@ onMounted(() => resizeInput());
               <div v-else class="ai-output-empty">
                 <p>在上方输入内容，点击「开始生成」</p>
               </div>
+              </template>
             </div>
           </div>
         </div>
@@ -603,7 +770,7 @@ onMounted(() => resizeInput());
 .lang-select {
   flex: 1;
   padding: 7px 10px;
-  background: var(--color-bg-glass);
+  background-color: var(--color-bg-glass);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
@@ -629,9 +796,41 @@ onMounted(() => resizeInput());
   border-color: var(--color-primary);
   background: rgba(91, 138, 240, 0.08);
 }
+.ai-input-btns--image {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+}
+.ai-image-gen__style.select-with-label .mode-select,
+.ai-image-gen__watermark.select-with-label .mode-select {
+  width: auto;
+  min-width: 9.5rem;
+  max-width: 220px;
+}
+.ai-image-gen__watermark.select-with-label .ai-wm-select {
+  min-width: 5.5rem;
+  max-width: 120px;
+}
+.ai-image-output {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--color-bg-glass);
+}
+.ai-image-output__cell {
+  padding: 16px;
+}
+.ai-image-output__img {
+  display: block;
+  width: 100%;
+  max-height: min(480px, 70vh);
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.04);
+}
 .ai-textarea {
   width: 100%;
-  padding: 14px 16px;
+  padding: 12px 16px;
   background: var(--color-bg-glass);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -869,7 +1068,7 @@ onMounted(() => resizeInput());
   padding: 0 12px;
   border-radius: var(--radius-full);
   border: 1px solid var(--color-border);
-  background: var(--color-bg-glass);
+  background-color: var(--color-bg-glass);
   font-size: var(--text-sm);
   color: var(--color-text-secondary);
   outline: none;

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { onMusicCommand } from '@/lib/musicBridge'
+import { snapFabToEdges } from '@/lib/snapFabToEdge'
 
 interface Track {
   url: string
@@ -28,29 +29,75 @@ const volume = ref(0.5)
 const audioRef = ref<HTMLAudioElement | null>(null)
 const loopMode = ref<'off' | 'all' | 'one'>('all') // off: 不循环, all: 列表循环, one: 单曲循环
 
-// 拖动状态
+/** 与按钮宽度一致（圆形按钮） */
+const PLAYER = 56
+const STORAGE_POS = 'music-player-fab-pos'
+
+// 拖动状态（与 AIAssistantFloat 一致：不用 transition 动画 left/top，用 dragMoved 区分点击）
 const isDragging = ref(false)
-const dragOffset = ref({ x: 0, y: 0 })
-const position = ref({ x: window.innerWidth - 80, y: window.innerHeight - 100 - 28, bottom: 'auto' })
+const dragMoved = ref(false)
+/** 避免首屏从默认坐标加载存档时触发 left/top 过渡 */
+const fabSnapTransitionReady = ref(false)
+const position = ref({
+  x: typeof window !== 'undefined' ? window.innerWidth - PLAYER - 24 : 400,
+  y: typeof window !== 'undefined' ? window.innerHeight - PLAYER - 128 : 400,
+})
 let dragStartX = 0
 let dragStartY = 0
 let dragStartPosX = 0
 let dragStartPosY = 0
 
-const panelPosition = computed(() => {
-  const windowWidth = window.innerWidth
-  const playerWidth = 56
-  const panelWidth = 320
-  const centerX = (typeof position.value.x === 'number' ? position.value.x : 24) + playerWidth / 2
-  
-  // 如果按钮在左半边，面板显示在右边；如果在右半边，面板显示在左边
-  if (centerX < windowWidth / 2) {
-    // 按钮在左边，面板显示在右边
-    return { right: 'auto', left: (typeof position.value.x === 'number' ? position.value.x : 24) + playerWidth + 8 + 'px' }
-  } else {
-    // 按钮在右边，面板显示在左边
-    return { left: 'auto', right: windowWidth - (typeof position.value.x === 'number' ? position.value.x : 24) + 8 + 'px' }
+const MUSIC_PANEL_W = 320
+
+/** 与 AI 助手面板相同：fixed 视口坐标，避免相对 .music-player 再叠加 left 导致错位 */
+const musicPanelStyle = computed(() => {
+  if (typeof window === 'undefined') {
+    return {
+      position: 'fixed' as const,
+      bottom: '120px',
+      left: '12px',
+      width: '320px',
+      maxHeight: 'min(78vh, 520px)',
+      zIndex: '10000',
+    }
   }
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const fabX = position.value.x
+  const fabY = position.value.y
+  const panelW = Math.min(MUSIC_PANEL_W, vw - 24)
+  const margin = 12
+  const gap = 8
+  const fabCenterX = fabX + PLAYER / 2
+  const bottomPx = vh - fabY - PLAYER
+  const maxH = Math.min(vh * 0.78, 520)
+
+  const base: Record<string, string> = {
+    position: 'fixed',
+    bottom: `${bottomPx}px`,
+    width: `${panelW}px`,
+    maxHeight: `${maxH}px`,
+    zIndex: '10000',
+    overflowY: 'auto',
+    left: 'auto',
+    right: 'auto',
+  }
+
+  if (fabCenterX < vw / 2) {
+    let left = fabX + PLAYER + gap
+    if (left + panelW > vw - margin) left = vw - margin - panelW
+    if (left < margin) left = margin
+    base.left = `${left}px`
+  } else {
+    const panelLeft = fabX - gap - panelW
+    if (panelLeft >= margin) {
+      base.right = `${vw - fabX + gap}px`
+    } else {
+      base.left = `${margin}px`
+    }
+  }
+
+  return base
 })
 
 // 音波动画
@@ -58,6 +105,27 @@ const audioBars = ref([0, 0, 0, 0, 0])
 let animationFrameId: number | null = null
 
 const STORAGE_KEY = 'music_player_state'
+
+function loadFabPos() {
+  try {
+    const s = localStorage.getItem(STORAGE_POS)
+    if (s) {
+      const { x, y } = JSON.parse(s) as { x: number; y: number }
+      if (typeof x === 'number' && typeof y === 'number') {
+        position.value = {
+          x: Math.max(0, Math.min(x, window.innerWidth - PLAYER)),
+          y: Math.max(0, Math.min(y, window.innerHeight - PLAYER)),
+        }
+      }
+    }
+  } catch {
+    /* noop */
+  }
+}
+
+function saveFabPos() {
+  localStorage.setItem(STORAGE_POS, JSON.stringify(position.value))
+}
 
 const playlist = computed(() => {
   if (!props.musicUrls) return []
@@ -172,12 +240,18 @@ watch(
 let unlistenMusicBridge: (() => void) | null = null
 
 onMounted(() => {
+  loadFabPos()
   restoreState()
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      fabSnapTransitionReady.value = true
+    })
+  })
   if (currentTrack.value && audioRef.value) {
     audioRef.value.src = currentTrack.value.url
   }
-  document.addEventListener('mousemove', handleMouseMove)
-  document.addEventListener('mouseup', handleMouseUp)
+  window.addEventListener('mousemove', handleMouseMove, true)
+  window.addEventListener('mouseup', handleMouseUp, true)
 
   unlistenMusicBridge = onMusicCommand((cmd) => {
     if (!hasMusic.value) return
@@ -208,8 +282,8 @@ onMounted(() => {
 onUnmounted(() => {
   unlistenMusicBridge?.()
   unlistenMusicBridge = null
-  document.removeEventListener('mousemove', handleMouseMove)
-  document.removeEventListener('mouseup', handleMouseUp)
+  window.removeEventListener('mousemove', handleMouseMove, true)
+  window.removeEventListener('mouseup', handleMouseUp, true)
   if (animationFrameId) {
     cancelAnimationFrame(animationFrameId)
   }
@@ -336,56 +410,69 @@ const handleVolumeInput = (e: Event) => {
 }
 
 const handleMouseDown = (e: MouseEvent) => {
+  if (e.button !== 0) return
+  e.preventDefault()
   isDragging.value = true
+  dragMoved.value = false
   dragStartX = e.clientX
   dragStartY = e.clientY
-  dragStartPosX = typeof position.value.x === 'number' ? position.value.x : 24
-  dragStartPosY = typeof position.value.y === 'number' ? position.value.y : 24
+  dragStartPosX = position.value.x
+  dragStartPosY = position.value.y
 }
 
 const handleMouseMove = (e: MouseEvent) => {
   if (!isDragging.value) return
   const deltaX = e.clientX - dragStartX
   const deltaY = e.clientY - dragStartY
-  
+  if (Math.abs(deltaX) + Math.abs(deltaY) > 4) dragMoved.value = true
+
   let newX = dragStartPosX + deltaX
   let newY = dragStartPosY + deltaY
-  
-  // 边界限制
-  newX = Math.max(0, Math.min(newX, window.innerWidth - 56))
-  newY = Math.max(0, Math.min(newY, window.innerHeight - 56))
-  
-  position.value = { x: newX, y: newY, bottom: 'auto' }
+  newX = Math.max(0, Math.min(newX, window.innerWidth - PLAYER))
+  newY = Math.max(0, Math.min(newY, window.innerHeight - PLAYER))
+  position.value = { x: newX, y: newY }
 }
 
 const handleMouseUp = () => {
   if (!isDragging.value) return
   isDragging.value = false
-  
-  // 贴边吸附
-  const windowWidth = window.innerWidth
-  const playerWidth = 56
-  const threshold = windowWidth / 2
-  
-  if (typeof position.value.x === 'number') {
-    const centerX = position.value.x + playerWidth / 2
-    if (centerX < threshold) {
-      position.value = { x: 24, y: position.value.y, bottom: 'auto' }
-    } else {
-      position.value = { x: windowWidth - playerWidth - 24, y: position.value.y, bottom: 'auto' }
-    }
-  }
+  if (!dragMoved.value) return
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const snapped = snapFabToEdges(
+    position.value.x,
+    position.value.y,
+    PLAYER,
+    vw,
+    vh
+  )
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      position.value = snapped
+      saveFabPos()
+    })
+  })
 }
 
-const handleButtonClick = (e: MouseEvent) => {
-  // 如果是拖动，不触发点击
-  if (isDragging.value) return
+const handleButtonClick = () => {
+  if (dragMoved.value) {
+    dragMoved.value = false
+    return
+  }
   isExpanded.value = !isExpanded.value
 }
 </script>
 
 <template>
-  <div v-if="hasMusic" class="music-player" :style="{ left: position.x + 'px', top: position.y + 'px', bottom: position.bottom }" :class="{ 'music-player--dragging': isDragging }">
+  <div
+    v-if="hasMusic"
+    class="music-player"
+    :style="{ left: position.x + 'px', top: position.y + 'px' }"
+    :class="{
+      'music-player--dragging': isDragging,
+      'music-player--snap-ease': fabSnapTransitionReady,
+    }"
+  >
     <audio
       ref="audioRef"
       :src="currentTrack?.url"
@@ -405,7 +492,7 @@ const handleButtonClick = (e: MouseEvent) => {
     </div>
 
     <transition name="slide-up">
-      <div v-if="isExpanded" class="music-player__panel" :style="panelPosition" @mousedown.stop>
+      <div v-if="isExpanded" class="music-player__panel" :style="musicPanelStyle" @mousedown.stop>
         <div class="music-player__header">
           <h4 class="music-player__title">🎵 {{ currentTrack?.name }}</h4>
           <button class="music-player__close" @click="isExpanded = false">✕</button>
@@ -417,8 +504,64 @@ const handleButtonClick = (e: MouseEvent) => {
             {{ isPlaying ? '⏸' : '▶' }}
           </button>
           <button class="music-player__control-btn" @click="nextTrack" :disabled="playlist.length <= 1">⏭</button>
-          <button class="music-player__loop-btn" @click="toggleLoopMode" :title="`循环模式: ${loopMode === 'all' ? '列表循环' : loopMode === 'one' ? '单曲循环' : '不循环'}`">
-            {{ loopMode === 'all' ? '🔁' : loopMode === 'one' ? '🔂' : '➡️' }}
+          <button
+            type="button"
+            class="music-player__loop-btn"
+            :aria-label="`循环模式: ${loopMode === 'all' ? '列表循环' : loopMode === 'one' ? '单曲循环' : '不循环'}`"
+            :title="`循环模式: ${loopMode === 'all' ? '列表循环' : loopMode === 'one' ? '单曲循环' : '不循环'}`"
+            @click="toggleLoopMode"
+          >
+            <!-- 列表循环：双箭头回路 -->
+            <svg
+              v-if="loopMode === 'all'"
+              class="music-player__loop-svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M17 2l4 4-4 4" />
+              <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+              <path d="M7 22l-4-4 4-4" />
+              <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+            </svg>
+            <!-- 单曲循环：回路 + 中间竖线表示「单曲」 -->
+            <svg
+              v-else-if="loopMode === 'one'"
+              class="music-player__loop-svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M17 2l4 4-4 4" />
+              <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+              <path d="M7 22l-4-4 4-4" />
+              <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+              <!-- 偏右竖线，避免与回路中心重叠 -->
+              <path d="M14.5 8v9" stroke-width="2.5" stroke-linecap="round" />
+            </svg>
+            <!-- 不循环：仅向前播放 -->
+            <svg
+              v-else
+              class="music-player__loop-svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M5 12h12" />
+              <path d="M14 8l4 4-4 4" />
+            </svg>
           </button>
         </div>
 
@@ -443,25 +586,36 @@ const handleButtonClick = (e: MouseEvent) => {
         </div>
 
         <div class="music-player__playlist-toggle">
-          <button class="music-player__playlist-btn" @click="showPlaylist = !showPlaylist">
+          <button
+            type="button"
+            class="music-player__playlist-btn"
+            :aria-expanded="showPlaylist"
+            @click="showPlaylist = !showPlaylist"
+          >
             {{ showPlaylist ? '▼ 隐藏播放列表' : '▶ 显示播放列表' }}
           </button>
         </div>
 
-        <transition name="fade">
-          <div v-if="showPlaylist" class="music-player__playlist">
-            <div
-              v-for="(track, idx) in playlist"
-              :key="idx"
-              :class="['music-player__playlist-item', { 'music-player__playlist-item--active': idx === currentTrackIndex }]"
-              @click="selectTrack(idx)"
-            >
-              <span class="music-player__playlist-index">{{ idx + 1 }}</span>
-              <span class="music-player__playlist-name">{{ track.name }}</span>
-              <span v-if="idx === currentTrackIndex" class="music-player__playlist-playing">▶</span>
+        <!-- 用 grid 0fr/1fr 做高度过渡，避免 v-if + Transition 整段挂载导致卡顿 -->
+        <div
+          class="music-player__playlist-shell"
+          :class="{ 'music-player__playlist-shell--open': showPlaylist }"
+        >
+          <div class="music-player__playlist-inner">
+            <div class="music-player__playlist">
+              <div
+                v-for="(track, idx) in playlist"
+                :key="idx"
+                :class="['music-player__playlist-item', { 'music-player__playlist-item--active': idx === currentTrackIndex }]"
+                @click="selectTrack(idx)"
+              >
+                <span class="music-player__playlist-index">{{ idx + 1 }}</span>
+                <span class="music-player__playlist-name">{{ track.name }}</span>
+                <span v-if="idx === currentTrackIndex" class="music-player__playlist-playing">▶</span>
+              </div>
             </div>
           </div>
-        </transition>
+        </div>
       </div>
     </transition>
   </div>
@@ -472,11 +626,31 @@ const handleButtonClick = (e: MouseEvent) => {
   position: fixed;
   z-index: 999;
   user-select: none;
-  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition:
+    box-shadow 0.25s ease,
+    filter 0.2s ease;
+}
+
+/* 仅松手贴边时过渡 left/top；拖动时由 --dragging 关掉 */
+.music-player.music-player--snap-ease {
+  transition:
+    left var(--fab-snap-duration) var(--fab-snap-ease),
+    top var(--fab-snap-duration) var(--fab-snap-ease),
+    box-shadow 0.25s ease,
+    filter 0.2s ease;
 }
 
 .music-player--dragging {
   cursor: grabbing;
+  transition: none;
+}
+
+.music-player--dragging .music-player__button {
+  transition: none;
+}
+
+.music-player--dragging .music-player__button:hover {
+  transform: none;
 }
 
 .music-player__button {
@@ -556,9 +730,9 @@ const handleButtonClick = (e: MouseEvent) => {
 }
 
 .music-player__panel {
-  position: absolute;
-  bottom: 0;
-  width: 320px;
+  /* position / width / bottom / max-height 由 musicPanelStyle（fixed）控制 */
+  display: flex;
+  flex-direction: column;
   background: rgba(20, 20, 30, 0.95);
   backdrop-filter: blur(20px);
   border-radius: 16px;
@@ -647,13 +821,23 @@ const handleButtonClick = (e: MouseEvent) => {
   border-radius: 50%;
   background: rgba(91, 138, 240, 0.2);
   border: 1px solid rgba(91, 138, 240, 0.3);
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.85);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.music-player__loop-svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  pointer-events: none;
 }
 
 .music-player__loop-btn:hover {
@@ -771,12 +955,34 @@ const handleButtonClick = (e: MouseEvent) => {
   color: #5b8af0;
 }
 
+.music-player__playlist-shell {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.music-player__playlist-shell--open {
+  grid-template-rows: 1fr;
+}
+
+.music-player__playlist-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
 .music-player__playlist {
-  margin-top: 12px;
-  max-height: 200px;
+  max-height: min(200px, 38vh);
+  overflow-x: hidden;
   overflow-y: auto;
-  border-top: 1px solid rgba(91, 138, 240, 0.1);
+  -webkit-overflow-scrolling: touch;
+  contain: content;
+  margin-top: 10px;
   padding-top: 8px;
+  border-top: 1px solid rgba(91, 138, 240, 0.12);
+}
+
+.music-player__playlist-shell:not(.music-player__playlist-shell--open) .music-player__playlist {
+  pointer-events: none;
 }
 
 .music-player__playlist-item {
@@ -786,7 +992,9 @@ const handleButtonClick = (e: MouseEvent) => {
   padding: 8px;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.6);
 }
@@ -829,16 +1037,6 @@ const handleButtonClick = (e: MouseEvent) => {
 .slide-up-leave-to {
   opacity: 0;
   transform: translateY(10px);
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
 }
 
 @media (max-width: 768px) {

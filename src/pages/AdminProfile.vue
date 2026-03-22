@@ -281,7 +281,7 @@ async function saveCouple() {
     if (person1AvatarFile.value) {
       try {
         const { uploadImage } = await import("@/api");
-        p1avatar = await uploadImage(person1AvatarFile.value);
+        p1avatar = await uploadImage(person1AvatarFile.value, "site/couple-p1");
         person1AvatarFile.value = null;
         person1AvatarPreview.value = p1avatar;
       } catch {
@@ -291,7 +291,7 @@ async function saveCouple() {
     if (person2AvatarFile.value) {
       try {
         const { uploadImage } = await import("@/api");
-        p2avatar = await uploadImage(person2AvatarFile.value);
+        p2avatar = await uploadImage(person2AvatarFile.value, "site/couple-p2");
         person2AvatarFile.value = null;
         person2AvatarPreview.value = p2avatar;
       } catch {

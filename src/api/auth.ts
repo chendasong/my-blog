@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs'
 import { supabase } from '@/lib/supabase'
+import { uploadImageSmart } from '@/lib/qiniuClient'
 
 export interface AdminUser {
   id: string
@@ -59,12 +60,7 @@ export const authApi = {
   async updateProfile(id: string, data: Partial<AdminUser> & { avatar_file?: File }): Promise<AdminUser> {
     let avatarUrl = data.avatar
     if (data.avatar_file) {
-      const ext = data.avatar_file.name.split('.').pop()
-      const fileName = `avatar-${Date.now()}.${ext}`
-      const { error: upErr } = await supabase.storage.from('images').upload(fileName, data.avatar_file, { upsert: true })
-      if (upErr) throw upErr
-      const { data: urlData } = supabase.storage.from('images').getPublicUrl(fileName)
-      avatarUrl = urlData.publicUrl
+      avatarUrl = await uploadImageSmart(data.avatar_file, 'site/admin-avatar')
     }
     const { data: updated, error } = await supabase
       .from('admin_users')
@@ -99,21 +95,11 @@ export const authApi = {
     let backgroundUrl = settings.hero_background_image
     
     if (settings.avatar_file) {
-      const ext = settings.avatar_file.name.split('.').pop()
-      const fileName = `owner-avatar-${Date.now()}.${ext}`
-      const { error: upErr } = await supabase.storage.from('images').upload(fileName, settings.avatar_file, { upsert: true })
-      if (upErr) throw upErr
-      const { data: urlData } = supabase.storage.from('images').getPublicUrl(fileName)
-      avatarUrl = urlData.publicUrl
+      avatarUrl = await uploadImageSmart(settings.avatar_file, 'site/owner-avatar')
     }
 
     if (settings.background_file) {
-      const ext = settings.background_file.name.split('.').pop()
-      const fileName = `hero-bg-${Date.now()}.${ext}`
-      const { error: upErr } = await supabase.storage.from('images').upload(fileName, settings.background_file, { upsert: true })
-      if (upErr) throw upErr
-      const { data: urlData } = supabase.storage.from('images').getPublicUrl(fileName)
-      backgroundUrl = urlData.publicUrl
+      backgroundUrl = await uploadImageSmart(settings.background_file, 'site/hero-bg')
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars

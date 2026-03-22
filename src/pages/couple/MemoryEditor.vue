@@ -268,7 +268,9 @@ async function handleSubmit() {
 .thumb-cover-badge { position: absolute; bottom: 3px; left: 3px; background: rgba(232,96,122,.9); color: white; font-size: 9px; padding: 2px 5px; border-radius: var(--radius-full); }
 .sidebar-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius-xl); padding: 20px; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 80px; }
 .sidebar-card__title { font-size: var(--text-base); font-weight: 600; color: var(--color-text-primary); padding-bottom: 12px; border-bottom: 1px solid var(--color-border); }
-.form-input, .form-select { padding: 9px 13px; background: var(--color-bg-glass); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-sm); color: var(--color-text-primary); outline: none; width: 100%; font-family: var(--font-sans); transition: border-color var(--transition-fast); }
+.form-input, .form-select { padding: 9px 13px; border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-sm); color: var(--color-text-primary); outline: none; width: 100%; font-family: var(--font-sans); transition: border-color var(--transition-fast); }
+.form-input { background: var(--color-bg-glass); }
+.form-select { background-color: var(--color-bg-glass); }
 .form-input:focus, .form-select:focus { border-color: #E8607A; }
 .sidebar-save { padding-top: 12px; border-top: 1px solid var(--color-border); }
 @media (max-width: 900px) { .editor-body { grid-template-columns: 1fr; } .cover-area { grid-template-columns: 1fr; } }

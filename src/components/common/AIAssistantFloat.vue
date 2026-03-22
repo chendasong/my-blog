@@ -4,6 +4,7 @@ import { useRouter, RouterLink } from 'vue-router'
 import { runSiteAssistantTurn, type AssistantChatMessage } from '@/api/siteAssistant'
 import { useToast } from '@/composables/useToast'
 import { syncTextareaHeight } from '@/lib/autoResizeTextarea'
+import { snapFabToEdges } from '@/lib/snapFabToEdge'
 import AppButton from '@/components/common/AppButton.vue'
 
 const router = useRouter()
@@ -16,6 +17,8 @@ const FAB = 52
 const isOpen = ref(false)
 const isDragging = ref(false)
 const dragMoved = ref(false)
+/** 避免首屏从默认坐标加载存档时触发 left/top 过渡 */
+const fabSnapTransitionReady = ref(false)
 const position = ref({ x: 24, y: typeof window !== 'undefined' ? window.innerHeight - FAB - 120 : 400 })
 const messages = ref<AssistantChatMessage[]>([])
 const DEFAULT_INPUT_PLACEHOLDER =
@@ -128,14 +131,19 @@ watch(isOpen, (open) => {
 
 onMounted(() => {
   loadPos()
-  document.addEventListener('mousemove', onMouseMove)
-  document.addEventListener('mouseup', onMouseUp)
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      fabSnapTransitionReady.value = true
+    })
+  })
+  window.addEventListener('mousemove', onMouseMove, true)
+  window.addEventListener('mouseup', onMouseUp, true)
   resizeInput()
 })
 
 onUnmounted(() => {
-  document.removeEventListener('mousemove', onMouseMove)
-  document.removeEventListener('mouseup', onMouseUp)
+  window.removeEventListener('mousemove', onMouseMove, true)
+  window.removeEventListener('mouseup', onMouseUp, true)
   abortCtl?.abort()
 })
 
@@ -164,7 +172,22 @@ function onMouseMove(e: MouseEvent) {
 function onMouseUp() {
   if (!isDragging.value) return
   isDragging.value = false
-  savePos()
+  if (!dragMoved.value) return
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const snapped = snapFabToEdges(
+    position.value.x,
+    position.value.y,
+    FAB,
+    vw,
+    vh
+  )
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      position.value = snapped
+      savePos()
+    })
+  })
 }
 
 function togglePanel(e?: MouseEvent) {
@@ -262,7 +285,10 @@ const quickActions = [
   <div
     class="ai-assistant"
     :style="{ left: position.x + 'px', top: position.y + 'px' }"
-    :class="{ 'ai-assistant--dragging': isDragging }"
+    :class="{
+      'ai-assistant--dragging': isDragging,
+      'ai-assistant--snap-ease': fabSnapTransitionReady,
+    }"
   >
     <button
       type="button"
@@ -363,8 +389,16 @@ const quickActions = [
   z-index: 10000;
   user-select: none;
 }
+
+.ai-assistant.ai-assistant--snap-ease {
+  transition:
+    left var(--fab-snap-duration) var(--fab-snap-ease),
+    top var(--fab-snap-duration) var(--fab-snap-ease);
+}
+
 .ai-assistant--dragging {
   cursor: grabbing;
+  transition: none;
 }
 .ai-assistant__fab {
   width: 52px;

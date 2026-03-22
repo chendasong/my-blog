@@ -1,4 +1,9 @@
 import { supabase } from '@/lib/supabase'
+import {
+  deleteRemoteStorageFile,
+  extractImageUrlsFromArticleContent,
+  isHostedStorageAssetUrl,
+} from '@/lib/qiniuClient'
 import type { Article } from '@/types'
 
 export interface ArticleQuery {
@@ -117,8 +122,33 @@ export const articleApi = {
   },
 
   async remove(id: string): Promise<void> {
+    const { data, error: selErr } = await supabase
+      .from('articles')
+      .select('cover,content')
+      .eq('id', id)
+      .maybeSingle()
+    if (selErr) throw selErr
+
+    const urls = new Set<string>()
+    const cover = data?.cover
+    if (typeof cover === 'string' && isHostedStorageAssetUrl(cover)) {
+      urls.add(cover.trim())
+    }
+    const content = typeof data?.content === 'string' ? data.content : ''
+    for (const u of extractImageUrlsFromArticleContent(content)) {
+      if (isHostedStorageAssetUrl(u)) urls.add(u)
+    }
+
     const { error } = await supabase.from('articles').delete().eq('id', id)
     if (error) throw error
+
+    for (const url of urls) {
+      try {
+        await deleteRemoteStorageFile(url)
+      } catch (e) {
+        console.warn('[articles] 删除文章后清理文件失败', url, e)
+      }
+    }
   },
 
   async like(id: string, currentLikes: number): Promise<Article> {

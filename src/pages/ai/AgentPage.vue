@@ -9,6 +9,12 @@ import {
 } from '@/api/agent'
 import { articleApi, noteApi } from '@/api'
 import { generateImages } from '@/api/siliconflow'
+import {
+  AI_IMAGE_STYLES,
+  DEFAULT_AI_IMAGE_STYLE_ID,
+  getAiImageStyleById,
+  buildCoverImagePrompt,
+} from '@/data'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
 import AppButton from '@/components/common/AppButton.vue'
@@ -39,6 +45,9 @@ const pendingCoverUrl = ref('')
 /** 全流程成功后用于「前往详情」，不自动跳转 */
 const createdId = ref<string | null>(null)
 const createdKind = ref<'article' | 'note' | null>(null)
+
+/** 文章流水线：封面生图风格 */
+const coverImageStyleId = ref(DEFAULT_AI_IMAGE_STYLE_ID)
 
 /** 当前进行到第几步（0-based），用于高亮进度条 */
 const activeIndex = ref(-1)
@@ -198,7 +207,11 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
         if (!d) throw new Error('缺少文章草稿，无法生成封面')
         setStepStatus('cover', 'active')
         activeIndex.value = stepIndex('cover')
-        const imgPrompt = `宽高比: 16/9 吉伊卡哇风格科普插画风格，主题突出，画面清晰。${d.coverPrompt || d.title}`
+        const style = getAiImageStyleById(coverImageStyleId.value) || AI_IMAGE_STYLES[0]
+        const imgPrompt = buildCoverImagePrompt(
+          (d.coverPrompt || d.title).trim(),
+          style,
+        )
         try {
           const urls = await generateImages(imgPrompt, 1)
           pendingCoverUrl.value = urls[0] || ''
@@ -348,6 +361,21 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
             placeholder="例如：写一篇面向前端初学者的 Vue3 入门教程，语气轻松，带示例代码；或：记录本周项目排期与待办..."
             :disabled="isRunning"
           />
+        </div>
+
+        <div v-if="taskMode === 'article'" class="agent-field">
+          <div class="select-with-label">
+            <span class="select-with-label__text">生图风格</span>
+            <select
+              v-model="coverImageStyleId"
+              class="agent-style-select"
+              :disabled="isRunning"
+            >
+              <option v-for="s in AI_IMAGE_STYLES" :key="s.id" :value="s.id">
+                {{ s.label }}
+              </option>
+            </select>
+          </div>
         </div>
 
         <div class="agent-actions">
@@ -628,6 +656,26 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
   font-weight: 600;
   color: var(--color-text-secondary);
   margin-bottom: 8px;
+}
+.agent-style-select {
+  width: auto;
+  min-width: 11rem;
+  max-width: 260px;
+  padding: 8px 14px;
+  background-color: var(--color-bg-glass);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  outline: none;
+  cursor: pointer;
+}
+.agent-style-select:focus {
+  border-color: var(--color-primary);
+}
+.agent-style-select:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
 }
 .agent-textarea {
   width: 100%;

@@ -14,7 +14,6 @@ const appStore = useAppStore()
 const authStore = useAuthStore()
 const store = useCoupleStore()
 const activeFilter = ref('all')
-const carouselIndexes = ref<Record<string, number>>({})
 
 const person1 = computed(() => ({
   name: authStore.siteSettings?.person1_name || coupleInfo.person1.name,
@@ -48,23 +47,11 @@ async function handleFilter(type: string) {
   await store.fetchMemories(type)
 }
 
-function getCarouselImages(mem: CoupleMemory): string[] {
-  if (mem.images && mem.images.length > 0) return mem.images
-  return mem.image ? [mem.image] : []
-}
-function carouselNext(mem: CoupleMemory, e: Event) {
-  e.stopPropagation()
-  const imgs = getCarouselImages(mem)
-  if (imgs.length <= 1) return
-  const cur = carouselIndexes.value[mem.id] || 0
-  carouselIndexes.value[mem.id] = (cur + 1) % imgs.length
-}
-function carouselPrev(mem: CoupleMemory, e: Event) {
-  e.stopPropagation()
-  const imgs = getCarouselImages(mem)
-  if (imgs.length <= 1) return
-  const cur = carouselIndexes.value[mem.id] || 0
-  carouselIndexes.value[mem.id] = (cur - 1 + imgs.length) % imgs.length
+/** 列表只展示封面主图；无 `image` 时用首张相册图兜底 */
+function getCoverUrl(mem: CoupleMemory): string {
+  if (mem.image?.trim()) return mem.image
+  if (mem.images?.length) return mem.images[0]
+  return ''
 }
 function openNew() {
   router.push('/couple/memory/new')
@@ -78,14 +65,6 @@ function openEdit(m: CoupleMemory) {
 async function handleDelete(id: string) {
   if (!confirm('确定删除这条记忆吗？')) return
   await store.remove(id)
-}
-
-async function handleSetAsMainImage(mem: CoupleMemory, imageIndex: number) {
-  const images = getCarouselImages(mem)
-  const selectedImage = images[imageIndex]
-  if (selectedImage && selectedImage !== mem.image) {
-    await store.update(mem.id, { image: selectedImage })
-  }
 }
 
 function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
@@ -132,32 +111,29 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
           <p class="empty-memories__hint">点击右上角的"添加记忆"按钮，记录我们的故事吧 💕</p>
         </div>
         <div v-else class="memories-grid">
-          <div v-for="mem in store.memories" :key="mem.id" class="memory-card glass-card animate-fade-in-up" style="cursor:pointer" @click="router.push(`/couple/memory/${mem.id}`)">
+          <div
+            v-for="mem in store.memories"
+            :key="mem.id"
+            class="memory-card animate-fade-in-up"
+            @click="router.push(`/couple/memory/${mem.id}`)"
+          >
             <div class="memory-card__cover">
-              <img :src="getCarouselImages(mem)[carouselIndexes[mem.id] || 0]" :alt="mem.title" />
-              <div class="memory-card__emotion" :style="{ background: emotionColors[mem.emotion] }">{{ emotionLabels[mem.emotion] }}</div>
-              <template v-if="getCarouselImages(mem).length > 1">
-                <button class="carousel-btn carousel-btn--prev" @click="carouselPrev(mem, $event)">‹</button>
-                <button class="carousel-btn carousel-btn--next" @click="carouselNext(mem, $event)">›</button>
-                <div class="carousel-dots">
-                  <span v-for="(_, i) in getCarouselImages(mem)" :key="i"
-                    :class="['carousel-dot', { 'carousel-dot--active': (carouselIndexes[mem.id] || 0) === i }]"
-                    @click.stop="carouselIndexes[mem.id] = i"
-                  />
-                </div>
-              </template>
+              <img v-if="getCoverUrl(mem)" :src="getCoverUrl(mem)" :alt="mem.title" />
+              <div v-else class="memory-card__cover-placeholder" aria-hidden="true">📷</div>
+              <div class="memory-card__emotion" :style="{ background: emotionColors[mem.emotion] }">
+                {{ emotionLabels[mem.emotion] }}
+              </div>
+              <div class="memory-card__actions" @click.stop>
+                <button type="button" class="memory-card__action-btn memory-card__action-btn--edit" @click="openEdit(mem)">✏️ 编辑</button>
+                <button type="button" class="memory-card__action-btn memory-card__action-btn--delete" @click="handleDelete(mem.id)">🗑️ 删除</button>
+              </div>
             </div>
             <div class="memory-card__body">
-              <div class="memory-card__type">{{ typeIcons[mem.type] }} {{ typeLabels[mem.type] }}</div>
               <h4 class="memory-card__title">{{ mem.title }}</h4>
               <p class="memory-card__desc">{{ mem.description }}</p>
-              <div class="memory-card__footer">
-                <span class="memory-card__date">📅 {{ mem.date }}</span>
-                <div class="memory-card__ops">
-                  <button class="op-btn" :title="mem.image === getCarouselImages(mem)[carouselIndexes[mem.id] || 0] ? '已是主图' : '设为主图'" @click.stop="handleSetAsMainImage(mem, carouselIndexes[mem.id] || 0)">{{ mem.image === getCarouselImages(mem)[carouselIndexes[mem.id] || 0] ? '⭐' : '☆' }}</button>
-                  <button class="op-btn" @click.stop="openEdit(mem)">✏️</button>
-                  <button class="op-btn op-btn--danger" @click.stop="handleDelete(mem.id)">🗑️</button>
-                </div>
+              <div class="memory-card__meta-row">
+                <span class="memory-card__type">{{ typeIcons[mem.type] }} {{ typeLabels[mem.type] }}</span>
+                <span class="memory-card__date" :title="mem.date">📅 {{ mem.date }}</span>
               </div>
             </div>
           </div>
@@ -225,45 +201,168 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
 .form-slide-enter-active, .form-slide-leave-active { transition: all .3s ease; max-height: 800px; }
 .form-slide-enter-from, .form-slide-leave-to { opacity: 0; max-height: 0; transform: translateY(-12px); }
 
-/* ---- cards ---- */
-.memories-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-.memory-card { overflow: hidden; transition: all var(--transition-base); }
-.memory-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
-.memory-card__cover { position: relative; aspect-ratio: 4/3; overflow: hidden; background: linear-gradient(135deg,#FFF0F5,#FFF8F0); cursor: pointer; }
-.memory-card__cover img { width: 100%; height: 100%; object-fit: cover; transition: transform .3s ease; }
-.memory-card__cover:hover img { transform: scale(1.03); }
-.memory-card__emotion { position: absolute; top: 10px; right: 10px; padding: 3px 10px; border-radius: var(--radius-full); font-size: var(--text-xs); color: white; font-weight: 600; }
-.memory-card__expand-hint { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,.4)); color: white; font-size: 11px; text-align: center; padding: 16px 0 6px; opacity: 0; transition: opacity var(--transition-fast); }
-.memory-card__cover:hover .memory-card__expand-hint { opacity: 1; }
-.memory-card__body { padding: 14px 16px; }
-.memory-card__type { font-size: var(--text-xs); color: var(--color-text-muted); margin-bottom: 4px; }
-.memory-card__title { font-size: var(--text-base); font-weight: 600; color: var(--color-text-primary); margin-bottom: 8px; }
-.memory-card__desc { font-size: var(--text-sm); color: var(--color-text-muted); line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* ---- cards（约一行 4 张，与文章列表密度接近）---- */
+.memories-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px;
+}
+.memory-card {
+  overflow: hidden;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  background: var(--color-bg-card);
+  backdrop-filter: var(--blur-md);
+  -webkit-backdrop-filter: var(--blur-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+}
+.memory-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  border-color: rgba(232, 96, 122, 0.28);
+}
+.memory-card__cover {
+  position: relative;
+  flex-shrink: 0;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: linear-gradient(135deg, #fff0f5, #fff8f0);
+}
+.memory-card__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--transition-slow);
+}
+.memory-card:hover .memory-card__cover img {
+  transform: scale(1.04);
+}
+.memory-card__cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  opacity: 0.35;
+}
+.memory-card__emotion {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  color: white;
+  font-weight: 600;
+}
+.memory-card__actions {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.72) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+.memory-card:hover .memory-card__actions {
+  opacity: 1;
+}
+.memory-card__action-btn {
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(8px);
+  transition: all var(--transition-fast);
+  color: white;
+  background: rgba(255, 255, 255, 0.12);
+}
+.memory-card__action-btn--edit:hover {
+  background: rgba(232, 96, 122, 0.88);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+.memory-card__action-btn--delete:hover {
+  background: rgba(180, 40, 60, 0.9);
+  border-color: rgba(255, 255, 255, 0.45);
+}
+.memory-card__body {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.memory-card__meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 10px;
+  margin-bottom: 0;
+  border-top: 1px solid var(--color-border);
+  min-width: 0;
+}
+.memory-card__type {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.memory-card__date {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+  white-space: nowrap;
+  opacity: 0.9;
+}
+.memory-card__title {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.35;
+  margin-bottom: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.memory-card__desc {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin-bottom: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 .memory-card__detail { padding: 8px 0; border-top: 1px solid var(--color-border); margin-top: 4px; }
 .memory-card__desc-full { font-size: var(--text-sm); color: var(--color-text-secondary); line-height: 1.8; white-space: pre-wrap; margin-bottom: 8px; }
 .memory-card__meta { font-size: var(--text-xs); color: var(--color-text-muted); }
-.memory-card__footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--color-border); }
-.memory-card__date { font-size: var(--text-xs); color: var(--color-text-muted); }
-.memory-card__ops { display: flex; gap: 4px; }
-.op-btn { padding: 4px 8px; border-radius: var(--radius-md); border: 1px solid var(--color-border); background: var(--color-bg-card); font-size: .8rem; cursor: pointer; transition: all var(--transition-fast); }
-.op-btn:hover { border-color: var(--color-primary); }
-.op-btn--danger:hover { border-color: var(--color-error); }
 .detail-slide-enter-active, .detail-slide-leave-active { transition: all .2s ease; overflow: hidden; max-height: 300px; }
 .detail-slide-enter-from, .detail-slide-leave-to { opacity: 0; max-height: 0; }
 .couple-logout { text-align: center; padding: 0 0 60px; }
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
 .form-label { font-size: var(--text-sm); font-weight: 600; color: var(--color-text-secondary); }
-.form-input, .form-textarea, .form-select { padding: 10px 12px; background: rgba(255,255,255,.5); border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-sm); color: var(--color-text-primary); font-family: var(--font-sans); outline: none; width: 100%; }
+.form-input, .form-textarea, .form-select { padding: 10px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-sm); color: var(--color-text-primary); font-family: var(--font-sans); outline: none; width: 100%; }
+.form-input, .form-textarea { background: rgba(255,255,255,.5); }
+.form-select { background-color: rgba(255,255,255,.5); }
 .form-input:focus, .form-textarea:focus, .form-select:focus { border-color: #E8607A; }
 .form-textarea { resize: vertical; }
 @media (max-width: 700px) { .mf-body { grid-template-columns: 1fr; } .form-row { grid-template-columns: 1fr; } }
 
-.carousel-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.35); color: white; border: none; cursor: pointer; font-size: 1.2rem; line-height: 1; padding: 4px 8px; border-radius: var(--radius-md); opacity: 0; transition: opacity var(--transition-fast); z-index: 2; }
-.memory-card__cover:hover .carousel-btn { opacity: 1; }
-.carousel-btn--prev { left: 6px; }
-.carousel-btn--next { right: 6px; }
-.carousel-dots { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; z-index: 2; }
-.carousel-dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255,255,255,0.5); cursor: pointer; transition: background var(--transition-fast); }
-.carousel-dot--active { background: white; }
 </style>

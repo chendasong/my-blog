@@ -80,27 +80,41 @@ export interface StreamOptions {
   onThink?: (text: string) => void
 }
 
-export async function generateImages(prompt: string, _n = 3): Promise<string[]> {
+export interface GenerateImagesOptions {
+  /** 是否添加可见水印；默认 false（无水印） */
+  watermark?: boolean
+}
+
+export async function generateImages(
+  prompt: string,
+  n = 1,
+  options?: GenerateImagesOptions,
+): Promise<string[]> {
+  const count = Math.min(Math.max(1, n), 4)
+  const body: Record<string, unknown> = {
+    model: getVolcanoImageModel(),
+    prompt,
+    size: '2k',
+    response_format: 'url',
+    watermark: options?.watermark ?? false,
+  }
+  if (count > 1) body.n = count
   const resp = await fetch(`${VOLCANO_ARK_API}/images/generations`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${getVolcanoKey()}`,
     },
-    body: JSON.stringify({
-      model: getVolcanoImageModel(),
-      prompt,
-      size: '2k',
-      response_format: 'url',
-    }),
+    body: JSON.stringify(body),
   })
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}))
     throw new Error(err?.error?.message || `图片生成失败 (${resp.status})`)
   }
   const data = await resp.json()
-  const url = (data.data as Array<{ url: string }>)?.[0]?.url
-  return url ? [url] : []
+  const list = (data.data as Array<{ url: string }> | undefined) ?? []
+  const urls = list.map((x) => x.url).filter(Boolean)
+  return urls.length ? urls : []
 }
 
 export async function streamChat(options: StreamOptions) {

@@ -14,7 +14,7 @@ const authStore = useAuthStore();
 const activeCategory = ref("all");
 const searchQuery = ref("");
 const currentPage = ref(1);
-const PAGE_SIZE = 6;
+const PAGE_SIZE = 8;
 
 const categoryColors: Record<string, string> = {
   技术: "#6C8EBF",
@@ -320,8 +320,8 @@ async function handleDelete(id: string) {
 }
 .articles-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px;
 }
 .article-wrap {
   position: relative;
