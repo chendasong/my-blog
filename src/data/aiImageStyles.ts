@@ -26,16 +26,40 @@ export const AI_IMAGE_STYLES: AIImageStyle[] = [
       '海绵宝宝式美式二维动画：夸张表情与肢体、高饱和色彩，海底奇想、滑稽喜剧氛围',
   },
   {
-    id: 'happy-heroes',
-    label: '开心超人风格',
-    promptFragment:
-      '开心超人式国产超级英雄动画：色块扁平鲜明、造型简洁有英雄感，动感活力、正派热血',
-  },
-  {
     id: 'pleasant-goat',
     label: '喜羊羊与灰太狼风格',
     promptFragment:
       '喜羊羊与灰太狼式国产卡通：圆润可爱的羊与狼等动物形象，柔和造型、全年龄向轻松家庭风',
+  },
+  {
+    id: 'random',
+    label: '随机动画风格',
+    promptFragment:
+      '随即一种国产动画片风格，要有辨识度，比如一看就是海绵宝宝，一看就是大头儿子等等今典IP',
+  },
+  {
+    id: 'dushi',
+    label: '现代都市风格',
+    promptFragment:
+      '现代都市风格，精英风格，高端大气上档次',
+  },
+  {
+    id: 'guangguang',
+    label: '真人写实风格',
+    promptFragment:
+      '真人写实风格，真实自然，不做作',
+  },
+  {
+    id: 'xingkong',
+    label: '宫崎骏风格',
+    promptFragment:
+      '宫崎骏风格，梦幻神秘，星光闪烁',
+  },
+  {
+    id: 'yuanzhu',
+    label: '水墨风格',
+    promptFragment:
+      '水墨风格，古典优雅，自然和谐',
   },
 ]
 

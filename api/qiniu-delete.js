@@ -9,6 +9,15 @@ function setCors(res) {
   res.setHeader('Access-Control-Allow-Headers', 'x-qiniu-admin-secret, Content-Type')
 }
 
+function normalizePublicBase(raw) {
+  const s = String(raw || '')
+    .trim()
+    .replace(/\/$/, '')
+  if (!s) return ''
+  if (/^https?:\/\//i.test(s)) return s
+  return `http://${s.replace(/^\/+/, '')}`
+}
+
 function resolveZone(q, name) {
   const map = {
     z0: q.zone.Zone_z0,
@@ -46,7 +55,7 @@ export default async function handler(req, res) {
     return res.status(401).json({ error: 'unauthorized' })
   }
 
-  const publicBase = (process.env.QINIU_PUBLIC_BASE || '').replace(/\/$/, '')
+  const publicBase = normalizePublicBase(process.env.QINIU_PUBLIC_BASE || '')
 
   let body = req.body
   if (typeof body === 'string') {

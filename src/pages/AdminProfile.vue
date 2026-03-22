@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
 import AppButton from "@/components/common/AppButton.vue";
 import { useToast } from "@/composables/useToast";
+import { ensureHttpUrlForAssets } from "@/lib/qiniuClient";
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -252,11 +253,11 @@ async function saveSettings() {
       deletedMusicUrls.value = []
     }
     
-    // 更新本地settings以回显
+    // 更新本地 settings 以回显（背景图 URL 以服务端为准，勿写 blob 预览地址）
     settings.value.music_urls = musicUrls;
     settings.value.music_names = musicNames;
-    if (backgroundImageFile.value) {
-      settings.value.hero_background_image = backgroundImagePreview.value;
+    if (authStore.siteSettings?.hero_background_image != null) {
+      settings.value.hero_background_image = authStore.siteSettings.hero_background_image || ''
     }
     // 清空已上传的文件列表
     musicFiles.value = [];
@@ -337,7 +338,7 @@ function handleLogout() {
           <div class="avatar-wrapper">
             <div class="avatar-center">
               <img
-                :src="avatarPreview || profile.avatar || '/images/avatar.svg'"
+                :src="ensureHttpUrlForAssets(avatarPreview || profile.avatar) || '/images/avatar.svg'"
                 alt="头像"
                 class="avatar-img"
               />
@@ -393,13 +394,21 @@ function handleLogout() {
         <div class="sub-section-wzpz">
           <h3 class="sub-title">网站配置</h3>
           <div class="form-stack">
-            <div class="form-row">
+            <div class="form-row form-row--three">
               <div class="form-group">
                 <label class="form-label">网站名称</label>
                 <input
                   v-model="settings.site_name"
                   class="form-input"
                   placeholder="Luminary"
+                />
+              </div>
+              <div class="form-group">
+                <label class="form-label">所有者昵称</label>
+                <input
+                  v-model="settings.owner_nickname"
+                  class="form-input"
+                  placeholder="例如：晨光"
                 />
               </div>
               <div class="form-group">
@@ -437,14 +446,6 @@ function handleLogout() {
               />
             </div>
           </div>
-          <div>
-            <label class="form-label">所有者昵称</label>
-            <input
-              v-model="settings.owner_nickname"
-              class="form-input"
-              placeholder="例如：晨光"
-            />
-          </div>
         </div>
 
         <!-- <div class="sub-divider" /> -->
@@ -457,7 +458,7 @@ function handleLogout() {
                 v-if="backgroundImagePreview || settings.hero_background_image"
                 class="bg-preview"
                 :style="{
-                  backgroundImage: `url('${backgroundImagePreview || settings.hero_background_image}')`,
+                  backgroundImage: `url('${ensureHttpUrlForAssets(backgroundImagePreview || settings.hero_background_image)}')`,
                 }"
               />
               <div v-else class="bg-preview bg-preview--empty">暂无背景图</div>
@@ -607,9 +608,9 @@ function handleLogout() {
               <div class="person-avatar-wrap">
                 <img
                   :src="
-                    person1AvatarPreview ||
-                    coupleSettings.person1_avatar ||
-                    '/images/couple-avatar-1.svg'
+                    ensureHttpUrlForAssets(
+                      person1AvatarPreview || coupleSettings.person1_avatar,
+                    ) || '/images/couple-avatar-1.svg'
                   "
                   class="person-avatar"
                 />
@@ -638,9 +639,9 @@ function handleLogout() {
               <div class="person-avatar-wrap">
                 <img
                   :src="
-                    person2AvatarPreview ||
-                    coupleSettings.person2_avatar ||
-                    '/images/couple-avatar-2.svg'
+                    ensureHttpUrlForAssets(
+                      person2AvatarPreview || coupleSettings.person2_avatar,
+                    ) || '/images/couple-avatar-2.svg'
                   "
                   class="person-avatar"
                 />

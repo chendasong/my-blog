@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs'
 import { supabase } from '@/lib/supabase'
-import { uploadImageSmart } from '@/lib/qiniuClient'
+import { uploadImageSmart, deleteRemoteStorageFile, isHostedStorageAssetUrl } from '@/lib/qiniuClient'
 
 export interface AdminUser {
   id: string
@@ -93,7 +93,8 @@ export const authApi = {
   async updateSiteSettings(settings: Partial<SiteSettings> & { avatar_file?: File; background_file?: File }): Promise<SiteSettings> {
     let avatarUrl = settings.owner_avatar
     let backgroundUrl = settings.hero_background_image
-    
+    const previousBackgroundUrl = (settings.hero_background_image || '').trim()
+
     if (settings.avatar_file) {
       avatarUrl = await uploadImageSmart(settings.avatar_file, 'site/owner-avatar')
     }
@@ -106,16 +107,26 @@ export const authApi = {
     const { avatar_file: _f, background_file: _bf, ...settingsData } = settings
     const { data, error } = await supabase
       .from('site_settings')
-      .update({ 
-        ...settingsData, 
+      .update({
+        ...settingsData,
         owner_avatar: avatarUrl,
         hero_background_image: backgroundUrl,
-        updated_at: new Date().toISOString() 
+        updated_at: new Date().toISOString(),
       })
       .eq('id', 1)
       .select()
       .single()
     if (error) throw error
+
+    if (
+      settings.background_file &&
+      previousBackgroundUrl &&
+      previousBackgroundUrl !== backgroundUrl &&
+      isHostedStorageAssetUrl(previousBackgroundUrl)
+    ) {
+      void deleteRemoteStorageFile(previousBackgroundUrl)
+    }
+
     return data
   },
 }

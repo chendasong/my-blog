@@ -1,5 +1,6 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import type { ResumeSection } from '@/types/resume'
+import { ensureHttpUrlForAssets } from '@/lib/qiniuClient'
 
 interface Props {
   sections: ResumeSection[]
@@ -32,7 +33,7 @@ const formatDate = (date: string) => {
             </div>
           </div>
           <div v-if="section.content.avatar" class="basic-avatar">
-            <img :src="section.content.avatar" :alt="section.content.name" />
+            <img :src="ensureHttpUrlForAssets(section.content.avatar)" :alt="section.content.name" />
           </div>
         </div>
         <p v-if="section.content.bio" class="bio">{{ section.content.bio }}</p>

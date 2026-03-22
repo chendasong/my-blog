@@ -180,7 +180,7 @@ async function handleSubmit() {
           <div class="form-group">
             <label class="form-label">封面图</label>
             <div class="select-with-label cover-style-row">
-              <span class="select-with-label__text">生图风格</span>
+              <span class="select-with-label__text">风格</span>
               <select v-model="coverImageStyleId" class="form-select form-select--inline" :disabled="generatingCovers">
                 <option v-for="s in AI_IMAGE_STYLES" :key="s.id" :value="s.id">{{ s.label }}</option>
               </select>

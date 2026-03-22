@@ -3,11 +3,6 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { onMusicCommand } from '@/lib/musicBridge'
 import { snapFabToEdges } from '@/lib/snapFabToEdge'
 
-interface Track {
-  url: string
-  name: string
-}
-
 interface Props {
   musicUrls?: string
   musicNames?: string
@@ -165,6 +160,28 @@ const formattedTime = computed(() => {
 const progress = computed(() => {
   return duration.value ? (currentTime.value / duration.value) * 100 : 0
 })
+
+/** 拖拽进度条时不让 timeupdate 抢写，避免与滑块打架 */
+const isScrubbing = ref(false)
+
+function endScrubListen() {
+  isScrubbing.value = false
+}
+
+function onProgressPointerDown() {
+  isScrubbing.value = true
+  window.addEventListener('pointerup', endScrubListen, { once: true })
+  window.addEventListener('pointercancel', endScrubListen, { once: true })
+}
+
+function onProgressInput(e: Event) {
+  const el = e.target as HTMLInputElement
+  const pct = parseFloat(el.value)
+  if (!audioRef.value || !duration.value || Number.isNaN(pct)) return
+  const t = (pct / 100) * duration.value
+  audioRef.value.currentTime = t
+  currentTime.value = t
+}
 
 // 保存播放状态
 const saveState = () => {
@@ -354,7 +371,7 @@ const toggleLoopMode = () => {
 }
 
 const handleTimeUpdate = () => {
-  if (audioRef.value) {
+  if (audioRef.value && !isScrubbing.value) {
     currentTime.value = audioRef.value.currentTime
   }
 }
@@ -378,21 +395,6 @@ const handleEnded = () => {
   } else {
     // 不循环，停止播放
     isPlaying.value = false
-  }
-}
-
-const handleProgressClick = (e: MouseEvent) => {
-  if (!audioRef.value || !duration.value) return
-  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-  const percent = (e.clientX - rect.left) / rect.width
-  audioRef.value.currentTime = percent * duration.value
-}
-
-const handleVolumeChange = (e: Event) => {
-  const value = (e.target as HTMLInputElement).value
-  volume.value = parseFloat(value)
-  if (audioRef.value) {
-    audioRef.value.volume = volume.value
   }
 }
 
@@ -507,6 +509,7 @@ const handleButtonClick = () => {
           <button
             type="button"
             class="music-player__loop-btn"
+            :class="{ 'music-player__loop-btn--one': loopMode === 'one' }"
             :aria-label="`循环模式: ${loopMode === 'all' ? '列表循环' : loopMode === 'one' ? '单曲循环' : '不循环'}`"
             :title="`循环模式: ${loopMode === 'all' ? '列表循环' : loopMode === 'one' ? '单曲循环' : '不循环'}`"
             @click="toggleLoopMode"
@@ -518,7 +521,7 @@ const handleButtonClick = () => {
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              stroke-width="2"
+              stroke-width="1.75"
               stroke-linecap="round"
               stroke-linejoin="round"
               aria-hidden="true"
@@ -528,25 +531,23 @@ const handleButtonClick = () => {
               <path d="M7 22l-4-4 4-4" />
               <path d="M21 13v2a4 4 0 0 1-4 4H3" />
             </svg>
-            <!-- 单曲循环：回路 + 中间竖线表示「单曲」 -->
-            <svg
-              v-else-if="loopMode === 'one'"
-              class="music-player__loop-svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M17 2l4 4-4 4" />
-              <path d="M3 11V9a4 4 0 0 1 4-4h14" />
-              <path d="M7 22l-4-4 4-4" />
-              <path d="M21 13v2a4 4 0 0 1-4 4H3" />
-              <!-- 偏右竖线，避免与回路中心重叠 -->
-              <path d="M14.5 8v9" stroke-width="2.5" stroke-linecap="round" />
-            </svg>
+            <!-- 单曲循环：简洁回路 + 角标 1（小尺寸比单大弧更易辨认） -->
+            <template v-else-if="loopMode === 'one'">
+              <svg
+                class="music-player__loop-svg music-player__loop-svg--once"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.75"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M20.5 4.75v4.25h-4.25" />
+                <path d="M18.85 14a6.55 6.55 0 1 1-1.54-6.82L20.5 9.5" />
+              </svg>
+              <span class="music-player__loop-one-badge" aria-hidden="true">1</span>
+            </template>
             <!-- 不循环：仅向前播放 -->
             <svg
               v-else
@@ -554,7 +555,7 @@ const handleButtonClick = () => {
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              stroke-width="2"
+              stroke-width="1.75"
               stroke-linecap="round"
               stroke-linejoin="round"
               aria-hidden="true"
@@ -566,9 +567,21 @@ const handleButtonClick = () => {
         </div>
 
         <div class="music-player__progress-container">
-          <div class="music-player__progress" @click="handleProgressClick">
-            <div class="music-player__progress-bar" :style="{ width: progress + '%' }" />
-          </div>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="0.05"
+            class="music-player__progress-slider"
+            :value="progress"
+            :disabled="!duration"
+            :style="{
+              background: `linear-gradient(to right, #5b8af0 0%, #8b6ff0 ${progress}%, rgba(91,138,240,0.14) ${progress}%, rgba(91,138,240,0.14) 100%)`,
+            }"
+            aria-label="播放进度"
+            @pointerdown="onProgressPointerDown"
+            @input="onProgressInput"
+          />
           <span class="music-player__time">{{ formattedTime }}</span>
         </div>
 
@@ -815,13 +828,14 @@ const handleButtonClick = () => {
 
 .music-player__loop-btn {
   position: absolute;
-  right: 16px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: rgba(91, 138, 240, 0.2);
-  border: 1px solid rgba(91, 138, 240, 0.3);
-  color: rgba(255, 255, 255, 0.85);
+  right: 14px;
+  overflow: visible;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.88);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -830,20 +844,46 @@ const handleButtonClick = () => {
     background-color 0.2s ease,
     border-color 0.2s ease,
     color 0.2s ease,
-    transform 0.2s ease;
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.music-player__loop-btn--one {
+  border-color: rgba(139, 111, 240, 0.35);
+  background: rgba(139, 111, 240, 0.12);
 }
 
 .music-player__loop-svg {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   flex-shrink: 0;
   pointer-events: none;
 }
 
+.music-player__loop-one-badge {
+  position: absolute;
+  left: 6px;
+  bottom: 5px;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 0 6px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+}
+
 .music-player__loop-btn:hover {
-  background: rgba(91, 138, 240, 0.3);
-  border-color: rgba(91, 138, 240, 0.5);
-  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+
+.music-player__loop-btn--one:hover {
+  background: rgba(139, 111, 240, 0.2);
+  border-color: rgba(186, 170, 255, 0.45);
 }
 
 .music-player__play-btn {
@@ -869,23 +909,61 @@ const handleButtonClick = () => {
 .music-player__progress-container {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 16px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
-.music-player__progress {
+.music-player__progress-slider {
+  width: 100%;
   height: 4px;
-  background: rgba(91, 138, 240, 0.1);
-  border-radius: 2px;
+  border-radius: 3px;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
   cursor: pointer;
-  overflow: hidden;
 }
 
-.music-player__progress-bar {
-  height: 100%;
-  background: linear-gradient(90deg, #5b8af0 0%, #8b6ff0 100%);
+.music-player__progress-slider:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.music-player__progress-slider::-webkit-slider-runnable-track {
+  height: 4px;
   border-radius: 2px;
-  transition: width 0.1s linear;
+  background: transparent;
+}
+
+.music-player__progress-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 11px;
+  height: 11px;
+  margin-top: -3.5px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5b8af0 0%, #8b6ff0 100%);
+  /* box-shadow: 0 0 0 1.5px rgba(20, 20, 30, 0.95); */
+  cursor: grab;
+}
+
+.music-player__progress-slider:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+
+.music-player__progress-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: transparent;
+}
+
+.music-player__progress-slider::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5b8af0 0%, #8b6ff0 100%);
+  box-shadow: 0 0 0 1.5px rgba(20, 20, 30, 0.95);
+  cursor: grab;
 }
 
 .music-player__time {

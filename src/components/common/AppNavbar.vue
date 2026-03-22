@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
+import { ensureHttpUrlForAssets } from '@/lib/qiniuClient'
 
 const route = useRoute()
 const router = useRouter()
@@ -71,7 +72,7 @@ function handleLogout() {
       <div class="navbar__user" @click.stop="showAdminMenu = !showAdminMenu">
         <div class="navbar__avatar">
           <img
-            :src="authStore.isLoggedIn ? (authStore.user?.avatar || '/images/avatar.svg') : '/images/avatar.svg'"
+            :src="authStore.isLoggedIn ? (ensureHttpUrlForAssets(authStore.user?.avatar) || '/images/avatar.svg') : '/images/avatar.svg'"
             :alt="authStore.isLoggedIn ? authStore.user?.nickname : '游客'"
             class="avatar-img"
           />

@@ -2,13 +2,28 @@ import { supabase } from '@/lib/supabase'
 import { uploadImageSmart, deleteRemoteStorageFile, isHostedStorageAssetUrl } from '@/lib/qiniuClient'
 import type { CoupleMemory } from '@/types'
 
+function parseJsonStringArray(raw: unknown): string[] | undefined {
+  if (raw == null) return undefined
+  if (Array.isArray(raw)) return raw.filter((x): x is string => typeof x === 'string')
+  if (typeof raw === 'string') {
+    try {
+      const p = JSON.parse(raw) as unknown
+      return Array.isArray(p) ? p.filter((x): x is string => typeof x === 'string') : undefined
+    } catch {
+      return undefined
+    }
+  }
+  return undefined
+}
+
 function toMemory(row: Record<string, unknown>): CoupleMemory {
   return {
     id: row.id as string,
     title: row.title as string,
     description: row.description as string,
     image: row.image as string,
-    images: row.images ? (typeof row.images === 'string' ? JSON.parse(row.images) : row.images) : undefined,
+    images: parseJsonStringArray(row.images),
+    videos: parseJsonStringArray(row.videos),
     date: row.date as string,
     type: row.type as CoupleMemory['type'],
     emotion: row.emotion as CoupleMemory['emotion'],
@@ -30,6 +45,7 @@ export const coupleApi = {
       description: input.description,
       image: input.image,
       images: input.images ? JSON.stringify(input.images) : null,
+      videos: input.videos?.length ? input.videos : null,
       date: input.date || null,
       type: input.type,
       emotion: input.emotion,
@@ -45,6 +61,7 @@ export const coupleApi = {
     if (input.description !== undefined) updateData.description = input.description
     if (input.image !== undefined) updateData.image = input.image
     if (input.images !== undefined) updateData.images = input.images ? JSON.stringify(input.images) : null
+    if (input.videos !== undefined) updateData.videos = input.videos?.length ? input.videos : null
     if (input.date !== undefined) updateData.date = input.date || null
     if (input.type !== undefined) updateData.type = input.type
     if (input.emotion !== undefined) updateData.emotion = input.emotion
@@ -57,7 +74,7 @@ export const coupleApi = {
   async removeMemory(id: string): Promise<void> {
     const { data, error: selErr } = await supabase
       .from('couple_memories')
-      .select('image, images')
+      .select('image, images, videos')
       .eq('id', id)
       .maybeSingle()
     if (selErr) throw selErr
@@ -79,6 +96,23 @@ export const coupleApi = {
       }
     }
     for (const item of list) {
+      if (typeof item === 'string' && isHostedStorageAssetUrl(item)) {
+        urls.add(item.trim())
+      }
+    }
+    let vlist: unknown[] = []
+    if (data?.videos != null) {
+      if (typeof data.videos === 'string') {
+        try {
+          vlist = JSON.parse(data.videos) as unknown[]
+        } catch {
+          vlist = []
+        }
+      } else if (Array.isArray(data.videos)) {
+        vlist = data.videos as unknown[]
+      }
+    }
+    for (const item of vlist) {
       if (typeof item === 'string' && isHostedStorageAssetUrl(item)) {
         urls.add(item.trim())
       }
@@ -107,7 +141,7 @@ export const coupleApi = {
     }
   },
 
-  /** 记忆/音乐等媒体上传；prefix 作为对象键目录段，如 love、music */
+  /** 记忆图片/视频等上传（七牛或 Supabase）；prefix 作为对象键目录段 */
   async uploadImage(file: File, prefix: string = 'memory'): Promise<string> {
     const safe = prefix.replace(/[/\\]/g, '-')
     return uploadImageSmart(file, `memories/${safe}`)

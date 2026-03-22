@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/auth'
 import DayCounter from '@/components/common/DayCounter.vue'
 import AppButton from '@/components/common/AppButton.vue'
 import type { CoupleMemory } from '@/types'
+import { ensureHttpUrlForAssets } from '@/lib/qiniuClient'
 
 const router = useRouter()
 const appStore = useAppStore()
@@ -27,10 +28,10 @@ const person2 = computed(() => ({
   avatar: authStore.siteSettings?.person2_avatar || coupleInfo.person2.avatar,
 }))
 
-const typeLabels: Record<string, string> = { all:'全部',photo:'相册',milestone:'里程碑',wish:'心愿',diary:'日记' }
-const typeIcons: Record<string, string> = { all:'💝',photo:'📸',milestone:'🏆',wish:'🌠',diary:'📖' }
-const emotionColors: Record<string, string> = { happy:'#F0A05B',romantic:'#E8607A',sweet:'#8B6FF0',funny:'#4CAF82' }
-const emotionLabels: Record<string, string> = { happy:'快乐',romantic:'浪漫',sweet:'甜蜜',funny:'搞笑' }
+const typeLabels: Record<string, string> = { all: '全部', photo: '相册', milestone: '里程碑', wish: '心愿', diary: '日记' }
+const typeIcons: Record<string, string> = { all: '💝', photo: '📸', milestone: '🏆', wish: '🌠', diary: '📖' }
+const emotionColors: Record<string, string> = { happy: '#F0A05B', romantic: '#E8607A', sweet: '#8B6FF0', funny: '#4CAF82' }
+const emotionLabels: Record<string, string> = { happy: '快乐', romantic: '浪漫', sweet: '甜蜜', funny: '搞笑' }
 
 
 
@@ -47,11 +48,14 @@ async function handleFilter(type: string) {
   await store.fetchMemories(type)
 }
 
-/** 列表只展示封面主图；无 `image` 时用首张相册图兜底 */
+/** 列表封面：主图 → 首张相册图；仅有视频时返回空串（模板用 🎬 占位） */
 function getCoverUrl(mem: CoupleMemory): string {
-  if (mem.image?.trim()) return mem.image
-  if (mem.images?.length) return mem.images[0]
-  return ''
+  const raw = mem.image?.trim() ? mem.image : mem.images?.length ? mem.images[0] : ''
+  return ensureHttpUrlForAssets(raw)
+}
+
+function hasVideosOnly(mem: CoupleMemory): boolean {
+  return !getCoverUrl(mem) && !!(mem.videos && mem.videos.length)
 }
 function openNew() {
   router.push('/couple/memory/new')
@@ -73,12 +77,17 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
 <template>
   <div class="couple-space">
     <section class="couple-hero">
-      <div class="couple-hero__bg"><div class="ch-blob ch-blob--1" /><div class="ch-blob ch-blob--2" /></div>
+      <div class="couple-hero__bg">
+        <div class="ch-blob ch-blob--1" />
+        <div class="ch-blob ch-blob--2" />
+      </div>
       <div class="couple-hero__inner">
         <div class="couple-hero__avatars animate-scale-in">
-          <div class="couple-avatar"><img :src="person1.avatar" :alt="person1.nickname" /><span class="couple-avatar__name">{{ person1.nickname }}</span></div>
+          <div class="couple-avatar"><img :src="person1.avatar" :alt="person1.nickname" /><span
+              class="couple-avatar__name">{{ person1.nickname }}</span></div>
           <div class="couple-heart animate-float">💗</div>
-          <div class="couple-avatar"><img :src="person2.avatar" :alt="person2.nickname" /><span class="couple-avatar__name">{{ person2.nickname }}</span></div>
+          <div class="couple-avatar"><img :src="ensureHttpUrlForAssets(person2.avatar)" :alt="person2.nickname" /><span
+              class="couple-avatar__name">{{ person2.nickname }}</span></div>
         </div>
         <div class="couple-hero__info animate-fade-in-up delay-200">
           <p class="couple-hero__motto">「{{ coupleInfo.motto }}」</p>
@@ -111,21 +120,20 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
           <p class="empty-memories__hint">点击右上角的"添加记忆"按钮，记录我们的故事吧 💕</p>
         </div>
         <div v-else class="memories-grid">
-          <div
-            v-for="mem in store.memories"
-            :key="mem.id"
-            class="memory-card animate-fade-in-up"
-            @click="router.push(`/couple/memory/${mem.id}`)"
-          >
+          <div v-for="mem in store.memories" :key="mem.id" class="memory-card animate-fade-in-up"
+            @click="router.push(`/couple/memory/${mem.id}`)">
             <div class="memory-card__cover">
               <img v-if="getCoverUrl(mem)" :src="getCoverUrl(mem)" :alt="mem.title" />
+              <div v-else-if="hasVideosOnly(mem)" class="memory-card__cover-placeholder memory-card__cover-placeholder--video" aria-hidden="true">🎬</div>
               <div v-else class="memory-card__cover-placeholder" aria-hidden="true">📷</div>
               <div class="memory-card__emotion" :style="{ background: emotionColors[mem.emotion] }">
                 {{ emotionLabels[mem.emotion] }}
               </div>
               <div class="memory-card__actions" @click.stop>
-                <button type="button" class="memory-card__action-btn memory-card__action-btn--edit" @click="openEdit(mem)">✏️ 编辑</button>
-                <button type="button" class="memory-card__action-btn memory-card__action-btn--delete" @click="handleDelete(mem.id)">🗑️ 删除</button>
+                <button type="button" class="memory-card__action-btn memory-card__action-btn--edit"
+                  @click="openEdit(mem)">✏️ 编辑</button>
+                <button type="button" class="memory-card__action-btn memory-card__action-btn--delete"
+                  @click="handleDelete(mem.id)">🗑️ 删除</button>
               </div>
             </div>
             <div class="memory-card__body">
@@ -144,62 +152,369 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
 </template>
 
 <style scoped>
-.container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
-.couple-hero { position: relative; padding: 80px 24px 60px; overflow: hidden; text-align: center; }
-.couple-hero__bg { position: absolute; inset: 0; pointer-events: none; }
-.ch-blob { position: absolute; border-radius: 50%; filter: blur(60px); opacity: .4; }
-.ch-blob--1 { width: 400px; height: 400px; background: rgba(232,96,122,.2); top: -80px; left: -80px; animation: float 8s ease-in-out infinite; }
-.ch-blob--2 { width: 350px; height: 350px; background: rgba(240,160,91,.15); bottom: -60px; right: -60px; animation: float 10s ease-in-out infinite reverse; }
-.couple-hero__inner { position: relative; z-index: 1; max-width: 600px; margin: 0 auto; }
-.couple-hero__avatars { display: flex; align-items: center; justify-content: center; gap: 24px; margin-bottom: 32px; }
-.couple-avatar { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.couple-avatar img { width: 100px; height: 100px; border-radius: 50%; border: 3px solid rgba(232,96,122,.4); object-fit: cover; }
-.couple-avatar__name { font-size: var(--text-sm); font-weight: 600; color: var(--color-text-secondary); }
-.couple-heart { font-size: 2.5rem; }
-.couple-hero__motto { font-family: var(--font-serif); font-size: var(--text-lg); color: var(--color-text-secondary); margin-bottom: 24px; }
-.couple-hero__counter { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 8px; }
-.couple-hero__counter-label, .couple-hero__since { font-size: var(--text-sm); color: var(--color-text-muted); }
-.couple-memories { padding: 40px 0 80px; }
-.memories-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; gap: 16px; }
-.memories-header__left { flex: 1; }
-.memories-title { font-size: var(--text-2xl); font-weight: 700; color: var(--color-text-primary); margin-bottom: 16px; }
-.memories-filter { display: flex; flex-wrap: wrap; gap: 8px; }
-.mem-filter-btn { padding: 7px 16px; border-radius: var(--radius-full); border: 1px solid var(--color-border); background: var(--color-bg-card); font-size: var(--text-sm); color: var(--color-text-secondary); cursor: pointer; transition: all var(--transition-fast); }
-.mem-filter-btn:hover { border-color: #E8607A; color: #E8607A; }
-.mem-filter-btn--active { background: rgba(232,96,122,.10); border-color: rgba(232,96,122,.3); color: #E8607A; font-weight: 600; }
-.memories-loading { text-align: center; padding: 60px; color: var(--color-text-muted); }
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
 
-.empty-memories { text-align: center; padding: 80px 24px; }
-.empty-memories__icon { font-size: 3rem; margin-bottom: 16px; }
-.empty-memories__text { font-size: var(--text-lg); font-weight: 600; color: var(--color-text-primary); margin-bottom: 8px; }
-.empty-memories__hint { font-size: var(--text-sm); color: var(--color-text-muted); line-height: 1.6; }
+.couple-hero {
+  position: relative;
+  padding: 30px 24px 20px;
+  overflow: hidden;
+  text-align: center;
+}
+
+.couple-hero__bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.ch-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(60px);
+  opacity: .4;
+}
+
+.ch-blob--1 {
+  width: 400px;
+  height: 400px;
+  background: rgba(232, 96, 122, .2);
+  top: -80px;
+  left: -80px;
+  animation: float 8s ease-in-out infinite;
+}
+
+.ch-blob--2 {
+  width: 350px;
+  height: 350px;
+  background: rgba(240, 160, 91, .15);
+  bottom: -60px;
+  right: -60px;
+  animation: float 10s ease-in-out infinite reverse;
+}
+
+.couple-hero__inner {
+  position: relative;
+  z-index: 1;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.couple-hero__info {
+  text-align: center;
+}
+
+.couple-hero__avatars {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.couple-avatar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.couple-avatar img {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  border: 3px solid rgba(232, 96, 122, .4);
+  object-fit: cover;
+}
+
+.couple-avatar__name {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.couple-heart {
+  font-size: 2.5rem;
+}
+
+.couple-hero__motto {
+  font-family: var(--font-serif);
+  font-size: var(--text-lg);
+  color: var(--color-text-secondary);
+  margin: 0 0 24px;
+  line-height: 1.5;
+}
+
+.couple-hero__counter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.couple-hero__counter-label {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.couple-hero__since {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.couple-memories {
+  padding: 40px 0 80px;
+}
+
+.memories-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 20px;
+  gap: 16px;
+}
+
+.memories-header__left {
+  flex: 1;
+}
+
+.memories-title {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin-bottom: 16px;
+}
+
+.memories-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mem-filter-btn {
+  padding: 7px 16px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mem-filter-btn:hover {
+  border-color: #E8607A;
+  color: #E8607A;
+}
+
+.mem-filter-btn--active {
+  background: rgba(232, 96, 122, .10);
+  border-color: rgba(232, 96, 122, .3);
+  color: #E8607A;
+  font-weight: 600;
+}
+
+.memories-loading {
+  text-align: center;
+  padding: 60px;
+  color: var(--color-text-muted);
+}
+
+.empty-memories {
+  text-align: center;
+  padding: 80px 24px;
+}
+
+.empty-memories__icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+}
+
+.empty-memories__text {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 8px;
+}
+
+.empty-memories__hint {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
 
 /* ---- inline form ---- */
-.memory-form { margin-bottom: 28px; overflow: hidden; }
-.mf-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px 16px; border-bottom: 1px solid var(--color-border); }
-.mf-header h3 { font-size: var(--text-lg); font-weight: 700; color: var(--color-text-primary); }
-.mf-close { font-size: 1.1rem; cursor: pointer; color: var(--color-text-muted); background: none; border: none; padding: 4px 8px; border-radius: var(--radius-md); transition: background var(--transition-fast); }
-.mf-close:hover { background: var(--color-bg-glass); }
-.mf-body { display: grid; grid-template-columns: 1fr 280px; gap: 24px; padding: 20px 24px; }
-.mf-left { display: flex; flex-direction: column; gap: 14px; }
-.mf-right { display: flex; flex-direction: column; gap: 10px; }
-.mf-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 24px 20px; border-top: 1px solid var(--color-border); }
-.cancel-btn { padding: 8px 18px; border-radius: var(--radius-lg); border: 1px solid var(--color-border); background: transparent; font-size: var(--text-sm); color: var(--color-text-secondary); cursor: pointer; transition: all var(--transition-fast); }
-.cancel-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.memory-form {
+  margin-bottom: 28px;
+  overflow: hidden;
+}
 
-.img-preview-box { position: relative; border-radius: var(--radius-lg); overflow: hidden; aspect-ratio: 4/3; background: var(--color-bg-glass); margin-bottom: 8px; }
-.img-preview-box img { width: 100%; height: 100%; object-fit: cover; }
-.img-badge { position: absolute; bottom: 8px; left: 8px; background: rgba(232,96,122,.85); color: white; font-size: 11px; padding: 3px 8px; border-radius: var(--radius-full); }
-.upload-btn { display: block; text-align: center; padding: 8px 12px; border-radius: var(--radius-lg); border: 1.5px dashed var(--color-border); background: var(--color-bg-glass); font-size: var(--text-xs); color: var(--color-text-secondary); cursor: pointer; transition: all var(--transition-fast); margin-bottom: 8px; }
-.upload-btn:hover { border-color: #E8607A; color: #E8607A; }
-.img-label { font-size: 11px; color: var(--color-text-muted); margin-bottom: 6px; }
-.image-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.img-option { border-radius: var(--radius-md); overflow: hidden; cursor: pointer; border: 2px solid transparent; aspect-ratio: 4/3; transition: border-color var(--transition-fast); }
-.img-option img { width: 100%; height: 100%; object-fit: cover; }
-.img-option--active { border-color: #E8607A; }
+.mf-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
 
-.form-slide-enter-active, .form-slide-leave-active { transition: all .3s ease; max-height: 800px; }
-.form-slide-enter-from, .form-slide-leave-to { opacity: 0; max-height: 0; transform: translateY(-12px); }
+.mf-header h3 {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.mf-close {
+  font-size: 1.1rem;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+}
+
+.mf-close:hover {
+  background: var(--color-bg-glass);
+}
+
+.mf-body {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 24px;
+  padding: 20px 24px;
+}
+
+.mf-left {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mf-right {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mf-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 24px 20px;
+  border-top: 1px solid var(--color-border);
+}
+
+.cancel-btn {
+  padding: 8px 18px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  background: transparent;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.cancel-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.img-preview-box {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  aspect-ratio: 4/3;
+  background: var(--color-bg-glass);
+  margin-bottom: 8px;
+}
+
+.img-preview-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.img-badge {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(232, 96, 122, .85);
+  color: white;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: var(--radius-full);
+}
+
+.upload-btn {
+  display: block;
+  text-align: center;
+  padding: 8px 12px;
+  border-radius: var(--radius-lg);
+  border: 1.5px dashed var(--color-border);
+  background: var(--color-bg-glass);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  margin-bottom: 8px;
+}
+
+.upload-btn:hover {
+  border-color: #E8607A;
+  color: #E8607A;
+}
+
+.img-label {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  margin-bottom: 6px;
+}
+
+.image-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.img-option {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  aspect-ratio: 4/3;
+  transition: border-color var(--transition-fast);
+}
+
+.img-option img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.img-option--active {
+  border-color: #E8607A;
+}
+
+.form-slide-enter-active,
+.form-slide-leave-active {
+  transition: all .3s ease;
+  max-height: 800px;
+}
+
+.form-slide-enter-from,
+.form-slide-leave-to {
+  opacity: 0;
+  max-height: 0;
+  transform: translateY(-12px);
+}
 
 /* ---- cards（约一行 4 张，与文章列表密度接近）---- */
 .memories-grid {
@@ -207,6 +522,7 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 18px;
 }
+
 .memory-card {
   overflow: hidden;
   cursor: pointer;
@@ -220,11 +536,13 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
   display: flex;
   flex-direction: column;
 }
+
 .memory-card:hover {
   transform: translateY(-3px);
   box-shadow: var(--shadow-md);
   border-color: rgba(232, 96, 122, 0.28);
 }
+
 .memory-card__cover {
   position: relative;
   flex-shrink: 0;
@@ -232,15 +550,18 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
   overflow: hidden;
   background: linear-gradient(135deg, #fff0f5, #fff8f0);
 }
+
 .memory-card__cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   transition: transform var(--transition-slow);
 }
+
 .memory-card:hover .memory-card__cover img {
   transform: scale(1.04);
 }
+
 .memory-card__cover-placeholder {
   width: 100%;
   height: 100%;
@@ -250,6 +571,7 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
   font-size: 2rem;
   opacity: 0.35;
 }
+
 .memory-card__emotion {
   position: absolute;
   top: 8px;
@@ -260,6 +582,7 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
   color: white;
   font-weight: 600;
 }
+
 .memory-card__actions {
   position: absolute;
   bottom: 0;
@@ -272,9 +595,11 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
   opacity: 0;
   transition: opacity var(--transition-fast);
 }
+
 .memory-card:hover .memory-card__actions {
   opacity: 1;
 }
+
 .memory-card__action-btn {
   padding: 4px 10px;
   border-radius: var(--radius-full);
@@ -287,14 +612,17 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
   color: white;
   background: rgba(255, 255, 255, 0.12);
 }
+
 .memory-card__action-btn--edit:hover {
   background: rgba(232, 96, 122, 0.88);
   border-color: rgba(255, 255, 255, 0.45);
 }
+
 .memory-card__action-btn--delete:hover {
   background: rgba(180, 40, 60, 0.9);
   border-color: rgba(255, 255, 255, 0.45);
 }
+
 .memory-card__body {
   padding: 12px 14px 14px;
   display: flex;
@@ -302,6 +630,7 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
   flex: 1;
   min-height: 0;
 }
+
 .memory-card__meta-row {
   display: flex;
   align-items: center;
@@ -313,6 +642,7 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
   border-top: 1px solid var(--color-border);
   min-width: 0;
 }
+
 .memory-card__type {
   font-size: 10px;
   color: var(--color-text-muted);
@@ -321,6 +651,7 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 .memory-card__date {
   font-size: 10px;
   color: var(--color-text-muted);
@@ -328,6 +659,7 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
   white-space: nowrap;
   opacity: 0.9;
 }
+
 .memory-card__title {
   font-size: 0.9375rem;
   font-weight: 600;
@@ -339,6 +671,7 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
 .memory-card__desc {
   font-size: 0.75rem;
   color: var(--color-text-muted);
@@ -349,20 +682,101 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.memory-card__detail { padding: 8px 0; border-top: 1px solid var(--color-border); margin-top: 4px; }
-.memory-card__desc-full { font-size: var(--text-sm); color: var(--color-text-secondary); line-height: 1.8; white-space: pre-wrap; margin-bottom: 8px; }
-.memory-card__meta { font-size: var(--text-xs); color: var(--color-text-muted); }
-.detail-slide-enter-active, .detail-slide-leave-active { transition: all .2s ease; overflow: hidden; max-height: 300px; }
-.detail-slide-enter-from, .detail-slide-leave-to { opacity: 0; max-height: 0; }
-.couple-logout { text-align: center; padding: 0 0 60px; }
-.form-group { display: flex; flex-direction: column; gap: 6px; }
-.form-row { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
-.form-label { font-size: var(--text-sm); font-weight: 600; color: var(--color-text-secondary); }
-.form-input, .form-textarea, .form-select { padding: 10px 12px; border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-sm); color: var(--color-text-primary); font-family: var(--font-sans); outline: none; width: 100%; }
-.form-input, .form-textarea { background: rgba(255,255,255,.5); }
-.form-select { background-color: rgba(255,255,255,.5); }
-.form-input:focus, .form-textarea:focus, .form-select:focus { border-color: #E8607A; }
-.form-textarea { resize: vertical; }
-@media (max-width: 700px) { .mf-body { grid-template-columns: 1fr; } .form-row { grid-template-columns: 1fr; } }
 
+.memory-card__detail {
+  padding: 8px 0;
+  border-top: 1px solid var(--color-border);
+  margin-top: 4px;
+}
+
+.memory-card__desc-full {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.8;
+  white-space: pre-wrap;
+  margin-bottom: 8px;
+}
+
+.memory-card__meta {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.detail-slide-enter-active,
+.detail-slide-leave-active {
+  transition: all .2s ease;
+  overflow: hidden;
+  max-height: 300px;
+}
+
+.detail-slide-enter-from,
+.detail-slide-leave-to {
+  opacity: 0;
+  max-height: 0;
+}
+
+.couple-logout {
+  text-align: center;
+  padding: 0 0 60px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.form-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.form-input,
+.form-textarea,
+.form-select {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  outline: none;
+  width: 100%;
+}
+
+.form-input,
+.form-textarea {
+  background: rgba(255, 255, 255, .5);
+}
+
+.form-select {
+  background-color: rgba(255, 255, 255, .5);
+}
+
+.form-input:focus,
+.form-textarea:focus,
+.form-select:focus {
+  border-color: #E8607A;
+}
+
+.form-textarea {
+  resize: vertical;
+}
+
+@media (max-width: 700px) {
+  .mf-body {
+    grid-template-columns: 1fr;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

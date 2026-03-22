@@ -47,6 +47,22 @@ export interface PersonInfo {
   birthday: string
 }
 
+/** 情侣空间「记忆」卡片 / Supabase `couple_memories` */
+export interface CoupleMemory {
+  id: string
+  title: string
+  description: string
+  /** 封面主图 URL */
+  image: string
+  /** 多图相册（可选） */
+  images?: string[]
+  /** 视频 URL 列表（可选） */
+  videos?: string[]
+  date: string
+  type: 'photo' | 'milestone' | 'wish' | 'diary'
+  emotion: 'happy' | 'romantic' | 'sweet' | 'funny'
+}
+
 // ===== AI功能类型 =====
 export interface AIFeature {
   id: string

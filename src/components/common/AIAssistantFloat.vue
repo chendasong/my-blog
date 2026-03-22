@@ -5,6 +5,7 @@ import { runSiteAssistantTurn, type AssistantChatMessage } from '@/api/siteAssis
 import { useToast } from '@/composables/useToast'
 import { syncTextareaHeight } from '@/lib/autoResizeTextarea'
 import { snapFabToEdges } from '@/lib/snapFabToEdge'
+import { emitMusicCommand } from '@/lib/musicBridge'
 import AppButton from '@/components/common/AppButton.vue'
 
 const router = useRouter()
@@ -21,8 +22,10 @@ const dragMoved = ref(false)
 const fabSnapTransitionReady = ref(false)
 const position = ref({ x: 24, y: typeof window !== 'undefined' ? window.innerHeight - FAB - 120 : 400 })
 const messages = ref<AssistantChatMessage[]>([])
-const DEFAULT_INPUT_PLACEHOLDER =
-  '输入任意问题，例如：打开首页、搜索 Vue 相关文章…'
+const DEFAULT_INPUT_PLACEHOLDER = '请输入'
+/** 无消息时展示在消息区上方的完整说明（与输入框 placeholder 分离） */
+const EMPTY_STATE_HINT =
+  '在下方输入问题，或使用上方快捷操作。例如：打开首页、搜索 Vue 相关文章…'
 const inputText = ref('')
 /** 点「搜索文章/笔记…」等快捷项时：占位提示 + 发送时拼在用户输入前 */
 const inputPlaceholder = ref(DEFAULT_INPUT_PLACEHOLDER)
@@ -250,14 +253,20 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
-function goAgent() {
+function goBlogNew() {
   isOpen.value = false
-  router.push('/ai/agent')
+  router.push('/blog/new')
 }
 
 function goNotesNew() {
   isOpen.value = false
   router.push('/notes/new')
+}
+
+/** 与 `src/data/ai-features.ts` 中 id 对应 */
+function goAiFeature(featureId: string) {
+  isOpen.value = false
+  router.push({ path: '/ai', query: { feature: featureId } })
 }
 
 function fillPrompt(placeholderHint: string) {
@@ -267,17 +276,34 @@ function fillPrompt(placeholderHint: string) {
   resizeInput()
 }
 
-const quickActions = [
-  { label: '播放/暂停音乐', run: () => void sendMessage('请帮我切换背景音乐的播放或暂停') },
-  { label: '音乐下一首', run: () => void sendMessage('播放下一首背景音乐') },
-  { label: '音乐列表循环', run: () => void sendMessage('把背景音乐循环模式设为列表循环') },
-  { label: '音乐单曲循环', run: () => void sendMessage('把背景音乐设为单曲循环') },
-  { label: '写文章 (写作 Agent)', run: goAgent },
-  { label: '新建笔记', run: goNotesNew },
-  { label: '打开简历', run: () => void sendMessage('打开我的简历页面') },
-  { label: '打开文章列表', run: () => void sendMessage('打开文章列表') },
-  { label: '搜索文章…', run: () => fillPrompt('帮我搜索文章，关键词：') },
-  { label: '搜索笔记…', run: () => fillPrompt('帮我搜索笔记，关键词：') },
+type QuickChip = { label: string; run: () => void }
+type QuickChipGroup = { items: QuickChip[] }
+
+/** 分组：音乐直连播放器；写作/搜索；AI 工坊指定卡片（不经大模型） */
+const quickActionGroups: QuickChipGroup[] = [
+  {
+    items: [
+      { label: '播放/暂停音乐', run: () => emitMusicCommand({ type: 'toggle_play' }) },
+      { label: '循环播放', run: () => emitMusicCommand({ type: 'set_loop', mode: 'all' }) },
+      { label: '上一首', run: () => emitMusicCommand({ type: 'prev' }) },
+      { label: '下一首', run: () => emitMusicCommand({ type: 'next' }) },
+    ],
+  },
+  {
+    items: [
+      { label: '写文章', run: goBlogNew },
+      { label: '写笔记', run: goNotesNew },
+      { label: '搜索文章…', run: () => fillPrompt('帮我搜索文章，关键词：') },
+      { label: '搜索笔记…', run: () => fillPrompt('帮我搜索笔记，关键词：') },
+    ],
+  },
+  {
+    items: [
+      { label: 'AI 生图', run: () => goAiFeature('11') },
+      { label: 'AI 食谱', run: () => goAiFeature('9') },
+      { label: 'AI 医生', run: () => goAiFeature('10') },
+    ],
+  },
 ]
 </script>
 
@@ -302,9 +328,10 @@ const quickActions = [
 
     <Transition name="ai-asst-pop">
       <div
-        v-if="isOpen"
+        v-show="isOpen"
         class="ai-assistant__panel"
         :style="panelStyle"
+        :aria-hidden="!isOpen"
         @mousedown.stop
       >
         <div class="ai-assistant__head">
@@ -312,21 +339,29 @@ const quickActions = [
           <button type="button" class="ai-assistant__close" aria-label="关闭" @click="isOpen = false">✕</button>
         </div>
         <p class="ai-assistant__hint">需要我为您做些什么？</p>
-        <div class="ai-assistant__chips">
-          <button
-            v-for="(q, i) in quickActions"
-            :key="i"
-            type="button"
-            class="ai-assistant__chip"
-            :disabled="isLoading"
-            @click="q.run()"
+        <div class="ai-assistant__chip-groups">
+          <div
+            v-for="(grp, gi) in quickActionGroups"
+            :key="gi"
+            class="ai-assistant__chip-group"
           >
-            {{ q.label }}
-          </button>
+            <div class="ai-assistant__chips">
+              <button
+                v-for="(q, qi) in grp.items"
+                :key="`${gi}-${qi}`"
+                type="button"
+                class="ai-assistant__chip"
+                :disabled="isLoading"
+                @click="q.run()"
+              >
+                {{ q.label }}
+              </button>
+            </div>
+          </div>
         </div>
 
         <div ref="listRef" class="ai-assistant__messages">
-          <div v-if="messages.length === 0" class="ai-assistant__empty">在下方输入问题，或使用上方快捷操作</div>
+          <div v-if="messages.length === 0" class="ai-assistant__empty">{{ EMPTY_STATE_HINT }}</div>
           <div
             v-for="(m, idx) in messages"
             :key="idx"
@@ -465,14 +500,17 @@ const quickActions = [
   font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
+.ai-assistant__chip-groups {
+  border-bottom: 1px solid var(--color-border);
+}
+.ai-assistant__chip-group + .ai-assistant__chip-group {
+  border-top: 1px solid var(--color-border-subtle, var(--color-border));
+}
 .ai-assistant__chips {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 4px 12px 10px;
-  border-bottom: 1px solid var(--color-border);
-  max-height: 120px;
-  overflow-y: auto;
+  padding: 6px 12px 8px;
 }
 .ai-assistant__chip {
   padding: 5px 10px;
@@ -508,6 +546,8 @@ const quickActions = [
   color: var(--color-text-muted);
   text-align: center;
   padding: 20px 8px;
+  line-height: 1.55;
+  max-width: 100%;
 }
 .ai-assistant__msg {
   border-radius: var(--radius-lg);

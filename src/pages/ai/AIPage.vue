@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from "vue";
+import { useRoute } from "vue-router";
 import {
   aiFeatures,
   AI_IMAGE_STYLES,
@@ -13,9 +14,33 @@ import { syncTextareaHeight } from "@/lib/autoResizeTextarea";
 import AppButton from "@/components/common/AppButton.vue";
 import type { AIFeature, AICategory } from "@/types";
 
+const route = useRoute();
 const toast = useToast();
 const selectedFeature = ref<AIFeature | null>(aiFeatures[0]);
 const activeCategory = ref<AICategory | "all">("all");
+
+function queryFeatureId(): string | null {
+  const q = route.query.feature;
+  if (Array.isArray(q)) return (q[0] as string)?.trim() || null;
+  return typeof q === "string" && q.trim() ? q.trim() : null;
+}
+
+/** 悬浮助手等通过 /ai?feature=11 打开并选中对应能力卡片 */
+function applyFeatureFromRouteQuery() {
+  const fid = queryFeatureId();
+  if (!fid) return;
+  const f = aiFeatures.find((x) => x.id === fid && !x.hidden);
+  if (f) {
+    selectedFeature.value = f;
+    activeCategory.value = "all";
+  }
+}
+
+watch(
+  () => route.query.feature,
+  () => applyFeatureFromRouteQuery(),
+  { immediate: true },
+);
 const inputText = ref("");
 const thinkingMode = ref<"fast" | "balanced" | "deep">("fast");
 const outputText = ref("");
@@ -257,7 +282,7 @@ onMounted(() => resizeInput());
           <span class="ai-stat"
             >🆕 {{ aiFeatures.filter((f) => f.isNew).length }} 个新功能</span
           >
-          <span class="ai-stat">⚡ 千问大模型</span>
+          <span class="ai-stat">⚡ 豆包顶级大模型</span>
         </div>
       </div>
     </section>
@@ -362,7 +387,7 @@ onMounted(() => resizeInput());
                   class="select-with-label ai-image-gen__style"
                 >
                   <label class="select-with-label__text" for="ai-image-style-select"
-                    >生图风格</label
+                    >风格</label
                   >
                   <select
                     id="ai-image-style-select"

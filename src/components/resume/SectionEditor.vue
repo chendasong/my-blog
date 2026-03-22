@@ -1,6 +1,7 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref } from "vue";
 import type { ResumeSection } from "@/types/resume";
+import { ensureHttpUrlForAssets } from "@/lib/qiniuClient";
 
 interface Props {
   section: ResumeSection;
@@ -109,17 +110,19 @@ const handleChange = () => {
       <div class="form-group">
         <label class="form-label">头像</label>
         <div class="avatar-upload-container">
-          <div class="avatar-preview" @click="avatarInput?.click()">
-            <img v-if="section.content.avatar" :src="section.content.avatar" :alt="section.content.name" class="avatar-image" />
-            <div v-else class="avatar-placeholder">
-              <span class="placeholder-icon">📷</span>
-              <span class="placeholder-text">上传头像</span>
+          <div class="avatar-upload-row">
+            <div class="avatar-preview" @click="avatarInput?.click()">
+              <img v-if="section.content.avatar" :src="ensureHttpUrlForAssets(section.content.avatar)" :alt="section.content.name" class="avatar-image" />
+              <div v-else class="avatar-placeholder">
+                <span class="placeholder-icon">📷</span>
+                <span class="placeholder-text">上传头像</span>
+              </div>
             </div>
-          </div>
-          <div class="upload-controls">
-            <input ref="avatarInput" type="file" accept="image/*" class="avatar-file-input" @change="handleAvatarUpload" />
-            <button @click="avatarInput?.click()" class="btn-upload">选择图片</button>
-            <button v-if="section.content.avatar" @click="removeAvatar" class="btn-remove-avatar">删除</button>
+            <div class="upload-controls">
+              <input ref="avatarInput" type="file" accept="image/*" class="avatar-file-input" @change="handleAvatarUpload" />
+              <button type="button" @click="avatarInput?.click()" class="btn-upload">选择图片</button>
+              <button v-if="section.content.avatar" type="button" @click="removeAvatar" class="btn-remove-avatar">删除</button>
+            </div>
           </div>
           <p class="upload-hint">支持 JPG、PNG、GIF 格式，建议尺寸 200×200px，最大 5MB</p>
         </div>
@@ -327,11 +330,16 @@ const handleChange = () => {
 .avatar-upload-container {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   padding: 16px;
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md)
+}
+.avatar-upload-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
 }
 .avatar-preview {
   width: 80px;
@@ -372,14 +380,17 @@ const handleChange = () => {
 }
 .upload-controls {
   display: flex;
-  gap: 8px
+  flex-direction: column;
+  gap: 8px;
+  min-width: 128px;
+  flex: 0 0 auto;
 }
 .avatar-file-input {
   display: none
 }
 .btn-upload {
-  flex: 1;
-  padding: 8px 12px;
+  width: 100%;
+  padding: 8px 14px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   font-size: 0.875rem;
@@ -394,8 +405,8 @@ const handleChange = () => {
   color: var(--color-primary)
 }
 .btn-remove-avatar {
-  flex: 1;
-  padding: 8px 12px;
+  width: 100%;
+  padding: 8px 14px;
   border-radius: var(--radius-md);
   font-size: 0.875rem;
   font-weight: 500;
@@ -412,7 +423,9 @@ const handleChange = () => {
 .upload-hint {
   font-size: 0.75rem;
   color: var(--color-text-muted);
-  margin: 0
+  margin: 0;
+  line-height: 1.5;
+  max-width: 100%
 }
 .text-muted {
   color: var(--color-text-muted);

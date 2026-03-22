@@ -46,7 +46,7 @@ const pendingCoverUrl = ref('')
 const createdId = ref<string | null>(null)
 const createdKind = ref<'article' | 'note' | null>(null)
 
-/** 文章流水线：封面生图风格 */
+/** 文章流水线：封面风格 */
 const coverImageStyleId = ref(DEFAULT_AI_IMAGE_STYLE_ID)
 
 /** 当前进行到第几步（0-based），用于高亮进度条 */
@@ -64,11 +64,11 @@ const showGoDetailButton = computed(() => !!createdId.value && !!createdKind.val
 
 const steps = computed(() => {
   const base = [
-    { id: 'prompt', label: '生成写作提示词', icon: '🧭' },
-    { id: 'draft', label: '生成标题、摘要与正文', icon: '✍️' },
+    { id: 'prompt', label: '生成提示词', icon: '🧭' },
+    { id: 'draft', label: '生成内容', icon: '✍️' },
   ]
   if (taskMode.value === 'article') {
-    base.push({ id: 'cover', label: '火山 AI 生成封面', icon: '🖼️' })
+    base.push({ id: 'cover', label: '生成封面图', icon: '🖼️' })
   }
   base.push({ id: 'save', label: '发布', icon: '📤' })
   return base
@@ -363,9 +363,12 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
           />
         </div>
 
-        <div v-if="taskMode === 'article'" class="agent-field">
-          <div class="select-with-label">
-            <span class="select-with-label__text">生图风格</span>
+        <div class="agent-actions">
+          <div
+            v-if="taskMode === 'article'"
+            class="select-with-label agent-actions__style"
+          >
+            <span class="select-with-label__text">风格</span>
             <select
               v-model="coverImageStyleId"
               class="agent-style-select"
@@ -376,9 +379,6 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
               </option>
             </select>
           </div>
-        </div>
-
-        <div class="agent-actions">
           <AppButton
             v-if="!isRunning"
             :disabled="!userInput.trim()"
@@ -701,8 +701,18 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
 }
 .agent-actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
   gap: 12px;
   margin-bottom: 8px;
+}
+.agent-actions__style.select-with-label {
+  margin: 0;
+}
+.agent-actions__style .agent-style-select {
+  min-width: 10rem;
+  max-width: min(260px, 100%);
 }
 .agent-stop-btn {
   height: 40px;

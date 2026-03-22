@@ -173,8 +173,8 @@ onMounted(async () => {
       </div>
     </section>
 
-    <section class="section section--alt">
-      <div class="container">
+    <section class="section section--entry-banners section--alt">
+      <div class="container entry-banners">
         <div class="resume-entry-banner" @click="router.push('/resume')">
           <div class="resume-entry-banner__content">
             <div class="resume-entry-banner__emoji">📄</div>
@@ -185,11 +185,6 @@ onMounted(async () => {
           </div>
           <AppButton variant="warm">查看简历 →</AppButton>
         </div>
-      </div>
-    </section>
-
-    <section class="section">
-      <div class="container">
         <div class="couple-entry-banner" @click="router.push('/couple')">
           <div class="couple-entry-banner__content">
             <div class="couple-entry-banner__emoji">💑</div>
@@ -408,6 +403,16 @@ onMounted(async () => {
 
 .section--alt {
   background: rgba(91, 138, 240, 0.02);
+}
+
+.section--entry-banners {
+  padding: 48px 0 72px;
+}
+
+.entry-banners {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .container {
@@ -649,6 +654,7 @@ onMounted(async () => {
     flex-direction: column;
   }
 
+  .resume-entry-banner,
   .couple-entry-banner {
     flex-direction: column;
     text-align: center;
