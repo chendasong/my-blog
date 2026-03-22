@@ -12,8 +12,7 @@ export const resumeApi = {
         const dbResume = await resumeDb.getResume(authStore.user.id)
         if (dbResume) return dbResume
       }
-      const { data } = await http.get('/resume')
-      return data
+      return generateDefaultResume()
     } catch {
       return generateDefaultResume()
     }
@@ -26,8 +25,7 @@ export const resumeApi = {
         const success = await resumeDb.saveResume(authStore.user.id, resume)
         if (success) return resume
       }
-      const { data } = await http.put('/resume', resume)
-      return data
+      return resume
     } catch {
       return resume
     }
@@ -63,25 +61,20 @@ export const resumeApi = {
       if (resumeElement) {
         const html2pdf = (await import('html2pdf.js')).default
         return new Promise((resolve, reject) => {
-          const opt = {
+          const opt: any = {
             margin: 10,
             filename: `resume-${Date.now()}.pdf`,
-            image: { type: 'jpeg' as const, quality: 0.98 },
+            image: { type: 'jpeg', quality: 0.98 },
             html2canvas: { scale: 2 },
-            jsPDF: { orientation: 'portrait' as const, unit: 'mm' as const, format: 'a4' },
+            jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' },
           }
-          html2pdf()
-            .set(opt)
-            .from(resumeElement)
-            .save()
-            .then(() => {
-              resolve(new Blob(['PDF exported'], { type: 'application/pdf' }))
-            })
-            .catch(reject)
+          html2pdf().set(opt).from(resumeElement).save().then(() => {
+            resolve(new Blob(['PDF exported'], { type: 'application/pdf' }))
+          }).catch(reject)
         })
       }
-      const data = await http.get('/resume/export/pdf', { responseType: 'blob' })
-      return data
+      const response = await http.get('/resume/export/pdf', { responseType: 'blob' })
+      return response.data as Blob
     } catch {
       return new Blob(['PDF export not available'], { type: 'application/pdf' })
     }

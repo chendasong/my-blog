@@ -1,4 +1,4 @@
-import type { Resume, ResumeSection } from '@/types/resume'
+import type { Resume } from '@/types/resume'
 
 export function generateDefaultResume(): Resume {
   return {
@@ -15,12 +15,12 @@ export function generateDefaultResume(): Resume {
         visible: true,
         order: 0,
         content: {
-          name: '晨光',
-          title: '全栈开发工程师',
-          email: 'hello@example.com',
-          phone: '+86 138-0000-0000',
+          name: '陈大嵩',
+          title: '前端开发工程师',
+          workYears: '4',
+          email: '2779773978@qq.com',
+          phone: '19217966302',
           location: '深圳',
-          bio: '热爱编程和开源，专注于前端和全栈开发。',
           avatar: '',
         },
       },
@@ -59,11 +59,6 @@ export function generateDefaultResume(): Resume {
               startDate: '2022-07-01',
               endDate: '',
               description: '负责公司核心产品的前端开发和维护',
-              highlights: [
-                '使用 Vue 3 + TypeScript 开发高性能应用',
-                '优化页面加载速度，提升 50% 的性能',
-                '带领团队完成多个重要项目',
-              ],
             },
           ],
         },
@@ -108,8 +103,6 @@ export function generateDefaultResume(): Resume {
               description: '一个功能完整的博客平台，支持文章发布、评论、标签等功能',
               technologies: ['Vue 3', 'TypeScript', 'Supabase', 'Tailwind CSS'],
               link: 'https://example.com',
-              startDate: '2023-01-01',
-              endDate: '2023-06-30',
             },
           ],
         },
@@ -133,32 +126,11 @@ export function generateDefaultResume(): Resume {
         },
       },
       {
-        id: 'section-languages',
-        type: 'languages',
-        title: '语言',
-        visible: true,
-        order: 6,
-        content: {
-          items: [
-            {
-              id: 'lang-1',
-              language: '中文',
-              proficiency: 'fluent',
-            },
-            {
-              id: 'lang-2',
-              language: '英文',
-              proficiency: 'advanced',
-            },
-          ],
-        },
-      },
-      {
         id: 'section-certifications',
         type: 'certifications',
         title: '证书',
         visible: true,
-        order: 7,
+        order: 6,
         content: {
           items: [
             {
@@ -170,6 +142,16 @@ export function generateDefaultResume(): Resume {
               credentialUrl: 'https://example.com',
             },
           ],
+        },
+      },
+      {
+        id: 'section-introduction',
+        type: 'introduction',
+        title: '个人介绍',
+        visible: true,
+        order: 7,
+        content: {
+          text: '这是一个关于我的个人简介。我热爱编程和开源，专注于前端和全栈开发。在过去的几年里，我积累了丰富的项目经验，参与过多个大型项目的开发和维护。我相信持续学习和技术创新是成功的关键。',
         },
       },
     ],

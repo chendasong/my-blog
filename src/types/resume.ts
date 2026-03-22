@@ -1,6 +1,6 @@
 export interface ResumeSection {
   id: string
-  type: 'basic' | 'education' | 'experience' | 'skills' | 'projects' | 'awards' | 'languages' | 'certifications'
+  type: 'basic' | 'education' | 'experience' | 'skills' | 'projects' | 'awards' | 'languages' | 'certifications' | 'introduction'
   title: string
   visible: boolean
   order: number

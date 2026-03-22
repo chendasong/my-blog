@@ -26,8 +26,8 @@ const sectionIcons: Record<string, string> = {
   skills: '🛠️',
   projects: '🚀',
   awards: '🏆',
-  languages: '🌐',
   certifications: '📜',
+  introduction: '👦',
 }
 
 const sectionLabels: Record<string, string> = {
@@ -37,8 +37,8 @@ const sectionLabels: Record<string, string> = {
   skills: '技能',
   projects: '项目',
   awards: '奖项',
-  languages: '语言',
   certifications: '证书',
+  introduction: '个人介绍',
 }
 
 const handleDragStart = (e: DragEvent, sectionId: string) => {
@@ -128,6 +128,7 @@ const handleDrop = (e: DragEvent, sections: ResumeSection[]) => {
 
 <style scoped>
 .module-list {
+  width: 260px;
   height: 100%;
   display: flex;
   flex-direction: column;

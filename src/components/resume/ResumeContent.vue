@@ -20,12 +20,17 @@ const formatDate = (date: string) => {
         <div class="basic-header">
           <div class="basic-info">
             <h2 class="name">{{ section.content.name }}</h2>
-            <p class="title">{{ section.content.title }}</p>
-            <div class="contact-info">
-              <span v-if="section.content.email">📧 {{ section.content.email }}</span>
-              <span v-if="section.content.phone">📱 {{ section.content.phone }}</span>
-              <span v-if="section.content.location">📍 {{ section.content.location }}</span>
+            <div class="text-info">
+              <div class="contact-info">
+                <span v-if="section.content.title">求职岗位： {{ section.content.title }}</span>
+                <span v-if="section.content.email">邮箱： {{ section.content.email }}</span>
+                <span></span>
+                <span v-if="section.content.workYears">工作年限： {{ section.content.workYears }}年</span>
+                <span v-if="section.content.phone">电话： {{ section.content.phone }}</span>
+                <span v-if="section.content.location">籍贯： {{ section.content.location }}</span>
+              </div>
             </div>
+            <image class="imageUrl" :src="''"></image>
           </div>
           <div v-if="section.content.avatar" class="basic-avatar">
             <img :src="section.content.avatar" :alt="section.content.name" />
@@ -117,5 +122,210 @@ const formatDate = (date: string) => {
 </template>
 
 <style scoped>
-.resume-content{background:#fff;border-radius:12px;padding:40px;box-shadow:0 4px 12px rgba(0,0,0,0.08)}.basic-section{margin-bottom:32px;padding-bottom:32px;border-bottom:2px solid #f0f0f0}.basic-header{display:flex;justify-content:space-between;align-items:flex-start;gap:24px}.basic-info{flex:1}.name{font-size:2rem;font-weight:700;color:var(--color-text-primary);margin:0 0 8px 0}.title{font-size:1.25rem;color:var(--color-primary);margin:0 0 12px 0;font-weight:500}.contact-info{display:flex;flex-direction:column;gap:6px;font-size:0.95rem;color:var(--color-text-secondary)}.basic-avatar{width:120px;height:120px;border-radius:8px;overflow:hidden;flex-shrink:0}.basic-avatar img{width:100%;height:100%;object-fit:cover}.bio{font-size:0.95rem;line-height:1.6;color:var(--color-text-secondary);margin:16px 0 0 0}.section{margin-bottom:28px}.section-title{font-size:1.1rem;font-weight:600;color:var(--color-text-primary);margin:0 0 16px 0;padding-bottom:8px;border-bottom:2px solid var(--color-primary)}.section-item{margin-bottom:16px}.item-header{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-bottom:4px}.item-title{font-size:0.95rem;font-weight:600;color:var(--color-text-primary);margin:0}.item-date{font-size:0.85rem;color:var(--color-text-muted);white-space:nowrap}.item-subtitle{font-size:0.9rem;color:var(--color-text-secondary);margin:0 0 6px 0;font-weight:500}.item-desc{font-size:0.9rem;line-height:1.5;color:var(--color-text-secondary);margin:0}.item-link{font-size:0.85rem}.item-link a{color:var(--color-primary);text-decoration:none}.item-link a:hover{text-decoration:underline}.skill-group{margin-bottom:12px}.skill-category{font-size:0.9rem;font-weight:600;color:var(--color-text-primary);margin:0 0 8px 0}.skill-tags,.tech-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.skill-tag,.tech-tag{display:inline-block;padding:4px 10px;background:rgba(91,138,240,0.1);border:1px solid rgba(91,138,240,0.2);border-radius:16px;font-size:0.8rem;color:var(--color-primary);font-weight:500}.cert-link{margin-top:8px}.cert-link a{font-size:0.85rem;color:var(--color-primary);text-decoration:none}.cert-link a:hover{text-decoration:underline}.intro-text{font-size:0.95rem;line-height:1.8;color:var(--color-text-secondary);margin:0}@media (max-width:768px){.resume-content{padding:24px}.basic-header{flex-direction:column}.basic-avatar{width:100px;height:100px}}
+.resume-content {
+  width: 689px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08)
+}
+
+.basic-section {
+  margin-bottom: 32px;
+}
+
+.basic-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px
+}
+
+.basic-info {
+  flex: 1
+}
+.text-info{
+  display: flex;
+  justify-content: space-between;
+}
+.name {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0 0 16px 0
+}
+
+.title {
+  font-size: 1.25rem;
+  color: var(--color-primary);
+  margin: 0 0 12px 0;
+  font-weight: 500
+}
+
+.contact-info {
+  display: grid;
+  grid-template-columns: 200px 180px 100px;
+  /* 2行，每行等分高度（也可以用 auto 自适应内容） */
+  grid-template-rows: 1fr 1fr;
+  column-gap: 10px;
+  row-gap: 20px;
+  font-size: 0.95rem;
+  color: var(--color-text-secondary)
+}
+.imageUrl{
+  width: 80px;
+  height: 96px;
+}
+.basic-avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0
+}
+
+.basic-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover
+}
+
+.bio {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--color-text-secondary);
+  margin: 16px 0 0 0
+}
+
+.section {
+  margin-bottom: 28px
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 16px 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--color-primary)
+}
+
+.section-item {
+  margin-bottom: 16px
+}
+
+.item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 4px
+}
+
+.item-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0
+}
+
+.item-date {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  white-space: nowrap
+}
+
+.item-subtitle {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 6px 0;
+  font-weight: 500
+}
+
+.item-desc {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  margin: 0
+}
+
+.item-link {
+  font-size: 0.85rem
+}
+
+.item-link a {
+  color: var(--color-primary);
+  text-decoration: none
+}
+
+.item-link a:hover {
+  text-decoration: underline
+}
+
+.skill-group {
+  margin-bottom: 12px
+}
+
+.skill-category {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 8px 0
+}
+
+.skill-tags,
+.tech-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px
+}
+
+.skill-tag,
+.tech-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  background: rgba(91, 138, 240, 0.1);
+  border: 1px solid rgba(91, 138, 240, 0.2);
+  border-radius: 16px;
+  font-size: 0.8rem;
+  color: var(--color-primary);
+  font-weight: 500
+}
+
+.cert-link {
+  margin-top: 8px
+}
+
+.cert-link a {
+  font-size: 0.85rem;
+  color: var(--color-primary);
+  text-decoration: none
+}
+
+.cert-link a:hover {
+  text-decoration: underline
+}
+
+.intro-text {
+  font-size: 0.95rem;
+  line-height: 1.8;
+  color: var(--color-text-secondary);
+  margin: 0
+}
+
+@media (max-width:768px) {
+  .resume-content {
+    padding: 24px
+  }
+
+  .basic-header {
+    flex-direction: column
+  }
+
+  .basic-avatar {
+    width: 100px;
+    height: 100px
+  }
+}
 </style>
