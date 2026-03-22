@@ -14,7 +14,8 @@ const navItems = [
   { label: '首页', path: '/', icon: '🏠' },
   { label: '文章', path: '/blog', icon: '📝' },
   { label: '笔记', path: '/notes', icon: '📔' },
-  { label: 'AI 工坊', path: '/ai', icon: '✨' },  
+  { label: 'AI 工坊', path: '/ai', icon: '✨' },
+  { label: 'AI Agent', path: '/ai/agent', icon: '🤖' },
   { label: '我的简历', path: '/resume', icon: '📄' },
   { label: '情侣空间', path: '/couple', icon: '💑' },
 ]
@@ -23,6 +24,7 @@ const showAdminMenu = ref(false)
 
 const isActive = (path: string) => {
   if (path === '/') return route.path === '/'
+  if (path === '/ai') return route.path === '/ai' || route.path === '/ai/'
   return route.path.startsWith(path)
 }
 

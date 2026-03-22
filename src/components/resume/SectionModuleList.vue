@@ -118,8 +118,7 @@ const handleDrop = (e: DragEvent, sections: ResumeSection[]) => {
           @click.stop="emit('toggle', section.id, !section.visible)"
           :title="section.visible ? '隐藏' : '显示'"
         >
-          <span v-if="section.visible">👁️</span>
-          <span v-else>🚫</span>
+          <span class="toggle-dot"></span>
         </button>
       </div>
     </div>
@@ -210,27 +209,32 @@ const handleDrop = (e: DragEvent, sections: ResumeSection[]) => {
 
 .module-item__toggle {
   flex-shrink: 0;
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 24px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  justify-content: flex-start;
+  background: #e0e0e0;
+  border: none;
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.75rem;
+  transition: all 0.3s ease;
+  padding: 2px;
+  position: relative;
 }
 
-.module-item__toggle:hover {
-  background: var(--color-bg-hover);
-  border-color: var(--color-border-strong);
+.toggle-dot {
+  width: 20px;
+  height: 20px;
+  background: white;
+  border-radius: 50%;
+  display: block;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .module-item__toggle--active {
-  background: rgba(76, 175, 130, 0.1);
-  border-color: #4CAF82;
-  color: #4CAF82;
+  background: #5dabff;
+  justify-content: flex-end;
 }
 </style>

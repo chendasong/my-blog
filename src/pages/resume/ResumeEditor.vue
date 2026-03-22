@@ -78,11 +78,11 @@ const handleSave = async () => {
   try {
     saving.value = true;
     // 强制更新所有 section，确保获取最新数据
-    resume.value = JSON.parse(JSON.stringify(resume.value));
+    resume.value= JSON.parse(JSON.stringify(resume.value));
     console.log("resume.value",resume.value);
     
-    resume.value.updatedAt = new Date().toISOString();
-    await resumeApi.updateResume(resume.value);
+    resume.value!.updatedAt = new Date().toISOString();
+    await resumeApi.updateResume(resume.value!);
     toast.success("简历已保存");
   } catch (error) {
     console.error("Failed to save resume:", error);
@@ -238,6 +238,9 @@ onMounted(async () => {
   padding: 16px;
   overflow-y: auto;
   box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  height: max-content;
 }
 .editor-main {
   flex: 1;

@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import type { ResumeSection } from '@/types/resume'
 
 interface Props {
@@ -15,22 +15,21 @@ const formatDate = (date: string) => {
 
 <template>
   <div class="resume-content">
-    <div v-for="section in sections" :key="section.id">
+    <div v-for="section in sections.filter(s => s.visible)" :key="section.id">
       <div v-if="section.type === 'basic'" class="basic-section">
         <div class="basic-header">
           <div class="basic-info">
             <h2 class="name">{{ section.content.name }}</h2>
             <div class="text-info">
               <div class="contact-info">
-                <span v-if="section.content.title">求职岗位： {{ section.content.title }}</span>
-                <span v-if="section.content.email">邮箱： {{ section.content.email }}</span>
-                <span></span>
-                <span v-if="section.content.workYears">工作年限： {{ section.content.workYears }}年</span>
-                <span v-if="section.content.phone">电话： {{ section.content.phone }}</span>
-                <span v-if="section.content.location">籍贯： {{ section.content.location }}</span>
+                <span v-if="section.content.title">岗位：{{ section.content.title }}</span>
+                <span v-if="section.content.workYears">工龄：{{ section.content.workYears }}年</span>
+                <span v-if="section.content.status">状态：{{ section.content.status }}</span>
+                <span v-if="section.content.email">邮箱：{{ section.content.email }}</span>
+                <span v-if="section.content.phone">电话：{{ section.content.phone }}</span>
+                <span v-if="section.content.location">籍贯：{{ section.content.location }}</span>
               </div>
             </div>
-            <image class="imageUrl" :src="''"></image>
           </div>
           <div v-if="section.content.avatar" class="basic-avatar">
             <img :src="section.content.avatar" :alt="section.content.name" />
@@ -55,21 +54,18 @@ const formatDate = (date: string) => {
         <h3 class="section-title">💼 {{ section.title }}</h3>
         <div v-for="item in section.content.items" :key="item.id" class="section-item">
           <div class="item-header">
-            <h4 class="item-title">{{ item.position }}</h4>
+            <p class="item-title">{{ item.company }}</p>
             <span class="item-date">{{ formatDate(item.startDate) }} - {{ formatDate(item.endDate) }}</span>
           </div>
-          <p class="item-subtitle">{{ item.company }}</p>
-          <p v-if="item.description" class="item-desc">{{ item.description }}</p>
+          <h4 class="item-subtitle">职&emsp;&emsp;位：{{ item.position }}</h4>
+          <p v-if="item.description" class="item-desc">工作职责：{{ item.description }}</p>
         </div>
       </div>
 
       <div v-else-if="section.type === 'skills'" class="section">
         <h3 class="section-title">🛠️ {{ section.title }}</h3>
-        <div v-for="item in section.content.items" :key="item.id" class="skill-group">
-          <h4 class="skill-category">{{ item.category }}</h4>
-          <div class="skill-tags">
-            <span v-for="(skill, i) in item.skills" :key="i" class="skill-tag">{{ skill }}</span>
-          </div>
+        <div v-for="item in section.content.items" :key="item.id" class="skill-item">
+          {{ item.skill }}
         </div>
       </div>
 
@@ -123,7 +119,7 @@ const formatDate = (date: string) => {
 
 <style scoped>
 .resume-content {
-  width: 689px;
+  width: 700px;
   background: #fff;
   border-radius: 12px;
   padding: 30px;
@@ -131,14 +127,13 @@ const formatDate = (date: string) => {
 }
 
 .basic-section {
-  margin-bottom: 32px;
+  margin-bottom: 20px;
 }
 
 .basic-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 24px
+  align-items: center;
 }
 
 .basic-info {
@@ -152,7 +147,7 @@ const formatDate = (date: string) => {
   font-size: 1.6rem;
   font-weight: 700;
   color: var(--color-text-primary);
-  margin: 0 0 16px 0
+  margin: 0 0 6px 0
 }
 
 .title {
@@ -164,11 +159,10 @@ const formatDate = (date: string) => {
 
 .contact-info {
   display: grid;
-  grid-template-columns: 200px 180px 100px;
+  grid-template-columns: 180px 180px 150px;
   /* 2行，每行等分高度（也可以用 auto 自适应内容） */
   grid-template-rows: 1fr 1fr;
-  column-gap: 10px;
-  row-gap: 20px;
+  row-gap: 12px;
   font-size: 0.95rem;
   color: var(--color-text-secondary)
 }
@@ -177,8 +171,8 @@ const formatDate = (date: string) => {
   height: 96px;
 }
 .basic-avatar {
-  width: 120px;
-  height: 120px;
+  width: 80px;
+  height: 96px;
   border-radius: 8px;
   overflow: hidden;
   flex-shrink: 0
@@ -329,3 +323,12 @@ const formatDate = (date: string) => {
   }
 }
 </style>
+
+
+.skill-item {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+  line-height: 1.6
+}
+
