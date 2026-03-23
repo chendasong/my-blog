@@ -15,7 +15,7 @@ const authStore = useAuthStore()
 
 const featuredArticles = ref<Article[]>([])
 const recentArticles = ref<Article[]>([])
-const topAI = aiFeatures.filter( i => i.isNew && !i.hidden ).slice(0, 3)
+const topAI = aiFeatures.filter((i) => i.isNew && !i.hidden).slice(0, 5)
 const stats = ref({ articles: 0, notes: 0, views: 0 })
 
 const heroStyle = computed(() => {
@@ -37,17 +37,6 @@ const heroOverlayStyle = computed(() => {
     background: `rgba(244, 246, 251, ${1 - opacity})`,
   }
 })
-
-const aiIcons: Record<string, string> = {
-  'AI 文案创作': '✍️',
-  'AI 代码助手': '💻',
-  'AI 图片识别': '🔍',
-  'AI 情感分析': '💡',
-  'AI 翻译润色': '🌐',
-  'AI 思维导图': '🗺️',
-  'AI 诗词创作': '🪶',
-  'AI 摘要提取': '📋',
-}
 
 // 监听siteSettings变化，确保背景和音乐实时更新
 watch(
@@ -165,8 +154,10 @@ onMounted(async () => {
         </div>
         <div class="ai-preview">
           <div v-for="(feat, i) in topAI" :key="feat.id" class="ai-preview-card animate-fade-in-up" :class="`delay-${(i+1)*100}`" @click="router.push('/ai')" style="cursor: pointer;">
-            <div class="ai-preview-card__icon">{{ aiIcons[feat.name] || '🤖' }}</div>
-            <h4 class="ai-preview-card__name">{{ feat.name }}</h4>
+            <div class="ai-preview-card__head">
+              <span class="ai-preview-card__icon" aria-hidden="true">{{ feat.emoji }}</span>
+              <h4 class="ai-preview-card__name">{{ feat.name }}</h4>
+            </div>
             <p class="ai-preview-card__desc">{{ feat.description }}</p>
           </div>
         </div>
@@ -398,7 +389,7 @@ onMounted(async () => {
 }
 
 .section {
-  padding: 80px 0;
+  padding: 56px 56px 12px 56px;
 }
 
 .section--alt {
@@ -425,16 +416,26 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  margin-bottom: 48px;
+  margin-bottom: 16px;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 12px;
 }
 
 .featured-grid,
 .recent-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 18px;
+  gap: 12px;
+}
+
+/* 仅首页列表：略收紧卡片内边距，减轻「块太大」感 */
+.featured-grid :deep(.article-card__body),
+.recent-grid :deep(.article-card__body) {
+  padding: 10px 12px 12px;
+}
+.featured-grid :deep(.article-card__summary),
+.recent-grid :deep(.article-card__summary) {
+  margin-bottom: 8px;
 }
 
 .empty-articles {
@@ -446,18 +447,19 @@ onMounted(async () => {
 
 .ai-preview {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .ai-preview-card {
-  padding: 28px;
+  padding: 16px 14px;
   background: var(--color-bg-card);
   backdrop-filter: var(--blur-md);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   cursor: pointer;
   transition: all var(--transition-base);
+  min-width: 0;
 }
 
 .ai-preview-card:hover {
@@ -466,22 +468,60 @@ onMounted(async () => {
   border-color: var(--color-border-strong);
 }
 
+.ai-preview-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  min-width: 0;
+}
+
 .ai-preview-card__icon {
-  font-size: 2.5rem;
-  margin-bottom: 14px;
+  font-size: 1.45rem;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 .ai-preview-card__name {
-  font-size: var(--text-lg);
+  margin: 0;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: var(--color-text-primary);
-  margin-bottom: 8px;
+  line-height: 1.25;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ai-preview-card__desc {
-  font-size: var(--text-sm);
+  margin: 0;
+  font-size: var(--text-xs);
   color: var(--color-text-muted);
-  line-height: 1.6;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (max-width: 1100px) {
+  .ai-preview {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .ai-preview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 440px) {
+  .ai-preview {
+    grid-template-columns: 1fr;
+  }
 }
 
 .resume-entry-banner {

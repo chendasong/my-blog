@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useArticleStore } from "@/stores/article";
 import { useAuthStore } from "@/stores/auth";
 import { categories } from "@/data";
-import ArticleCard from "@/components/blog/ArticleCard.vue";
+import BlogListResults from "@/components/blog/BlogListResults.vue";
 import AppButton from "@/components/common/AppButton.vue";
 
 const router = useRouter();
@@ -12,7 +12,10 @@ const store = useArticleStore();
 const authStore = useAuthStore();
 
 const activeCategory = ref("all");
-const searchQuery = ref("");
+/** 输入框草稿，不参与请求；点击「搜索」后写入 appliedSearchQuery */
+const searchDraft = ref("");
+/** 已生效的搜索关键词，传给列表接口 */
+const appliedSearchQuery = ref("");
 const currentPage = ref(1);
 const PAGE_SIZE = 8;
 
@@ -30,62 +33,28 @@ const categoryIcons: Record<string, string> = {
   思考: "💡",
 };
 
-const listParams = ref<{ category?: string; q?: string }>({});
-
-function applyListParamsFromUi() {
-  listParams.value = {
-    ...(activeCategory.value !== "all"
-      ? { category: activeCategory.value }
-      : {}),
-    ...(searchQuery.value.trim() ? { q: searchQuery.value.trim() } : {}),
-  };
-}
-
-function fetchArticlesPage() {
-  store.fetchList({
-    ...listParams.value,
-    limit: PAGE_SIZE,
-    offset: (currentPage.value - 1) * PAGE_SIZE,
-  });
-}
-
-onMounted(() => {
-  applyListParamsFromUi();
-  fetchArticlesPage();
-});
-
 const totalPages = computed(() =>
   Math.max(1, Math.ceil(store.listTotal / PAGE_SIZE)),
 );
 
 function doSearch() {
+  appliedSearchQuery.value = searchDraft.value.trim();
   currentPage.value = 1;
-  applyListParamsFromUi();
-  fetchArticlesPage();
 }
 
 function handleCategoryChange(cat: string) {
   activeCategory.value = cat;
   currentPage.value = 1;
-  applyListParamsFromUi();
-  fetchArticlesPage();
 }
 
 function prevPage() {
   if (currentPage.value <= 1) return;
   currentPage.value--;
-  fetchArticlesPage();
 }
 
 function nextPage() {
   if (currentPage.value >= totalPages.value) return;
   currentPage.value++;
-  fetchArticlesPage();
-}
-
-async function handleDelete(id: string) {
-  if (!confirm("确定删除这篇文章吗？")) return;
-  await store.remove(id);
 }
 </script>
 
@@ -94,20 +63,25 @@ async function handleDelete(id: string) {
     <div class="list-hero">
       <div class="container">
         <div class="list-hero__inner">
-          <h1 class="list-title"><div class="title-icon animate-float">📝</div>文章</h1>
+          <h1 class="list-title">
+            <div class="title-icon animate-float">📝</div>文章
+          </h1>
           <p class="list-subtitle">
             记录技术探索、生活感悟，以及那些值得留存的思考。
           </p>
           <div class="search-row">
             <input
-              v-model="searchQuery"
+              v-model="searchDraft"
               type="search"
               class="search-input"
               placeholder="搜索文章..."
               enterkeyhint="search"
               autocomplete="off"
+              @keydown.enter.prevent="doSearch"
             />
-            <button class="search-btn" @click="doSearch">🔍 搜索</button>
+            <button type="button" class="search-btn" @click="doSearch">
+              🔍 搜索
+            </button>
             <AppButton
               v-if="authStore.isLoggedIn"
               @click="router.push('/blog/new')"
@@ -149,62 +123,49 @@ async function handleDelete(id: string) {
       </div>
     </div>
     <div class="container list-body">
-      <div v-if="store.loading" class="loading-state">
-        <div class="loading-dots"><span /><span /><span /></div>
-        <p>加载中...</p>
-      </div>
-      <div v-else-if="store.error" class="empty-state">
-        <span>😕 {{ store.error }}</span>
-        <AppButton variant="secondary" @click="fetchArticlesPage()"
-          >重试</AppButton
-        >
-      </div>
-      <template v-else>
-        <div v-if="!store.listTotal" class="empty-state">
-          <span class="empty-state__icon">📝</span>
-          <p>还没有文章，去写第一篇吧！</p>
-          <AppButton
-            v-if="authStore.isLoggedIn"
-            @click="router.push('/blog/new')"
-            >✏️ 写文章</AppButton
-          >
-        </div>
-        <template v-else>
-          <div class="articles-grid">
-            <div
-              v-for="(article, i) in store.articles"
-              :key="article.id"
-              class="article-wrap animate-fade-in-up"
-              :class="`delay-${Math.min(i * 100, 500)}`"
-            >
-              <ArticleCard
-                :article="article"
-                :featured="article.featured"
-                :editable="authStore.isLoggedIn"
-                @edit="router.push(`/blog/${$event}/edit`)"
-                @delete="handleDelete"
-              />
+      <!-- 首屏列表数据：子组件 top-level await，Suspense 在就绪前只显示 fallback -->
+      <Suspense>
+        <template #default>
+          <BlogListResults
+            :active-category="activeCategory"
+            :search-query="appliedSearchQuery"
+            :current-page="currentPage"
+          />
+        </template>
+        <template #fallback>
+          <div class="list-suspense-fallback" aria-busy="true" aria-label="加载文章列表">
+            <p class="list-suspense-fallback__title">正在加载文章列表…</p>
+            <div class="skeleton-grid">
+              <div v-for="n in 8" :key="n" class="skeleton-card">
+                <div class="skeleton-card__shine" />
+                <div class="skeleton-card__line skeleton-card__line--wide" />
+                <div class="skeleton-card__line" />
+                <div class="skeleton-card__line skeleton-card__line--short" />
+              </div>
             </div>
           </div>
-          <div v-if="totalPages > 1" class="pagination">
-            <button
-              class="page-btn"
-              :disabled="currentPage === 1"
-              @click="prevPage"
-            >
-              ← 上一页
-            </button>
-            <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
-            <button
-              class="page-btn"
-              :disabled="currentPage === totalPages"
-              @click="nextPage"
-            >
-              下一页 →
-            </button>
-          </div>
         </template>
-      </template>
+      </Suspense>
+      <div
+        v-if="store.listTotal > 0 && totalPages > 1"
+        class="pagination"
+      >
+        <button
+          class="page-btn"
+          :disabled="currentPage === 1"
+          @click="prevPage"
+        >
+          ← 上一页
+        </button>
+        <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
+        <button
+          class="page-btn"
+          :disabled="currentPage === totalPages"
+          @click="nextPage"
+        >
+          下一页 →
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -318,62 +279,66 @@ async function handleDelete(id: string) {
 .list-body {
   padding-bottom: 80px;
 }
-.articles-grid {
+.list-suspense-fallback {
+  padding: 24px 0 48px;
+}
+.list-suspense-fallback__title {
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-bottom: 24px;
+}
+.skeleton-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 18px;
 }
-.article-wrap {
+.skeleton-card {
   position: relative;
-}
-.loading-state {
+  overflow: hidden;
+  min-height: 200px;
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  padding: 18px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  padding: 80px 24px;
-  color: var(--color-text-muted);
+  gap: 12px;
 }
-.loading-dots {
-  display: flex;
-  gap: 6px;
+.skeleton-card__shine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(91, 138, 240, 0.06) 50%,
+    transparent 60%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shine 1.4s ease-in-out infinite;
+  pointer-events: none;
 }
-.loading-dots span {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  animation: bounce 1.2s ease-in-out infinite;
+.skeleton-card__line {
+  height: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-border);
+  opacity: 0.55;
+  width: 72%;
 }
-.loading-dots span:nth-child(2) {
-  animation-delay: 0.2s;
+.skeleton-card__line--wide {
+  width: 88%;
+  height: 18px;
 }
-.loading-dots span:nth-child(3) {
-  animation-delay: 0.4s;
+.skeleton-card__line--short {
+  width: 45%;
 }
-@keyframes bounce {
-  0%,
-  80%,
+@keyframes skeleton-shine {
+  0% {
+    background-position: 100% 0;
+  }
   100% {
-    transform: scale(0.8);
-    opacity: 0.5;
+    background-position: -100% 0;
   }
-  40% {
-    transform: scale(1.2);
-    opacity: 1;
-  }
-}
-.empty-state {
-  text-align: center;
-  padding: 80px 24px;
-  color: var(--color-text-muted);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
-.empty-state__icon {
-  font-size: 3rem;
 }
 .pagination {
   display: flex;

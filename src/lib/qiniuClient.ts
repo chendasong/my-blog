@@ -174,6 +174,88 @@ export async function uploadImageSmart(file: File, keyPrefix = 'articles'): Prom
   return uploadFileToQiniu(file, keyPrefix)
 }
 
+const MIME_TO_EXT: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+  'image/avif': 'avif',
+}
+
+function extFromImageMime(mime: string): string | undefined {
+  const m = mime?.split(';')[0]?.trim().toLowerCase()
+  return m ? MIME_TO_EXT[m] : undefined
+}
+
+/**
+ * 服务端拉取外链并写入七牛（同源 `/api/qiniu-fetch-upload`），绕过浏览器对图源的 CORS。
+ * 需配置 `QINIU_ADMIN_SECRET`（服务端）与 `VITE_QINIU_ADMIN_SECRET`（前端请求头），且已配置七牛 bucket。
+ */
+export async function uploadRemoteImageViaServerApi(
+  sourceUrl: string,
+  keyPrefix = 'ai-generated',
+): Promise<string> {
+  const secret = (import.meta.env.VITE_QINIU_ADMIN_SECRET as string | undefined)?.trim()
+  if (!secret) throw new Error('未配置 VITE_QINIU_ADMIN_SECRET，无法服务端转存')
+
+  const base = apiBase()
+  if (!base) throw new Error('未配置 VITE_API_BASE')
+
+  const r = await fetch(`${base.replace(/\/$/, '')}/api/qiniu-fetch-upload`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-qiniu-admin-secret': secret,
+    },
+    body: JSON.stringify({
+      sourceUrl: String(sourceUrl ?? '').trim(),
+      keyPrefix,
+    }),
+  })
+  const data = (await r.json().catch(() => ({}))) as { url?: string; error?: string }
+  if (!r.ok) {
+    const err = data.error || r.statusText || '转存失败'
+    throw new Error(typeof err === 'string' ? err : '转存失败')
+  }
+  const out = data.url
+  if (!out) throw new Error('转存返回缺少 url')
+  return out
+}
+
+/**
+ * 将外链图片拉取后上传到本站配置的存储（七牛优先，否则 Supabase `images`）。
+ * 已是本站七牛或 Supabase 公链的 URL 会直接返回，不重复上传。
+ * 若已配七牛与 `VITE_QINIU_ADMIN_SECRET`，会优先走服务端拉取再上传，避免图源无 CORS 时失败。
+ */
+export async function mirrorRemoteImageToHostingIfNeeded(
+  rawUrl: string,
+  keyPrefix = 'articles/covers',
+): Promise<string> {
+  const url = String(rawUrl ?? '').trim()
+  if (!url || !/^https?:\/\//i.test(url)) return url
+  if (isHostedStorageAssetUrl(url)) return url
+
+  const secret = (import.meta.env.VITE_QINIU_ADMIN_SECRET as string | undefined)?.trim()
+  if (secret && isQiniuConfigured()) {
+    try {
+      return await uploadRemoteImageViaServerApi(url, keyPrefix)
+    } catch {
+      // 回退到浏览器拉取（仅当图源允许 CORS 时可用）
+    }
+  }
+
+  const res = await fetch(url, { mode: 'cors', credentials: 'omit' })
+  if (!res.ok) throw new Error(`图片拉取失败（${res.status}）`)
+  const blob = await res.blob()
+  if (!blob.size) throw new Error('图片拉取结果为空')
+  const ext = extFromImageMime(blob.type) || 'png'
+  const file = new File([blob], `cover-${Date.now()}.${ext}`, {
+    type: blob.type || 'image/png',
+  })
+  return uploadImageSmart(file, keyPrefix)
+}
+
 export function urlHostedOnConfiguredQiniu(fileUrl: string): boolean {
   const base = normalizeQiniuPublicBase(import.meta.env.VITE_QINIU_PUBLIC_BASE as string | undefined)
   if (!base) return false

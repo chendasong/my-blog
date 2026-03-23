@@ -24,3 +24,8 @@ export function getVolcanoChatModel(): string {
     ''
   )
 }
+
+/** AI 视频模型：仅使用 .env 中的 VITE_VOLCANO_VIDEO_MODEL，不设代码内默认值 */
+export function getVolcanoVideoModel(): string {
+  return (import.meta.env.VITE_VOLCANO_VIDEO_MODEL as string | undefined)?.trim() || ''
+}

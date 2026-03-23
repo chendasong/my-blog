@@ -15,7 +15,8 @@ withDefaults(defineProps<Props>(), { align: 'left' })
 </template>
 
 <style scoped>
-.section-title { margin-bottom: 32px; }
+/* 底部间距由父级（如 section__header）控制，避免与 margin-bottom 叠加大块空白 */
+.section-title { margin-bottom: 0; }
 .section-title--center { text-align: center; }
 .section-title__main {
   font-size: var(--text-3xl);
@@ -25,7 +26,7 @@ withDefaults(defineProps<Props>(), { align: 'left' })
   line-height: 1.2;
 }
 .section-title__sub {
-  margin-top: 10px;
+  margin-top: 6px;
   font-size: var(--text-base);
   color: var(--color-text-muted);
   line-height: 1.6;

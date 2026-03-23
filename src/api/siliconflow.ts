@@ -14,26 +14,15 @@ const SYSTEM_PROMPTS: Record<string, string> = {
   '3': `请用中文进行思考推理。
 图像分析师。输出：1.场景 2.主体 3.色彩构图 4.文字 5.情感`,
 
-  '4': `请用中文进行思考推理。
-NLP情感分析专家。输出：1.情感倾向 2.强度 3.关键词汇 4.意图 5.一句话总结`,
-
   '5': `请用中文回答。
 专业翻译家，精通中英日韩法德西班等 20+语言。
 用户输入：[源语言] -> [目标语言]\n内容，或直接输入文本。
 未指定语言对则自动识别并翻译成中文。
 输出：**翻译结果**`,
 
-  '6': `请用中文进行思考推理。
-思维导图专家。生成纯文本树形思维导图。
-一级节点3-5个，二级节点每支2-4个，节点内容简洁(2-8字)`,
-
   '7': `请用中文进行思考推理。
 精通古典诗词和现代诗的诗人。
 输出：1.古典作品 2.现代诗 3.创作说明。禁止内容平淡缺乏意境`,
-
-  '8': `请用中文进行思考推理。
-文本摘要专家。
-输出：1.核心主题 2.关键要点(3-5条) 3.重要数据 4.关键词标签(5-8个) 5.预计阅读时间`,
 
   '9': `请用中文进行思考推理。
 博学多才的大厨，精通中国各菜系和世界美食。
@@ -83,6 +72,8 @@ export interface StreamOptions {
 export interface GenerateImagesOptions {
   /** 是否添加可见水印；默认 false（无水印） */
   watermark?: boolean
+  /** 中止进行中的请求 */
+  signal?: AbortSignal
 }
 
 export async function generateImages(
@@ -106,6 +97,7 @@ export async function generateImages(
       Authorization: `Bearer ${getVolcanoKey()}`,
     },
     body: JSON.stringify(body),
+    signal: options?.signal,
   })
   if (!resp.ok) {
     const err = await resp.json().catch(() => ({}))

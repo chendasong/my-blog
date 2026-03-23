@@ -10,7 +10,6 @@ const categoryColors: Record<string, string> = {
   vision: '#8B6FF0',
   analysis: '#4CAF82',
   creative: '#F0A05B',
-  productivity: '#E8607A',
 }
 
 const categoryLabels: Record<string, string> = {
@@ -18,7 +17,6 @@ const categoryLabels: Record<string, string> = {
   vision: '视觉',
   analysis: '分析',
   creative: '创意',
-  productivity: '效率',
 }
 </script>
 
@@ -28,7 +26,7 @@ const categoryLabels: Record<string, string> = {
     @click="$emit('select', props.feature)"
   >
     <div class="ai-card__icon" :style="{ background: categoryColors[props.feature.category] + '18' }">
-      <span style="font-size: 1.5rem;">{{ props.feature.icon.includes('mdi') ? '🤖' : props.feature.icon }}</span>
+      <span style="font-size: 1.5rem;">{{ props.feature.emoji }}</span>
     </div>
     <div class="ai-card__content">
       <div class="ai-card__header">

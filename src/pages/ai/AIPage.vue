@@ -1,38 +1,30 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from "vue";
-import { useRoute } from "vue-router";
-import {
-  aiFeatures,
-  AI_IMAGE_STYLES,
-  DEFAULT_AI_IMAGE_STYLE_ID,
-  getAiImageStyleById,
-  buildCoverImagePrompt,
-} from "@/data";
-import { streamChat, generateImages } from "@/api/siliconflow";
-import { useToast } from "@/composables/useToast";
-import { syncTextareaHeight } from "@/lib/autoResizeTextarea";
-import AppButton from "@/components/common/AppButton.vue";
-import type { AIFeature, AICategory } from "@/types";
+import { ref, computed, watch, type Component } from 'vue'
+import { useRoute } from 'vue-router'
+import { aiFeatures } from '@/data'
+import { getVolcanoVideoModel } from '@/api/volcano'
+import AiWorkshopChatPanel from '@/components/ai-workshop/AiWorkshopChatPanel.vue'
+import AiWorkshopImagePanel from '@/components/ai-workshop/AiWorkshopImagePanel.vue'
+import AiWorkshopVideoPanel from '@/components/ai-workshop/AiWorkshopVideoPanel.vue'
+import type { AIFeature, AICategory } from '@/types'
 
-const route = useRoute();
-const toast = useToast();
-const selectedFeature = ref<AIFeature | null>(aiFeatures[0]);
-const activeCategory = ref<AICategory | "all">("all");
+const route = useRoute()
+const selectedFeature = ref<AIFeature | null>(aiFeatures[0])
+const activeCategory = ref<AICategory | 'all'>('all')
 
 function queryFeatureId(): string | null {
-  const q = route.query.feature;
-  if (Array.isArray(q)) return (q[0] as string)?.trim() || null;
-  return typeof q === "string" && q.trim() ? q.trim() : null;
+  const q = route.query.feature
+  if (Array.isArray(q)) return (q[0] as string)?.trim() || null
+  return typeof q === 'string' && q.trim() ? q.trim() : null
 }
 
-/** 悬浮助手等通过 /ai?feature=11 打开并选中对应能力卡片 */
 function applyFeatureFromRouteQuery() {
-  const fid = queryFeatureId();
-  if (!fid) return;
-  const f = aiFeatures.find((x) => x.id === fid && !x.hidden);
+  const fid = queryFeatureId()
+  if (!fid) return
+  const f = aiFeatures.find((x) => x.id === fid && !x.hidden)
   if (f) {
-    selectedFeature.value = f;
-    activeCategory.value = "all";
+    selectedFeature.value = f
+    activeCategory.value = 'all'
   }
 }
 
@@ -40,226 +32,53 @@ watch(
   () => route.query.feature,
   () => applyFeatureFromRouteQuery(),
   { immediate: true },
-);
-const inputText = ref("");
-const thinkingMode = ref<"fast" | "balanced" | "deep">("fast");
-const outputText = ref("");
-const thinkText = ref("");
-const thinkExpanded = ref(false);
-const isLoading = ref(false);
-const isThinking = ref(false);
-let abortFlag = false;
-
-const selectedImageStyleId = ref(DEFAULT_AI_IMAGE_STYLE_ID);
-/** 火山生图 API：与原生 select 用字符串，避免 value 被转成 string */
-const imageWatermarkChoice = ref<"off" | "on">("off");
-const generatedImageUrls = ref<string[]>([]);
-
-const inputRef = ref<HTMLTextAreaElement | null>(null);
-const TEXTAREA_MIN = 44;
-const TEXTAREA_MAX = 300;
-
-function resizeInput() {
-  nextTick(() =>
-    syncTextareaHeight(inputRef.value, TEXTAREA_MIN, TEXTAREA_MAX)
-  );
-}
-
-watch(inputText, resizeInput);
+)
 
 const categoryLabels: Record<string, string> = {
-  all: "全部",
-  writing: "写作",
-  vision: "视觉",
-  analysis: "分析",
-  creative: "创意",
-  productivity: "效率",
-};
+  all: '全部',
+  writing: '写作',
+  vision: '视觉',
+  analysis: '分析',
+  creative: '创意',
+}
 const categoryIcons: Record<string, string> = {
-  all: "✨",
-  writing: "✍️",
-  vision: "🔍",
-  analysis: "💡",
-  creative: "🎨",
-  productivity: "⚡",
-};
-const aiIcons: Record<string, string> = {
-  "AI 文案创作": "✍️",
-  "AI 代码助手": "💻",
-  "AI 图片识别": "🔍",
-  "AI 情感分析": "💡",
-  "AI 翻译": "🌐",
-  "AI 思维导图": "🗺️",
-  "AI 诗词创作": "🪶",
-  "AI 摘要提取": "📋",
-  "AI 食谱": "🍼",
-  "AI 医生": "🏥",
-  "AI 生图": "🖼️",
-};
-
-const thinkingModes = [
-  { value: "fast" as const, label: "⚡ 快速", desc: "快速回答，适合日常对话" },
-  { value: "balanced" as const, label: "⚖️ 平衡", desc: "平衡效率与质量" },
-  { value: "deep" as const, label: "🧠 深思", desc: "深度思考，适合复杂任务" },
-];
-const langOptions = [
-  "中文",
-  "English",
-  "日本语",
-  "韩语",
-  "法语",
-  "德语",
-  "西班牙语",
-  "俄语",
-];
-const sourceLang = ref("中文");
-const targetLang = ref("English");
-
-function swapLangs() {
-  const tmp = sourceLang.value;
-  sourceLang.value = targetLang.value;
-  targetLang.value = tmp;
+  all: '✨',
+  writing: '✍️',
+  vision: '🔍',
+  analysis: '💡',
+  creative: '🎨',
 }
 
 const filteredFeatures = computed(() => {
-  const visible = aiFeatures.filter((f) => !f.hidden);
-  if (activeCategory.value === "all") return visible;
-  return visible.filter((f) => f.category === activeCategory.value);
-});
+  const visible = aiFeatures.filter((f) => !f.hidden)
+  if (activeCategory.value === 'all') return visible
+  return visible.filter((f) => f.category === activeCategory.value)
+})
 
-async function handleGenerate() {
-  if (!inputText.value.trim() || !selectedFeature.value) return;
-  if (isLoading.value) {
-    abortFlag = true;
-    return;
+const videoModelDisplay = computed(() => {
+  const m = getVolcanoVideoModel()
+  return m || '未配置 VITE_VOLCANO_VIDEO_MODEL'
+})
+
+const workspaceSubtitle = computed(() => {
+  const f = selectedFeature.value
+  if (!f) return ''
+  if (f.id === '12') {
+    return `${f.description} 接入模型 ${videoModelDisplay.value}；可选首帧、尾帧参考图（适合 Seedance 1.5 Pro 等）；生成链接约 24h 有效，请及时下载。`
   }
+  return f.description
+})
 
-  if (selectedFeature.value.id === "11") {
-    isLoading.value = true;
-    generatedImageUrls.value = [];
-    outputText.value = "";
-    thinkText.value = "";
-    thinkExpanded.value = false;
-    try {
-      const style =
-        getAiImageStyleById(selectedImageStyleId.value) || AI_IMAGE_STYLES[0];
-      const prompt = buildCoverImagePrompt(inputText.value.trim(), style);
-      generatedImageUrls.value = await generateImages(prompt, 1, {
-        watermark: imageWatermarkChoice.value === "on",
-      });
-      if (!generatedImageUrls.value.length) toast.error("未返回图片地址");
-      else toast.success("生成完成");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "生图失败");
-    } finally {
-      isLoading.value = false;
-    }
-    return;
-  }
-
-  isLoading.value = true;
-  isThinking.value = false;
-  abortFlag = false;
-  outputText.value = "";
-  thinkText.value = "";
-  thinkExpanded.value = true;
-  generatedImageUrls.value = [];
-
-  const userInput =
-    selectedFeature.value.id === "5"
-      ? `[${sourceLang.value}] -> [${targetLang.value}]\n${inputText.value}`
-      : inputText.value;
-  await streamChat({
-    featureId: selectedFeature.value.id,
-    userInput,
-    thinkingMode: thinkingMode.value,
-    onThink: (text) => {
-      if (abortFlag) return;
-      isThinking.value = true;
-      thinkText.value += text;
-    },
-    onChunk: (text) => {
-      if (abortFlag) return;
-      isThinking.value = false;
-      if (!outputText.value) thinkExpanded.value = false;
-      outputText.value += text;
-    },
-    onDone: () => {
-      isLoading.value = false;
-      thinkExpanded.value = false;
-    },
-    onError: (err) => {
-      isLoading.value = false;
-      toast.error(err);
-      if (!outputText.value) outputText.value = "";
-      thinkText.value = "";
-      thinkExpanded.value = true;
-    },
-  });
-}
+const workshopPanel = computed<Component>(() => {
+  const id = selectedFeature.value?.id
+  if (id === '11') return AiWorkshopImagePanel
+  if (id === '12') return AiWorkshopVideoPanel
+  return AiWorkshopChatPanel
+})
 
 function handleSelect(feature: AIFeature) {
-  if (isLoading.value) {
-    abortFlag = true;
-    isLoading.value = false;
-  }
-  selectedFeature.value = feature;
-  inputText.value = "";
-  resizeInput();
-  outputText.value = "";
-  thinkText.value = "";
-  thinkExpanded.value = false;
-  generatedImageUrls.value = [];
-  selectedImageStyleId.value = DEFAULT_AI_IMAGE_STYLE_ID;
-  imageWatermarkChoice.value = "off";
-  thinkExpanded.value = feature.id !== "11";
+  selectedFeature.value = feature
 }
-
-function handleStop() {
-  abortFlag = true;
-  isLoading.value = false;
-}
-
-function copyOutput() {
-  navigator.clipboard?.writeText(outputText.value);
-  toast.success("复制成功");
-}
-
-function copyImageUrl(url: string) {
-  navigator.clipboard?.writeText(url);
-  toast.success("图片链接已复制");
-}
-
-function extFromMime(mime: string) {
-  if (mime.includes("jpeg")) return "jpg";
-  if (mime.includes("webp")) return "webp";
-  if (mime.includes("gif")) return "gif";
-  return "png";
-}
-
-async function downloadGeneratedImage(url: string) {
-  const base = `ai-image-${Date.now()}`;
-  try {
-    const res = await fetch(url, { mode: "cors" });
-    if (!res.ok) throw new Error("fetch failed");
-    const blob = await res.blob();
-    const ext = extFromMime(blob.type || "");
-    const href = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = href;
-    a.download = `${base}.${ext}`;
-    a.rel = "noopener";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(href);
-    toast.success("已开始下载");
-  } catch {
-    toast.error("无法直接下载（可能被跨域限制），请用「打开原图」后右键保存");
-  }
-}
-
-onMounted(() => resizeInput());
 </script>
 
 <template>
@@ -277,13 +96,6 @@ onMounted(() => resizeInput());
         <p class="ai-hero__subtitle">
           集成多种 AI 能力，让创作、分析、开发更高效。
         </p>
-        <div class="ai-hero__stats">
-          <span class="ai-stat">🔧 {{ aiFeatures.length }} 个工具</span>
-          <span class="ai-stat"
-            >🆕 {{ aiFeatures.filter((f) => f.isNew).length }} 个新功能</span
-          >
-          <span class="ai-stat">⚡ 豆包顶级大模型</span>
-        </div>
       </div>
     </section>
 
@@ -296,6 +108,7 @@ onMounted(() => resizeInput());
             'ai-cat-btn',
             { 'ai-cat-btn--active': activeCategory === key },
           ]"
+          type="button"
           @click="activeCategory = key as AICategory | 'all'"
         >
           {{ categoryIcons[key] }} {{ label }}
@@ -313,7 +126,7 @@ onMounted(() => resizeInput());
           @click="handleSelect(feature)"
         >
           <div class="ai-tool-card__icon">
-            {{ aiIcons[feature.name] || "🤖" }}
+            {{ feature.emoji }}
           </div>
           <div class="ai-tool-card__info">
             <h4 class="ai-tool-card__name">{{ feature.name }}</h4>
@@ -330,227 +143,17 @@ onMounted(() => resizeInput());
           class="ai-workspace glass-card"
         >
           <div class="ai-workspace__header">
-            <span class="ai-ws-icon">{{
-              aiIcons[selectedFeature.name] || "🤖"
-            }}</span>
+            <span class="ai-ws-icon">{{ selectedFeature.emoji }}</span>
             <div>
               <h3 class="ai-ws-title">{{ selectedFeature.name }}</h3>
-              <p class="ai-ws-desc">{{ selectedFeature.description }}</p>
+              <p class="ai-ws-desc">{{ workspaceSubtitle }}</p>
             </div>
           </div>
-          <div class="ai-io">
-            <div class="ai-input-area">
-              <label class="ai-label">输入内容</label>
-              <div v-if="selectedFeature.id === '5'" class="lang-switcher">
-                <select v-model="sourceLang" class="lang-select">
-                  <option v-for="l in langOptions" :key="l" :value="l">
-                    {{ l }}
-                  </option>
-                </select>
-                <button
-                  class="lang-swap-btn"
-                  @click="swapLangs"
-                  title="交换语言"
-                >
-                  🔄
-                </button>
-                <select v-model="targetLang" class="lang-select">
-                  <option v-for="l in langOptions" :key="l" :value="l">
-                    {{ l }}
-                  </option>
-                </select>
-              </div>
-              <div class="ai-input-row">
-                <textarea
-                  ref="inputRef"
-                  v-model="inputText"
-                  class="ai-textarea"
-                  :placeholder="selectedFeature.placeholder"
-                  rows="1"
-                  :disabled="isLoading"
-                />
-              </div>
-            </div>
-            <div class="ai-button-row">
-              <label class="ai-label">
-                AI 输出
-                <span v-if="isLoading && !isThinking" class="ai-streaming-badge"
-                  >● 生成中</span
-                >
-              </label>
-              <div
-                class="ai-input-btns"
-                :class="{ 'ai-input-btns--image': selectedFeature.id === '11' }"
-              >
-                <div
-                  v-if="selectedFeature.id === '11'"
-                  class="select-with-label ai-image-gen__style"
-                >
-                  <label class="select-with-label__text" for="ai-image-style-select"
-                    >风格</label
-                  >
-                  <select
-                    id="ai-image-style-select"
-                    v-model="selectedImageStyleId"
-                    class="mode-select ai-style-select"
-                    :disabled="isLoading"
-                  >
-                    <option
-                      v-for="s in AI_IMAGE_STYLES"
-                      :key="s.id"
-                      :value="s.id"
-                    >
-                      {{ s.label }}
-                    </option>
-                  </select>
-                </div>
-                <div
-                  v-if="selectedFeature.id === '11'"
-                  class="select-with-label ai-image-gen__watermark"
-                >
-                  <label class="select-with-label__text" for="ai-image-watermark-select"
-                    >水印</label
-                  >
-                  <select
-                    id="ai-image-watermark-select"
-                    v-model="imageWatermarkChoice"
-                    class="mode-select ai-wm-select"
-                    :disabled="isLoading"
-                  >
-                    <option value="off">无</option>
-                    <option value="on">添加</option>
-                  </select>
-                </div>
-                <select
-                  v-if="selectedFeature.id !== '11'"
-                  v-model="thinkingMode"
-                  class="mode-select"
-                  :disabled="isLoading"
-                >
-                  <option
-                    v-for="mode in thinkingModes"
-                    :key="mode.value"
-                    :value="mode.value"
-                  >
-                    {{ mode.label }}
-                  </option>
-                </select>
-                <AppButton
-                  v-if="isLoading && selectedFeature.id === '11'"
-                  loading
-                  disabled
-                  >生成中…</AppButton
-                >
-                <button
-                  v-else-if="isLoading"
-                  class="stop-btn stop-btn--active"
-                  @click="handleStop"
-                >
-                ◼️ 停止
-                </button>
-                <AppButton
-                  v-else
-                  :disabled="!inputText.trim()"
-                  @click="handleGenerate"
-                  >✨ 生成</AppButton
-                >
-              </div>
-            </div>
-            <div class="ai-output-area">
-              <template v-if="selectedFeature.id === '11'">
-                <div v-if="isLoading" class="ai-loading">
-                  <div class="ai-loading__dots"><span /><span /><span /></div>
-                  <p>AI 正在生成图片，请稍候…</p>
-                </div>
-                <div v-else-if="generatedImageUrls.length" class="ai-image-output">
-                  <div
-                    v-for="(url, i) in generatedImageUrls"
-                    :key="i"
-                    class="ai-image-output__cell"
-                  >
-                    <img :src="url" alt="AI 生成图" class="ai-image-output__img" />
-                    <div class="ai-output__actions">
-                      <button
-                        class="tag"
-                        type="button"
-                        @click="downloadGeneratedImage(url)"
-                      >
-                        ⬇️ 下载图片
-                      </button>
-                      <a
-                        :href="url"
-                        class="tag"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        >🔗 打开原图</a
-                      >
-                      <button class="tag" type="button" @click="copyImageUrl(url)">
-                        📋 复制链接
-                      </button>
-                      <button
-                        class="tag"
-                        type="button"
-                        @click="generatedImageUrls = []"
-                      >
-                        清除
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div v-else class="ai-output-empty">
-                  <p>输入图片描述，选择风格后点击「生成」</p>
-                </div>
-              </template>
-              <template v-else>
-              <div v-if="thinkText" class="ai-think-block">
-                <button
-                  class="ai-think-toggle"
-                  @click="thinkExpanded = !thinkExpanded"
-                >
-                  <span class="ai-think-icon">🧠</span>
-                  <span>思考过程</span>
-                  <span v-if="isThinking" class="ai-streaming-badge"
-                    >● 思考中</span
-                  >
-                  <span class="ai-think-arrow">{{
-                    thinkExpanded ? "▲" : "▼"
-                  }}</span>
-                </button>
-                <Transition name="think-slide">
-                  <div v-if="thinkExpanded" class="ai-think-content">
-                    <pre>{{ thinkText }}</pre>
-                  </div>
-                </Transition>
-              </div>
-              <div v-if="isLoading && !outputText.trim()" class="ai-loading">
-                <div class="ai-loading__dots"><span /><span /><span /></div>
-                <p>
-                  {{ isThinking ? "AI 正在思考中..." : "AI 正在生成中..." }}
-                </p>
-              </div>
-              <div v-else-if="outputText" class="ai-output">
-                <pre
-                  class="ai-output__text">{{ outputText }}<span v-if="isLoading" class="cursor-blink">▋</span></pre>
-                <div v-if="!isLoading" class="ai-output__actions">
-                  <button class="tag" @click="copyOutput()">📋 复制</button>
-                  <button class="tag" @click="outputText = ''">清除</button>
-                  <button
-                    class="tag"
-                    @click="
-                      inputText = '';
-                      outputText = '';
-                    "
-                  >
-                    重置
-                  </button>
-                </div>
-              </div>
-              <div v-else class="ai-output-empty">
-                <p>在上方输入内容，点击「开始生成」</p>
-              </div>
-              </template>
-            </div>
-          </div>
+          <component
+            :is="workshopPanel"
+            :feature="selectedFeature"
+            class="ai-workspace-panel-host"
+          />
         </div>
       </Transition>
     </div>
@@ -597,7 +200,7 @@ onMounted(() => resizeInput());
   max-width: 640px;
   margin: 0 auto;
 }
-.ai-hero-title-wrapper{
+.ai-hero-title-wrapper {
   display: flex;
   justify-content: center;
   gap: 6px;
@@ -618,20 +221,6 @@ onMounted(() => resizeInput());
   font-size: var(--text-base);
   color: var(--color-text-muted);
   margin-bottom: 16px;
-}
-.ai-hero__stats {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.ai-stat {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-  background: var(--color-bg-card);
-  padding: 6px 14px;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--color-border);
 }
 .ai-body {
   max-width: 1200px;
@@ -753,239 +342,7 @@ onMounted(() => resizeInput());
   font-size: var(--text-sm);
   color: var(--color-text-muted);
   line-height: 1.5;
-}
-.ai-io {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-.ai-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text-secondary);
-  margin-bottom: 8px;
-}
-.ai-streaming-badge {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--color-primary);
-  background: rgba(91, 138, 240, 0.12);
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-  animation: pulse 1.5s ease-in-out infinite;
-}
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-.lang-switcher {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.lang-select {
-  flex: 1;
-  padding: 7px 10px;
-  background-color: var(--color-bg-glass);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-  color: var(--color-text-primary);
-  outline: none;
-  cursor: pointer;
-}
-.lang-swap-btn {
-  flex-shrink: 0;
-  padding: 7px 12px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-card);
-  cursor: pointer;
-  font-size: 1rem;
-  transition:
-    transform 0.4s ease,
-    border-color var(--transition-fast),
-    background var(--transition-fast);
-}
-.lang-swap-btn:active {
-  transform: scale(1.2);
-  border-color: var(--color-primary);
-  background: rgba(91, 138, 240, 0.08);
-}
-.ai-input-btns--image {
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  align-items: center;
-}
-.ai-image-gen__style.select-with-label .mode-select,
-.ai-image-gen__watermark.select-with-label .mode-select {
-  width: auto;
-  min-width: 9.5rem;
-  max-width: 220px;
-}
-.ai-image-gen__watermark.select-with-label .ai-wm-select {
-  min-width: 5.5rem;
-  max-width: 120px;
-}
-.ai-image-output {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: var(--color-bg-glass);
-}
-.ai-image-output__cell {
-  padding: 16px;
-}
-.ai-image-output__img {
-  display: block;
-  width: 100%;
-  max-height: min(480px, 70vh);
-  object-fit: contain;
-  border-radius: var(--radius-md);
-  background: rgba(0, 0, 0, 0.04);
-}
-.ai-textarea {
-  width: 100%;
-  padding: 12px 16px;
-  background: var(--color-bg-glass);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  font-size: var(--text-sm);
-  color: var(--color-text-primary);
-  font-family: var(--font-sans);
-  line-height: 1.6;
-  resize: none;
-  box-sizing: border-box;
-  outline: none;
-  transition: border-color var(--transition-fast);
-}
-.ai-textarea:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(91, 138, 240, 0.1);
-}
-.ai-textarea:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-.ai-textarea::placeholder {
-  color: var(--color-text-muted);
-}
-.ai-input-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 10px;
-}
-
-.stop-btn {
-  height: 40px;
-  padding: 0 18px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-card);
-  font-size: var(--text-sm);
-  cursor: pointer;
-  transition: all var(--transition-fast);
-  white-space: nowrap;
-}
-.stop-btn:hover {
-  border-color: #e8607a;
-  color: #e8607a;
-}
-.ai-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 60px 20px;
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-lg);
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-}
-.ai-loading__dots {
-  display: flex;
-  gap: 6px;
-}
-.ai-loading__dots span {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  animation: bounce 1.2s ease-in-out infinite;
-}
-.ai-loading__dots span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-.ai-loading__dots span:nth-child(3) {
-  animation-delay: 0.4s;
-}
-@keyframes bounce {
-  0%,
-  80%,
-  100% {
-    transform: scale(0.8);
-    opacity: 0.5;
-  }
-  40% {
-    transform: scale(1.2);
-    opacity: 1;
-  }
-}
-.ai-output {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-.ai-output__text {
-  padding: 20px;
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-  line-height: 1.8;
-  white-space: pre-wrap;
-  font-family: var(--font-sans);
-  background: rgba(91, 138, 240, 0.02);
-  margin: 0;
-  min-height: 200px;
-}
-.cursor-blink {
-  display: inline-block;
-  animation: blink 0.8s step-end infinite;
-}
-@keyframes blink {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
-}
-.ai-output__actions {
-  display: flex;
-  gap: 8px;
-  padding: 12px 16px;
-  border-top: 1px solid var(--color-border);
-  background: var(--color-bg-card);
-}
-.ai-output-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 200px;
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-lg);
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
 }
 .ai-fade-enter-active,
 .ai-fade-leave-active {
@@ -997,115 +354,8 @@ onMounted(() => resizeInput());
   transform: translateY(8px);
 }
 @media (max-width: 768px) {
-  .ai-io {
-    grid-template-columns: 1fr;
-  }
   .ai-grid {
     grid-template-columns: 1fr;
   }
-}
-.ai-button-row{
-  display: flex;
-  justify-content: space-between;
-}
-.ai-input-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-}
-.ai-input-row .ai-textarea {
-  flex: 1;
-  min-height: 44px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-.ai-input-btns {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.ai-think-block {
-  border: 1px solid rgba(91, 138, 240, 0.2);
-  border-radius: var(--radius-lg);
-  margin-bottom: 16px;
-  overflow: hidden;
-  background: rgba(91, 138, 240, 0.03);
-}
-.ai-think-toggle {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-  font-weight: 600;
-  text-align: left;
-}
-.ai-think-toggle:hover {
-  background: rgba(91, 138, 240, 0.06);
-}
-.ai-think-icon {
-  font-size: 1rem;
-}
-.ai-think-arrow {
-  margin-left: auto;
-  font-size: 10px;
-  color: var(--color-text-muted);
-}
-.ai-think-content {
-  padding: 12px 16px 16px;
-  border-top: 1px solid rgba(91, 138, 240, 0.12);
-}
-.ai-think-content pre {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  line-height: 1.7;
-  white-space: pre-wrap;
-  font-family: var(--font-sans);
-  margin: 0;
-  max-height: 300px;
-  overflow-y: auto;
-}
-.think-slide-enter-active,
-.think-slide-leave-active {
-  transition: all 0.25s ease;
-  overflow: hidden;
-}
-.think-slide-enter-from,
-.think-slide-leave-to {
-  opacity: 0;
-  max-height: 0;
-}
-.think-slide-enter-to,
-.think-slide-leave-from {
-  max-height: 300px;
-}
-
-.mode-select {
-  height: 40px;
-  padding: 0 12px;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--color-border);
-  background-color: var(--color-bg-glass);
-  font-size: var(--text-sm);
-  color: var(--color-text-secondary);
-  outline: none;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all var(--transition-fast);
-}
-.mode-select:focus {
-  border-color: var(--color-primary);
-}
-.mode-select:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
 }
 </style>

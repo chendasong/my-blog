@@ -68,6 +68,8 @@ export interface AIFeature {
   id: string
   name: string
   description: string
+  /** 列表 / 首页展示用 emoji（与 mdi 的 icon 字段分工） */
+  emoji: string
   icon: string
   category: AICategory
   tags: string[]
@@ -77,7 +79,7 @@ export interface AIFeature {
   placeholder: string
 }
 
-export type AICategory = 'writing' | 'vision' | 'analysis' | 'creative' | 'productivity'
+export type AICategory = 'writing' | 'vision' | 'analysis' | 'creative'
 
 // ===== 简历类型 =====
 export interface Resume {

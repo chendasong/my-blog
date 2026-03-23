@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useToast } from '@/composables/useToast'
 import { useRoute, useRouter } from 'vue-router'
 import { articleApi, uploadImage } from '@/api'
+import { mirrorRemoteImageToHostingIfNeeded } from '@/lib/qiniuClient'
 import { generateImages } from '@/api/siliconflow'
 import { categories, AI_IMAGE_STYLES, DEFAULT_AI_IMAGE_STYLE_ID, getAiImageStyleById, buildCoverImagePrompt } from '@/data'
 import AppButton from '@/components/common/AppButton.vue'
@@ -117,6 +118,15 @@ async function handleSubmit() {
       } catch {
         toast.error('封面上传失败，将使用旧封面')
         coverUrl = form.value.cover
+      }
+    }
+    if (coverUrl && /^https?:\/\//i.test(coverUrl)) {
+      try {
+        coverUrl = await mirrorRemoteImageToHostingIfNeeded(coverUrl)
+        if (activeSource.value === 'ai') selectedAI.value = coverUrl
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : '封面转存失败')
+        return
       }
     }
     const now = dayjs().format('YYYY-MM-DD')

@@ -15,8 +15,18 @@ export interface VolcanoChatOptions {
   maxTokens?: number
 }
 
+/** 方舟 Chat 兼容 OpenAI 多模态：user 消息可为文本或多段 text + image_url */
+export type VolcanoChatContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } }
+
+export interface VolcanoChatMessage {
+  role: 'system' | 'user' | 'assistant'
+  content: string | VolcanoChatContentPart[]
+}
+
 export async function volcanoChatComplete(
-  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+  messages: VolcanoChatMessage[],
   options?: VolcanoChatOptions
 ): Promise<string> {
   const resp = await fetch(VOLC_CHAT_URL, {

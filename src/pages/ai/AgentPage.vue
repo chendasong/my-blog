@@ -17,6 +17,7 @@ import {
 } from '@/data'
 import { useToast } from '@/composables/useToast'
 import { useAuthStore } from '@/stores/auth'
+import { mirrorRemoteImageToHostingIfNeeded } from '@/lib/qiniuClient'
 import AppButton from '@/components/common/AppButton.vue'
 import type { AgentArticleDraft, AgentNoteDraft } from '@/types'
 
@@ -233,11 +234,23 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
 
         if (taskMode.value === 'article' && articleDraft.value) {
           const d = articleDraft.value
+          let coverUrl = pendingCoverUrl.value.trim()
+          if (coverUrl) {
+            try {
+              coverUrl = await mirrorRemoteImageToHostingIfNeeded(coverUrl)
+              pendingCoverUrl.value = coverUrl
+            } catch (e) {
+              const hint = e instanceof Error ? e.message : '封面转存失败'
+              throw new Error(
+                `${hint}（若浏览器跨域无法拉取模型临时图，需服务端代理下载后再上传）`,
+              )
+            }
+          }
           const created = await articleApi.create({
             title: d.title,
             summary: d.summary,
             content: d.content,
-            cover: pendingCoverUrl.value,
+            cover: coverUrl,
             category: d.category,
             tags: d.tags,
             author,

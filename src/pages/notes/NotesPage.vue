@@ -1,18 +1,17 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
-import { useToast } from "@/composables/useToast";
 import { useNoteStore } from "@/stores/note";
 import { useAuthStore } from "@/stores/auth";
+import NotesListResults from "@/components/notes/NotesListResults.vue";
 import AppButton from "@/components/common/AppButton.vue";
-import type { Note, NoteCategory } from "@/types";
+import type { NoteCategory } from "@/types";
 
 const router = useRouter();
 const store = useNoteStore();
-const toast = useToast();
 const authStore = useAuthStore();
+
 const activeCategory = ref<NoteCategory | "all">("all");
-/** 输入框草稿；仅点击「搜索」后写入 appliedSearch 才筛选 */
 const searchQuery = ref("");
 const appliedSearch = ref("");
 const currentPage = ref(1);
@@ -35,30 +34,6 @@ const categoryIcons: Record<string, string> = {
   todo: "✅",
 };
 
-const listParams = ref<{ category?: NoteCategory; q?: string }>({});
-
-function syncListParamsFromApplied() {
-  listParams.value = {
-    ...(activeCategory.value !== "all"
-      ? { category: activeCategory.value }
-      : {}),
-    ...(appliedSearch.value ? { q: appliedSearch.value } : {}),
-  };
-}
-
-function fetchNotesPage() {
-  store.fetchList({
-    ...listParams.value,
-    limit: PAGE_SIZE,
-    offset: (currentPage.value - 1) * PAGE_SIZE,
-  });
-}
-
-onMounted(() => {
-  syncListParamsFromApplied();
-  fetchNotesPage();
-});
-
 const totalPages = computed(() =>
   Math.max(1, Math.ceil(store.listTotal / PAGE_SIZE)),
 );
@@ -66,37 +41,21 @@ const totalPages = computed(() =>
 function doSearch() {
   appliedSearch.value = searchQuery.value.trim();
   currentPage.value = 1;
-  syncListParamsFromApplied();
-  fetchNotesPage();
 }
 
 function setCategory(cat: NoteCategory | "all") {
   activeCategory.value = cat;
   currentPage.value = 1;
-  syncListParamsFromApplied();
-  fetchNotesPage();
 }
 
 function prevPage() {
   if (currentPage.value <= 1) return;
   currentPage.value--;
-  fetchNotesPage();
 }
 
 function nextPage() {
   if (currentPage.value >= totalPages.value) return;
   currentPage.value++;
-  fetchNotesPage();
-}
-
-async function handleDelete(note: Note) {
-  if (!confirm("确定删除这条笔记吗？")) return;
-  await store.remove(note.id);
-  toast.success("笔记已删除");
-}
-
-async function handleTogglePin(note: Note) {
-  await store.togglePin(note);
 }
 </script>
 
@@ -105,7 +64,9 @@ async function handleTogglePin(note: Note) {
     <div class="notes-hero">
       <div class="container">
         <div class="notes-hero__inner">
-          <h1 class="notes-title"><div class="title-icon animate-float">📔</div>笔记</h1>
+          <h1 class="notes-title">
+            <div class="title-icon animate-float">📔</div>笔记
+          </h1>
           <p class="notes-subtitle">记录灵感、工作与生活，随时查阅。</p>
           <div class="search-row">
             <input
@@ -115,8 +76,11 @@ async function handleTogglePin(note: Note) {
               placeholder="搜索笔记标题或内容..."
               enterkeyhint="search"
               autocomplete="off"
+              @keydown.enter.prevent="doSearch"
             />
-            <button class="search-btn" @click="doSearch">🔍 搜索</button>
+            <button type="button" class="search-btn" @click="doSearch">
+              🔍 搜索
+            </button>
             <AppButton
               v-if="authStore.isLoggedIn"
               @click="router.push('/notes/new')"
@@ -127,6 +91,7 @@ async function handleTogglePin(note: Note) {
             <button
               v-for="(label, key) in categoryLabels"
               :key="key"
+              type="button"
               :class="[
                 'cat-btn',
                 { 'cat-btn--active': activeCategory === key },
@@ -140,81 +105,55 @@ async function handleTogglePin(note: Note) {
       </div>
     </div>
     <div class="container notes-body">
-      <div v-if="store.loading" class="loading-state">
-        <div class="loading-dots"><span /><span /><span /></div>
-        <p>加载中...</p>
-      </div>
-      <template v-else>
-        <div v-if="!store.listTotal" class="empty-state">
-          <span class="empty-icon">📔</span>
-          <p>还没有笔记，新建一条吧！</p>
-          <AppButton
-            v-if="authStore.isLoggedIn"
-            @click="router.push('/notes/new')"
-            >✏️ 写笔记</AppButton
-          >
-        </div>
-        <div v-else class="notes-grid">
+      <Suspense>
+        <template #default>
+          <NotesListResults
+            :active-category="activeCategory"
+            :search-query="appliedSearch"
+            :current-page="currentPage"
+          />
+        </template>
+        <template #fallback>
           <div
-            v-for="note in store.notes"
-            :key="note.id"
-            class="note-card glass-card"
-            :style="{ borderLeftColor: note.color }"
-            @click="router.push(`/notes/${note.id}`)"
+            class="notes-suspense-fallback"
+            aria-busy="true"
+            aria-label="加载笔记列表"
           >
-            <div class="note-card__header">
-              <span v-if="note.pinned">📌</span>
-              <span class="note-card__cat" :style="{ color: note.color }"
-                >{{ categoryIcons[note.category] }}
-                {{ categoryLabels[note.category] }}</span
-              >
-            </div>
-            <h3 class="note-card__title">{{ note.title }}</h3>
-            <p class="note-card__preview">{{ note.content.slice(0, 80) }}...</p>
-            <div class="note-card__footer">
-              <span class="note-card__date">{{ note.updatedAt }}</span>
-              <div
-                v-if="authStore.isLoggedIn"
-                class="note-card__ops"
-                @click.stop
-              >
-                <button class="op-btn" @click="handleTogglePin(note)">
-                  {{ note.pinned ? "取消置顶" : "置顶" }}
-                </button>
-                <button
-                  class="op-btn"
-                  @click="router.push(`/notes/${note.id}/edit`)"
-                >
-                  ✏️
-                </button>
-                <button
-                  class="op-btn op-btn--danger"
-                  @click="handleDelete(note)"
-                >
-                  🗑️
-                </button>
+            <p class="notes-suspense-fallback__title">正在加载笔记列表…</p>
+            <div class="skeleton-grid">
+              <div v-for="n in 9" :key="n" class="skeleton-card">
+                <div class="skeleton-card__shine" />
+                <div class="skeleton-card__line skeleton-card__line--wide" />
+                <div class="skeleton-card__line" />
+                <div class="skeleton-card__line" />
+                <div class="skeleton-card__line skeleton-card__line--short" />
               </div>
             </div>
           </div>
-        </div>
-        <div v-if="totalPages > 1" class="pagination">
-          <button
-            class="page-btn"
-            :disabled="currentPage === 1"
-            @click="prevPage"
-          >
-            ← 上一页
-          </button>
-          <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
-          <button
-            class="page-btn"
-            :disabled="currentPage === totalPages"
-            @click="nextPage"
-          >
-            下一页 →
-          </button>
-        </div>
-      </template>
+        </template>
+      </Suspense>
+      <div
+        v-if="store.listTotal > 0 && totalPages > 1"
+        class="pagination"
+      >
+        <button
+          type="button"
+          class="page-btn"
+          :disabled="currentPage === 1"
+          @click="prevPage"
+        >
+          ← 上一页
+        </button>
+        <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
+        <button
+          type="button"
+          class="page-btn"
+          :disabled="currentPage === totalPages"
+          @click="nextPage"
+        >
+          下一页 →
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -328,80 +267,68 @@ async function handleTogglePin(note: Note) {
 .notes-body {
   padding-bottom: 80px;
 }
-.notes-grid {
+.notes-suspense-fallback {
+  padding: 24px 0 48px;
+}
+.notes-suspense-fallback__title {
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-bottom: 24px;
+}
+.skeleton-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 16px;
 }
-.note-card {
-  padding: 16px 18px;
-  cursor: pointer;
-  border-left: 4px solid var(--color-primary);
-  transition: all var(--transition-base);
-}
-.note-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-lg);
-}
-.note-card__header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-.note-card__cat {
-  font-size: var(--text-xs);
-  font-weight: 600;
-}
-.note-card__title {
-  font-size: var(--text-sm);
-  font-weight: 700;
-  color: var(--color-text-primary);
-  margin-bottom: 4px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+.skeleton-card {
+  position: relative;
   overflow: hidden;
-}
-.note-card__preview {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  line-height: 1.5;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  margin-bottom: 8px;
-}
-.note-card__footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.note-card__date {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-}
-.note-card__ops {
-  display: flex;
-  gap: 3px;
-}
-.op-btn {
-  padding: 3px 8px;
-  border-radius: var(--radius-sm);
+  min-height: 160px;
+  border-radius: var(--radius-xl);
   border: 1px solid var(--color-border);
-  background: var(--color-bg-glass);
-  font-size: var(--text-xs);
-  cursor: pointer;
-  transition: all var(--transition-fast);
+  background: var(--color-bg-card);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-left-width: 4px;
+  border-left-color: var(--color-border);
 }
-.op-btn:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
+.skeleton-card__shine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(91, 138, 240, 0.06) 50%,
+    transparent 60%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shine 1.4s ease-in-out infinite;
+  pointer-events: none;
 }
-.op-btn--danger:hover {
-  border-color: #e8607a;
-  color: #e8607a;
+.skeleton-card__line {
+  height: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-border);
+  opacity: 0.55;
+  width: 70%;
+}
+.skeleton-card__line--wide {
+  width: 40%;
+  height: 12px;
+}
+.skeleton-card__line--short {
+  width: 50%;
+}
+@keyframes skeleton-shine {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
 }
 .pagination {
   display: flex;
@@ -434,57 +361,8 @@ async function handleTogglePin(note: Note) {
   min-width: 60px;
   text-align: center;
 }
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  padding: 80px 24px;
-  color: var(--color-text-muted);
-}
-.loading-dots {
-  display: flex;
-  gap: 6px;
-}
-.loading-dots span {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  animation: bounce 1.2s ease-in-out infinite;
-}
-.loading-dots span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-.loading-dots span:nth-child(3) {
-  animation-delay: 0.4s;
-}
-@keyframes bounce {
-  0%,
-  80%,
-  100% {
-    transform: scale(0.8);
-    opacity: 0.5;
-  }
-  40% {
-    transform: scale(1.2);
-    opacity: 1;
-  }
-}
-.empty-state {
-  text-align: center;
-  padding: 40px 24px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  color: var(--color-text-muted);
-}
-.empty-icon {
-  font-size: 3rem;
-}
 @media (max-width: 640px) {
-  .notes-grid {
+  .skeleton-grid {
     grid-template-columns: 1fr;
   }
 }
