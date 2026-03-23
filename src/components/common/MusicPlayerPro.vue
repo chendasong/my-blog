@@ -22,7 +22,11 @@ const currentTime = ref(0)
 const duration = ref(0)
 const volume = ref(0.5)
 const audioRef = ref<HTMLAudioElement | null>(null)
-const loopMode = ref<'off' | 'all' | 'one'>('all') // off: 不循环, all: 列表循环, one: 单曲循环
+const loopMode = ref<'shuffle' | 'off' | 'all' | 'one'>('shuffle') // shuffle: 随机播放, off: 不循环, all: 列表循环, one: 单曲循环
+
+/** 随机播放队列：在 shuffle 模式下生效，首曲即随机 */
+const shuffleOrder = ref<number[]>([])
+const shufflePos = ref(0)
 
 /** 与按钮宽度一致（圆形按钮） */
 const PLAYER = 56
@@ -183,29 +187,107 @@ function onProgressInput(e: Event) {
   currentTime.value = t
 }
 
+function isValidShuffleOrder(order: unknown, n: number): order is number[] {
+  if (!Array.isArray(order) || order.length !== n) return false
+  const seen = new Set<number>()
+  for (const x of order) {
+    if (typeof x !== 'number' || !Number.isInteger(x) || x < 0 || x >= n || seen.has(x)) return false
+    seen.add(x)
+  }
+  return seen.size === n
+}
+
+function randomPermutation(n: number): number[] {
+  const arr = Array.from({ length: n }, (_, i) => i)
+  for (let i = n - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
+/** 冷启动 / 歌单变更等：随机顺序且从打乱后第一首开始 */
+function initShuffleQueue() {
+  const n = playlist.value.length
+  if (n === 0) return
+  const arr = randomPermutation(n)
+  shuffleOrder.value = arr
+  shufflePos.value = 0
+  currentTrackIndex.value = arr[0]!
+}
+
+/** 切换到随机或修复队列时：重排但保持当前正在播的曲目不变 */
+function initShuffleQueuePreserveCurrent() {
+  const n = playlist.value.length
+  if (n === 0) return
+  const pin = Math.min(Math.max(0, currentTrackIndex.value), n - 1)
+  const arr = randomPermutation(n)
+  shuffleOrder.value = arr
+  const pos = arr.indexOf(pin)
+  shufflePos.value = pos >= 0 ? pos : 0
+}
+
 // 保存播放状态
 const saveState = () => {
   if (!hasMusic.value) return
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+  const payload: Record<string, unknown> = {
     trackIndex: currentTrackIndex.value,
     isPlaying: isPlaying.value,
     currentTime: currentTime.value,
-  }))
+    loopMode: loopMode.value,
+  }
+  if (loopMode.value === 'shuffle' && shuffleOrder.value.length === playlist.value.length) {
+    payload.shuffleOrder = shuffleOrder.value
+    payload.shufflePos = shufflePos.value
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
 }
 
 // 恢复播放状态
 const restoreState = () => {
+  const n = playlist.value.length
+  if (n === 0) return
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
-    if (saved) {
-      const state = JSON.parse(saved)
-      if (state.trackIndex < playlist.value.length) {
-        currentTrackIndex.value = state.trackIndex
-        currentTime.value = state.currentTime || 0
+    if (!saved) {
+      if (loopMode.value === 'shuffle') initShuffleQueue()
+      else currentTrackIndex.value = 0
+      return
+    }
+    const state = JSON.parse(saved) as {
+      trackIndex?: number
+      currentTime?: number
+      loopMode?: 'shuffle' | 'off' | 'all' | 'one'
+      shuffleEnabled?: boolean
+      shuffleOrder?: unknown
+      shufflePos?: number
+    }
+    currentTime.value = state.currentTime || 0
+
+    const mode = state.loopMode ?? (state.shuffleEnabled !== false ? 'shuffle' : 'all')
+    loopMode.value = mode
+
+    if (mode === 'shuffle') {
+      if (isValidShuffleOrder(state.shuffleOrder, n)) {
+        shuffleOrder.value = state.shuffleOrder
+        shufflePos.value = Math.min(
+          Math.max(0, Math.floor(state.shufflePos ?? 0)),
+          n - 1,
+        )
+        currentTrackIndex.value = shuffleOrder.value[shufflePos.value]!
+      } else {
+        initShuffleQueue()
       }
+    } else {
+      shuffleOrder.value = []
+      shufflePos.value = 0
+      const ti = state.trackIndex
+      if (typeof ti === 'number' && ti >= 0 && ti < n) currentTrackIndex.value = ti
+      else currentTrackIndex.value = 0
     }
   } catch (e) {
     console.error('Failed to restore player state:', e)
+    if (loopMode.value === 'shuffle') initShuffleQueue()
   }
 }
 
@@ -238,20 +320,21 @@ watch(currentTrackIndex, () => {
 
 watch(
   () => props.musicUrls,
-  () => {
+  (newU, oldU) => {
+    if (newU === oldU) return
+    const n = playlist.value.length
+    if (n === 0) return
+    if (loopMode.value === 'shuffle') {
+      initShuffleQueue()
+    } else {
+      currentTrackIndex.value = Math.min(currentTrackIndex.value, n - 1)
+    }
     if (currentTrack.value && audioRef.value) {
       audioRef.value.src = currentTrack.value.url
       audioRef.value.load()
     }
+    saveState()
   },
-)
-
-watch(
-  () => [props.musicUrls, props.musicNames],
-  () => {
-    // 当props改变时，重新计算playlist
-  },
-  { deep: true }
 )
 
 let unlistenMusicBridge: (() => void) | null = null
@@ -319,7 +402,14 @@ const togglePlay = () => {
 
 const nextTrack = () => {
   if (!hasMusic.value) return
-  currentTrackIndex.value = (currentTrackIndex.value + 1) % playlist.value.length
+  const n = playlist.value.length
+  if (loopMode.value === 'shuffle' && n > 1) {
+    if (shuffleOrder.value.length !== n) initShuffleQueuePreserveCurrent()
+    shufflePos.value = (shufflePos.value + 1) % n
+    currentTrackIndex.value = shuffleOrder.value[shufflePos.value]!
+  } else {
+    currentTrackIndex.value = (currentTrackIndex.value + 1) % n
+  }
   if (audioRef.value) {
     audioRef.value.src = currentTrack.value!.url
     audioRef.value.addEventListener('canplay', () => {
@@ -335,7 +425,14 @@ const nextTrack = () => {
 
 const prevTrack = () => {
   if (!hasMusic.value) return
-  currentTrackIndex.value = (currentTrackIndex.value - 1 + playlist.value.length) % playlist.value.length
+  const n = playlist.value.length
+  if (loopMode.value === 'shuffle' && n > 1) {
+    if (shuffleOrder.value.length !== n) initShuffleQueuePreserveCurrent()
+    shufflePos.value = (shufflePos.value - 1 + n) % n
+    currentTrackIndex.value = shuffleOrder.value[shufflePos.value]!
+  } else {
+    currentTrackIndex.value = (currentTrackIndex.value - 1 + n) % n
+  }
   if (audioRef.value) {
     audioRef.value.src = currentTrack.value!.url
     audioRef.value.addEventListener('canplay', () => {
@@ -350,6 +447,17 @@ const prevTrack = () => {
 }
 
 const selectTrack = (index: number) => {
+  const n = playlist.value.length
+  if (loopMode.value === 'shuffle' && n > 1) {
+    if (shuffleOrder.value.length !== n) {
+      const arr = randomPermutation(n)
+      shuffleOrder.value = arr
+      shufflePos.value = Math.max(0, arr.indexOf(index))
+    } else {
+      const j = shuffleOrder.value.indexOf(index)
+      if (j >= 0) shufflePos.value = j
+    }
+  }
   currentTrackIndex.value = index
   if (audioRef.value) {
     audioRef.value.src = currentTrack.value!.url
@@ -365,9 +473,17 @@ const selectTrack = (index: number) => {
 }
 
 const toggleLoopMode = () => {
-  const modes: Array<'off' | 'all' | 'one'> = ['all', 'one', 'off']
+  const modes: Array<'shuffle' | 'off' | 'all' | 'one'> = ['shuffle', 'all', 'one', 'off']
   const currentIndex = modes.indexOf(loopMode.value)
-  loopMode.value = modes[(currentIndex + 1) % modes.length]
+  const nextMode = modes[(currentIndex + 1) % modes.length]
+  loopMode.value = nextMode
+  if (nextMode === 'shuffle') {
+    initShuffleQueuePreserveCurrent()
+  } else {
+    shuffleOrder.value = []
+    shufflePos.value = 0
+  }
+  saveState()
 }
 
 const handleTimeUpdate = () => {
@@ -389,8 +505,8 @@ const handleEnded = () => {
       audioRef.value.currentTime = 0
       audioRef.value.play()
     }
-  } else if (loopMode.value === 'all') {
-    // 列表循环
+  } else if (loopMode.value === 'all' || loopMode.value === 'shuffle') {
+    // 列表循环 / 随机播放
     nextTrack()
   } else {
     // 不循环，停止播放
@@ -501,23 +617,43 @@ const handleButtonClick = () => {
         </div>
 
         <div class="music-player__controls">
-          <button class="music-player__control-btn" @click="prevTrack" :disabled="playlist.length <= 1">⏮</button>
-          <button class="music-player__play-btn" @click="togglePlay">
-            {{ isPlaying ? '⏸' : '▶' }}
-          </button>
-          <button class="music-player__control-btn" @click="nextTrack" :disabled="playlist.length <= 1">⏭</button>
-          <button
-            type="button"
-            class="music-player__loop-btn"
-            :class="{ 'music-player__loop-btn--one': loopMode === 'one' }"
-            :aria-label="`循环模式: ${loopMode === 'all' ? '列表循环' : loopMode === 'one' ? '单曲循环' : '不循环'}`"
-            :title="`循环模式: ${loopMode === 'all' ? '列表循环' : loopMode === 'one' ? '单曲循环' : '不循环'}`"
-            @click="toggleLoopMode"
-          >
+          <div class="music-player__controls-row" role="group" aria-label="播放控制">
+            <div class="music-player__controls-side music-player__controls-side--left" aria-hidden="true" />
+            <div class="music-player__controls-core">
+              <button class="music-player__control-btn" @click="prevTrack" :disabled="playlist.length <= 1">⏮</button>
+              <button class="music-player__play-btn" @click="togglePlay">
+                {{ isPlaying ? '⏸' : '▶' }}
+              </button>
+              <button class="music-player__control-btn" @click="nextTrack" :disabled="playlist.length <= 1">⏭</button>
+            </div>
+            <div class="music-player__controls-side music-player__controls-side--right">
+              <button
+                type="button"
+                class="music-player__mode-btn music-player__loop-btn"
+                :class="{ 'music-player__loop-btn--one': loopMode === 'one' }"
+                :aria-label="`播放模式: ${loopMode === 'shuffle' ? '随机播放' : loopMode === 'all' ? '列表循环' : loopMode === 'one' ? '单曲循环' : '不循环'}`"
+                :title="`播放模式: ${loopMode === 'shuffle' ? '随机播放（首曲随机）' : loopMode === 'all' ? '列表循环' : loopMode === 'one' ? '单曲循环' : '不循环'}`"
+                @click="toggleLoopMode"
+              >
+            <!-- 随机：两条交叉曲线 + 末端箭头，与其它模式同线宽 -->
+            <svg
+              v-if="loopMode === 'shuffle'"
+              class="music-player__loop-svg music-player__loop-svg--compact"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3 17.5C7.5 17.5 10.5 9 21 4.5M18.2 2.8L21 4.5 19.3 7.2" />
+              <path d="M3 6.5C7.5 6.5 10.5 15 21 19.5M18.2 21.2L21 19.5 19.3 16.8" />
+            </svg>
             <!-- 列表循环：双箭头回路 -->
             <svg
-              v-if="loopMode === 'all'"
-              class="music-player__loop-svg"
+              v-else-if="loopMode === 'all'"
+              class="music-player__loop-svg music-player__loop-svg--compact"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -534,7 +670,7 @@ const handleButtonClick = () => {
             <!-- 单曲循环：简洁回路 + 角标 1（小尺寸比单大弧更易辨认） -->
             <template v-else-if="loopMode === 'one'">
               <svg
-                class="music-player__loop-svg music-player__loop-svg--once"
+                class="music-player__loop-svg"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -563,8 +699,11 @@ const handleButtonClick = () => {
               <path d="M5 12h12" />
               <path d="M14 8l4 4-4 4" />
             </svg>
-          </button>
+              </button>
+            </div>
+          </div>
         </div>
+
 
         <div class="music-player__progress-container">
           <input
@@ -728,20 +867,6 @@ const handleButtonClick = () => {
   min-height: 2px;
 }
 
-.music-player__badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-  background: #E8607A;
-  color: white;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 999px;
-  min-width: 28px;
-  text-align: center;
-}
-
 .music-player__panel {
   /* position / width / bottom / max-height 由 musicPanelStyle（fixed）控制 */
   display: flex;
@@ -792,22 +917,49 @@ const handleButtonClick = () => {
 }
 
 .music-player__controls {
+  margin-bottom: 16px;
+}
+
+/* 中间仅传输键，左右等宽，保证主控件相对面板水平居中；模式键在右侧 */
+.music-player__controls-row {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  width: 100%;
+  column-gap: 8px;
+}
+
+.music-player__controls-core {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-bottom: 16px;
-  position: relative;
+}
+
+.music-player__controls-side {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.music-player__controls-side--right {
+  justify-content: flex-end;
+}
+
+.music-player__controls-side--left {
+  pointer-events: none;
 }
 
 .music-player__control-btn {
   width: 36px;
   height: 36px;
+  padding: 0;
   border-radius: 50%;
   background: rgba(91, 138, 240, 0.2);
   border: 1px solid rgba(91, 138, 240, 0.3);
   color: rgba(255, 255, 255, 0.7);
   font-size: 1rem;
+  line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -826,10 +978,10 @@ const handleButtonClick = () => {
   cursor: not-allowed;
 }
 
-.music-player__loop-btn {
-  position: absolute;
-  right: 14px;
+.music-player__mode-btn {
+  position: relative;
   overflow: visible;
+  flex-shrink: 0;
   width: 38px;
   height: 38px;
   border-radius: 11px;
@@ -840,12 +992,22 @@ const handleButtonClick = () => {
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 1rem;
+  line-height: 1;
   transition:
     background-color 0.2s ease,
     border-color 0.2s ease,
     color 0.2s ease,
+    opacity 0.2s ease,
     transform 0.2s ease,
     box-shadow 0.2s ease;
+}
+
+.music-player__mode-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
 }
 
 .music-player__loop-btn--one {
@@ -858,6 +1020,12 @@ const handleButtonClick = () => {
   height: 20px;
   flex-shrink: 0;
   pointer-events: none;
+}
+
+/* 随机 / 列表循环图形占满 viewBox，缩到与不循环箭头视觉接近 */
+.music-player__loop-svg--compact {
+  width: 16px;
+  height: 16px;
 }
 
 .music-player__loop-one-badge {
@@ -874,13 +1042,6 @@ const handleButtonClick = () => {
   font-family: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
 }
 
-.music-player__loop-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.22);
-  color: #fff;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
-}
-
 .music-player__loop-btn--one:hover {
   background: rgba(139, 111, 240, 0.2);
   border-color: rgba(186, 170, 255, 0.45);
@@ -889,11 +1050,13 @@ const handleButtonClick = () => {
 .music-player__play-btn {
   width: 44px;
   height: 44px;
+  padding: 0;
   border-radius: 50%;
   background: linear-gradient(135deg, #5b8af0 0%, #8b6ff0 100%);
   border: none;
   color: white;
   font-size: 1.2rem;
+  line-height: 1;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -942,7 +1105,6 @@ const handleButtonClick = () => {
   margin-top: -3.5px;
   border-radius: 50%;
   background: linear-gradient(135deg, #5b8af0 0%, #8b6ff0 100%);
-  /* box-shadow: 0 0 0 1.5px rgba(20, 20, 30, 0.95); */
   cursor: grab;
 }
 

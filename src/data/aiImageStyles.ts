@@ -26,12 +26,6 @@ export const AI_IMAGE_STYLES: AIImageStyle[] = [
       '海绵宝宝式美式二维动画：夸张表情与肢体、高饱和色彩，海底奇想、滑稽喜剧氛围',
   },
   {
-    id: 'pleasant-goat',
-    label: '喜羊羊与灰太狼风格',
-    promptFragment:
-      '喜羊羊与灰太狼式国产卡通：圆润可爱的羊与狼等动物形象，柔和造型、全年龄向轻松家庭风',
-  },
-  {
     id: 'random',
     label: '随机动画风格',
     promptFragment:
