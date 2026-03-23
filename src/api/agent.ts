@@ -13,6 +13,8 @@ export interface VolcanoChatOptions {
   signal?: AbortSignal
   temperature?: number
   maxTokens?: number
+  /** OpenAI 兼容：核采样，省略则由服务端默认 */
+  topP?: number
 }
 
 /** 方舟 Chat 兼容 OpenAI 多模态：user 消息可为文本或多段 text + image_url */
@@ -29,18 +31,30 @@ export async function volcanoChatComplete(
   messages: VolcanoChatMessage[],
   options?: VolcanoChatOptions
 ): Promise<string> {
+  const model = getVolcanoChatModel().trim()
+  if (!model) {
+    throw new Error('未配置 VITE_VOLCANO_CHAT_MODEL')
+  }
+  if (!getVolcanoKey().trim()) {
+    throw new Error('未配置 VITE_VOLCANO_KEY')
+  }
+  const payload: Record<string, unknown> = {
+    model,
+    messages,
+    temperature: options?.temperature ?? 0.45,
+    max_tokens: options?.maxTokens ?? 8192,
+  }
+  if (typeof options?.topP === 'number') {
+    payload.top_p = options.topP
+  }
+
   const resp = await fetch(VOLC_CHAT_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${getVolcanoKey()}`,
     },
-    body: JSON.stringify({
-      model: getVolcanoChatModel(),
-      messages,
-      temperature: options?.temperature ?? 0.45,
-      max_tokens: options?.maxTokens ?? 8192,
-    }),
+    body: JSON.stringify(payload),
     signal: options?.signal,
   })
 
@@ -91,6 +105,148 @@ function extractMessageContent(data: unknown): string {
   const r = msg.reasoning_content
   if (typeof r === 'string' && r.trim()) return r
   return ''
+}
+
+export interface VolcanoChatStreamOptions {
+  messages: VolcanoChatMessage[]
+  signal?: AbortSignal
+  temperature?: number
+  maxTokens?: number
+  topP?: number
+  onChunk: (text: string) => void
+  /** 部分豆包推理模型会流式输出 reasoning_content */
+  onReasoning?: (text: string) => void
+  onDone: () => void
+  onError: (msg: string) => void
+}
+
+/**
+ * 火山方舟流式对话（OpenAI 兼容 SSE），模型与密钥同 volcanoChatComplete。
+ */
+export async function volcanoChatStream(
+  options: VolcanoChatStreamOptions,
+): Promise<void> {
+  const model = getVolcanoChatModel().trim()
+  if (!model) {
+    options.onError('未配置 VITE_VOLCANO_CHAT_MODEL')
+    return
+  }
+  if (!getVolcanoKey().trim()) {
+    options.onError('未配置 VITE_VOLCANO_KEY')
+    return
+  }
+
+  const {
+    messages,
+    signal,
+    temperature = 0.7,
+    maxTokens = 4096,
+    topP,
+    onChunk,
+    onReasoning,
+    onDone,
+    onError,
+  } = options
+
+  const streamPayload: Record<string, unknown> = {
+    model,
+    messages,
+    stream: true,
+    max_tokens: maxTokens,
+    temperature,
+  }
+  if (typeof topP === 'number') {
+    streamPayload.top_p = topP
+  }
+
+  try {
+    const resp = await fetch(VOLC_CHAT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${getVolcanoKey()}`,
+      },
+      body: JSON.stringify(streamPayload),
+      signal,
+    })
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}))
+      onError(
+        (err as { error?: { message?: string } })?.error?.message ||
+          `火山模型请求失败 (${resp.status})`,
+      )
+      return
+    }
+
+    const reader = resp.body?.getReader()
+    if (!reader) {
+      onError('无法读取响应流')
+      return
+    }
+
+    const decoder = new TextDecoder()
+    let carry = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      carry += decoder.decode(value, { stream: true })
+      const lines = carry.split('\n')
+      carry = lines.pop() ?? ''
+      for (const rawLine of lines) {
+        const line = rawLine.trim()
+        if (!line.startsWith('data:')) continue
+        const payload = line.replace(/^data:\s*/, '').trim()
+        if (payload === '[DONE]') {
+          onDone()
+          return
+        }
+        try {
+          const json = JSON.parse(payload) as {
+            choices?: Array<{
+              delta?: {
+                content?: string | null
+                reasoning_content?: string | null
+              }
+            }>
+            error?: { message?: string }
+          }
+          if (json.error?.message) {
+            onError(json.error.message)
+            await reader.cancel()
+            return
+          }
+          const delta = json.choices?.[0]?.delta as
+            | Record<string, unknown>
+            | undefined
+          if (!delta || typeof delta !== 'object') continue
+
+          const reasoningPiece =
+            (typeof delta.reasoning_content === 'string' &&
+              delta.reasoning_content) ||
+            (typeof delta.thinking === 'string' && delta.thinking) ||
+            (typeof delta.reasoning === 'string' && delta.reasoning) ||
+            ''
+          if (reasoningPiece) {
+            onReasoning?.(reasoningPiece)
+          }
+
+          if (typeof delta.content === 'string' && delta.content) {
+            onChunk(delta.content)
+          }
+        } catch {
+          /* 半行 JSON，忽略 */
+        }
+      }
+    }
+    onDone()
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') {
+      onDone()
+      return
+    }
+    onError(e instanceof Error ? e.message : '网络错误')
+  }
 }
 
 /** 从模型输出中取出第一个完整 JSON 对象（按括号配对，避免 content 里含 `}` 时误截断） */

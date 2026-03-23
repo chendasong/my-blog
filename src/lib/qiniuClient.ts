@@ -199,10 +199,11 @@ export async function uploadRemoteImageViaServerApi(
   const secret = (import.meta.env.VITE_QINIU_ADMIN_SECRET as string | undefined)?.trim()
   if (!secret) throw new Error('未配置 VITE_QINIU_ADMIN_SECRET，无法服务端转存')
 
-  const base = apiBase()
-  if (!base) throw new Error('未配置 VITE_API_BASE')
+  /** 与拉 token 一致：未配 VITE_API_BASE 时用同源相对路径（本地 dev / Vercel 同域） */
+  const apiRoot = apiBase().replace(/\/$/, '')
+  const endpoint = `${apiRoot}/api/qiniu-fetch-upload`
 
-  const r = await fetch(`${base.replace(/\/$/, '')}/api/qiniu-fetch-upload`, {
+  const r = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -238,11 +239,7 @@ export async function mirrorRemoteImageToHostingIfNeeded(
 
   const secret = (import.meta.env.VITE_QINIU_ADMIN_SECRET as string | undefined)?.trim()
   if (secret && isQiniuConfigured()) {
-    try {
-      return await uploadRemoteImageViaServerApi(url, keyPrefix)
-    } catch {
-      // 回退到浏览器拉取（仅当图源允许 CORS 时可用）
-    }
+    return await uploadRemoteImageViaServerApi(url, keyPrefix)
   }
 
   const res = await fetch(url, { mode: 'cors', credentials: 'omit' })

@@ -11,6 +11,7 @@ import { useToast } from '@/composables/useToast'
 import { syncTextareaHeight } from '@/lib/autoResizeTextarea'
 import AppButton from '@/components/common/AppButton.vue'
 import { isQiniuConfigured, uploadRemoteImageViaServerApi } from '@/lib/qiniuClient'
+import { fetchRemoteImageBlob } from '@/lib/fetchRemoteImageBlob'
 import type { AIFeature } from '@/types'
 
 defineProps<{ feature: AIFeature }>()
@@ -114,9 +115,7 @@ async function saveGeneratedToQiniu(url: string, index: number) {
 async function downloadGeneratedImage(url: string) {
   const base = `ai-image-${Date.now()}`
   try {
-    const res = await fetch(url, { mode: 'cors' })
-    if (!res.ok) throw new Error('fetch failed')
-    const blob = await res.blob()
+    const blob = await fetchRemoteImageBlob(url)
     const ext = extFromMime(blob.type || '')
     const href = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -128,8 +127,12 @@ async function downloadGeneratedImage(url: string) {
     document.body.removeChild(a)
     URL.revokeObjectURL(href)
     toast.success('已开始下载')
-  } catch {
-    toast.error('无法直接下载（可能被跨域限制），请用「打开原图」后右键保存')
+  } catch (e) {
+    toast.error(
+      e instanceof Error
+        ? e.message
+        : '下载失败（请确认已部署 /api/image-proxy）',
+    )
   }
 }
 </script>

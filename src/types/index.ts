@@ -58,6 +58,8 @@ export interface CoupleMemory {
   images?: string[]
   /** 视频 URL 列表（可选） */
   videos?: string[]
+  /** 与 videos 同序的封面图 URL（列表展示，避免预加载整段视频） */
+  videoPosters?: string[]
   date: string
   type: 'photo' | 'milestone' | 'wish' | 'diary'
   emotion: 'happy' | 'romantic' | 'sweet' | 'funny'

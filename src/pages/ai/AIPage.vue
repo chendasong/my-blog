@@ -6,6 +6,7 @@ import { getVolcanoVideoModel } from '@/api/volcano'
 import AiWorkshopChatPanel from '@/components/ai-workshop/AiWorkshopChatPanel.vue'
 import AiWorkshopImagePanel from '@/components/ai-workshop/AiWorkshopImagePanel.vue'
 import AiWorkshopVideoPanel from '@/components/ai-workshop/AiWorkshopVideoPanel.vue'
+import AiWorkshopComicPanel from '@/components/ai-workshop/AiWorkshopComicPanel.vue'
 import type { AIFeature, AICategory } from '@/types'
 
 const route = useRoute()
@@ -66,6 +67,9 @@ const workspaceSubtitle = computed(() => {
   if (f.id === '12') {
     return `${f.description} 接入模型 ${videoModelDisplay.value}；可选首帧、尾帧参考图（适合 Seedance 1.5 Pro 等）；生成链接约 24h 有效，请及时下载。`
   }
+  if (f.id === '13') {
+    return `${f.description} 分镜与工坊对话均走火山方舟文本模型（VITE_VOLCANO_CHAT_MODEL）；成图走 VITE_VOLCANO_IMAGE_MODEL，可按比例指定尺寸。第 2 格起会传上一格作参考；不支持参考图时需换模型。`
+  }
   return f.description
 })
 
@@ -73,6 +77,7 @@ const workshopPanel = computed<Component>(() => {
   const id = selectedFeature.value?.id
   if (id === '11') return AiWorkshopImagePanel
   if (id === '12') return AiWorkshopVideoPanel
+  if (id === '13') return AiWorkshopComicPanel
   return AiWorkshopChatPanel
 })
 
@@ -207,7 +212,6 @@ function handleSelect(feature: AIFeature) {
 }
 .ai-hero__icon {
   font-size: 3.5rem;
-  margin-bottom: 16px;
   display: block;
 }
 .ai-hero__title {
@@ -215,12 +219,10 @@ function handleSelect(feature: AIFeature) {
   font-weight: 700;
   color: var(--color-text-primary);
   letter-spacing: -0.03em;
-  margin-bottom: 8px;
 }
 .ai-hero__subtitle {
   font-size: var(--text-base);
   color: var(--color-text-muted);
-  margin-bottom: 16px;
 }
 .ai-body {
   max-width: 1200px;

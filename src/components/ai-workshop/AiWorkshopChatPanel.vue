@@ -19,34 +19,29 @@ const isThinking = ref(false)
 let abortFlag = false
 let streamActive = false
 
+const thinkPreRef = ref<HTMLPreElement | null>(null)
+
 const inputRef = ref<HTMLTextAreaElement | null>(null)
 const TEXTAREA_MIN = 44
 const TEXTAREA_MAX = 300
 
-const langOptions = [
-  '中文',
-  'English',
-  '日本语',
-  '韩语',
-  '法语',
-  '德语',
-  '西班牙语',
-  '俄语',
-]
-const sourceLang = ref('中文')
-const targetLang = ref('English')
-
 const thinkingModes = [
-  { value: 'fast' as const, label: '⚡ 快速', desc: '快速回答，适合日常对话' },
-  { value: 'balanced' as const, label: '⚖️ 平衡', desc: '平衡效率与质量' },
-  { value: 'deep' as const, label: '🧠 深思', desc: '深度思考，适合复杂任务' },
+  {
+    value: 'fast' as const,
+    label: '⚡ 快速',
+    desc: '更短输出、更低温度与 top_p（约 1.5k tokens）',
+  },
+  {
+    value: 'balanced' as const,
+    label: '⚖️ 平衡',
+    desc: '中等长度与采样（约 4k tokens）',
+  },
+  {
+    value: 'deep' as const,
+    label: '🧠 深度',
+    desc: '更长上限、更高探索性（约 8k tokens）',
+  },
 ]
-
-function swapLangs() {
-  const tmp = sourceLang.value
-  sourceLang.value = targetLang.value
-  targetLang.value = tmp
-}
 
 function resizeInput() {
   nextTick(() =>
@@ -55,6 +50,22 @@ function resizeInput() {
 }
 
 watch(inputText, resizeInput)
+
+function scrollThinkToLatest() {
+  nextTick(() => {
+    const el = thinkPreRef.value
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+  })
+}
+
+watch(thinkText, () => {
+  if (thinkExpanded.value) scrollThinkToLatest()
+})
+
+watch(thinkExpanded, (open) => {
+  if (open) scrollThinkToLatest()
+})
 
 onMounted(() => resizeInput())
 
@@ -78,19 +89,15 @@ async function handleGenerate() {
   thinkText.value = ''
   thinkExpanded.value = true
 
-  const userInput =
-    props.feature.id === '5'
-      ? `[${sourceLang.value}] -> [${targetLang.value}]\n${inputText.value}`
-      : inputText.value
-
   await streamChat({
     featureId: props.feature.id,
-    userInput,
+    userInput: inputText.value,
     thinkingMode: thinkingMode.value,
     onThink: (text) => {
       if (!streamActive || abortFlag) return
       isThinking.value = true
       thinkText.value += text
+      scrollThinkToLatest()
     },
     onChunk: (text) => {
       if (!streamActive || abortFlag) return
@@ -130,26 +137,6 @@ function copyOutput() {
     <div class="ai-io">
       <div class="ai-input-area">
         <label class="ai-label">输入内容</label>
-        <div v-if="feature.id === '5'" class="lang-switcher">
-          <select v-model="sourceLang" class="lang-select">
-            <option v-for="l in langOptions" :key="l" :value="l">
-              {{ l }}
-            </option>
-          </select>
-          <button
-            type="button"
-            class="lang-swap-btn"
-            title="交换语言"
-            @click="swapLangs"
-          >
-            🔄
-          </button>
-          <select v-model="targetLang" class="lang-select">
-            <option v-for="l in langOptions" :key="l" :value="l">
-              {{ l }}
-            </option>
-          </select>
-        </div>
         <div class="ai-input-row">
           <textarea
             ref="inputRef"
@@ -178,6 +165,7 @@ function copyOutput() {
               v-for="mode in thinkingModes"
               :key="mode.value"
               :value="mode.value"
+              :title="mode.desc"
             >
               {{ mode.label }}
             </option>
@@ -211,7 +199,7 @@ function copyOutput() {
           </button>
           <Transition name="think-slide">
             <div v-if="thinkExpanded" class="ai-think-content">
-              <pre>{{ thinkText }}</pre>
+              <pre ref="thinkPreRef">{{ thinkText }}</pre>
             </div>
           </Transition>
         </div>

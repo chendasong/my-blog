@@ -54,18 +54,20 @@ export const aiFeatures: AIFeature[] = [
     isPro: false,
     placeholder: '描述你需要的代码功能，如：「用 Vue3 实现一个防抖 Hook」...',
   },
-  // 下排：翻译、诗词、食谱、医生
+  // 下排：连载漫画、诗词、食谱、医生
   {
-    id: '5',
-    name: 'AI 翻译',
-    description: '不只是翻译，AI 还能对文本进行润色改写，让表达更地道、更专业，支持多语言。',
-    emoji: '🌐',
-    icon: 'mdi:translate',
-    category: 'writing',
-    tags: ['翻译', '多语言', '语言'],
-    isNew: false,
+    id: '13',
+    name: 'AI 连载漫画',
+    description:
+      '粘贴文章或故事，先由大模型拆成多格分镜，再按格用火山生图；从第 2 格起将上一格成图作为参考传入，尽量保持角色与画风连贯（依赖模型是否支持参考图）。',
+    emoji: '📖',
+    icon: 'mdi:book-open-page-variant',
+    category: 'creative',
+    tags: ['漫画', '条漫', '生图'],
+    isNew: true,
     isPro: false,
-    placeholder: '输入需要翻译的内容...',
+    placeholder:
+      '粘贴一篇短文、故事梗概或章节… 将自动提炼分镜并生成多格连续漫画。',
   },
   {
     id: '7',

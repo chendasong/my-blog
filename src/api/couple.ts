@@ -24,6 +24,7 @@ function toMemory(row: Record<string, unknown>): CoupleMemory {
     image: row.image as string,
     images: parseJsonStringArray(row.images),
     videos: parseJsonStringArray(row.videos),
+    videoPosters: parseJsonStringArray(row.video_posters),
     date: row.date as string,
     type: row.type as CoupleMemory['type'],
     emotion: row.emotion as CoupleMemory['emotion'],
@@ -40,12 +41,22 @@ export const coupleApi = {
   },
 
   async createMemory(input: Omit<CoupleMemory, 'id'>): Promise<CoupleMemory> {
+    const vids = input.videos?.length ? input.videos : null
+    const posterJson =
+      vids?.length
+        ? (() => {
+            const p = [...(input.videoPosters || [])]
+            while (p.length < vids.length) p.push('')
+            return JSON.stringify(p.slice(0, vids.length))
+          })()
+        : null
     const { data, error } = await supabase.from('couple_memories').insert({
       title: input.title,
       description: input.description,
       image: input.image,
       images: input.images ? JSON.stringify(input.images) : null,
-      videos: input.videos?.length ? input.videos : null,
+      videos: vids,
+      video_posters: posterJson,
       date: input.date || null,
       type: input.type,
       emotion: input.emotion,
@@ -62,6 +73,16 @@ export const coupleApi = {
     if (input.image !== undefined) updateData.image = input.image
     if (input.images !== undefined) updateData.images = input.images ? JSON.stringify(input.images) : null
     if (input.videos !== undefined) updateData.videos = input.videos?.length ? input.videos : null
+    if (input.videoPosters !== undefined) {
+      const vl = input.videos?.length
+      if (vl) {
+        const p = [...(input.videoPosters || [])]
+        while (p.length < vl) p.push('')
+        updateData.video_posters = JSON.stringify(p.slice(0, vl))
+      } else {
+        updateData.video_posters = null
+      }
+    }
     if (input.date !== undefined) updateData.date = input.date || null
     if (input.type !== undefined) updateData.type = input.type
     if (input.emotion !== undefined) updateData.emotion = input.emotion
@@ -74,7 +95,7 @@ export const coupleApi = {
   async removeMemory(id: string): Promise<void> {
     const { data, error: selErr } = await supabase
       .from('couple_memories')
-      .select('image, images, videos')
+      .select('image, images, videos, video_posters')
       .eq('id', id)
       .maybeSingle()
     if (selErr) throw selErr
@@ -114,6 +135,23 @@ export const coupleApi = {
     }
     for (const item of vlist) {
       if (typeof item === 'string' && isHostedStorageAssetUrl(item)) {
+        urls.add(item.trim())
+      }
+    }
+    let plist: unknown[] = []
+    if (data?.video_posters != null) {
+      if (typeof data.video_posters === 'string') {
+        try {
+          plist = JSON.parse(data.video_posters) as unknown[]
+        } catch {
+          plist = []
+        }
+      } else if (Array.isArray(data.video_posters)) {
+        plist = data.video_posters as unknown[]
+      }
+    }
+    for (const item of plist) {
+      if (typeof item === 'string' && item.trim() && isHostedStorageAssetUrl(item)) {
         urls.add(item.trim())
       }
     }

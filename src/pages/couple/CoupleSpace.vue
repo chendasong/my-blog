@@ -48,14 +48,26 @@ async function handleFilter(type: string) {
   await store.fetchMemories(type)
 }
 
-/** 列表封面：主图 → 首张相册图；仅有视频时返回空串（模板用 🎬 占位） */
+/** 列表封面：主图 → 首张相册图 */
 function getCoverUrl(mem: CoupleMemory): string {
   const raw = mem.image?.trim() ? mem.image : mem.images?.length ? mem.images[0] : ''
   return ensureHttpUrlForAssets(raw)
 }
 
-function hasVideosOnly(mem: CoupleMemory): boolean {
-  return !getCoverUrl(mem) && !!(mem.videos && mem.videos.length)
+/** 首段视频的封面图（保存时截取），列表用 img 加载、不拉整段视频 */
+function getVideoPosterUrl(mem: CoupleMemory): string {
+  const p = mem.videoPosters?.[0]?.trim()
+  return p ? ensureHttpUrlForAssets(p) : ''
+}
+
+function firstVideoUrl(mem: CoupleMemory): string {
+  const v = mem.videos?.[0]?.trim()
+  return v ? ensureHttpUrlForAssets(v) : ''
+}
+
+/** 无静态图封面时，用视频 metadata 拉首帧兜底（旧数据）；详情页再播放完整视频 */
+function useVideoStillInList(mem: CoupleMemory): boolean {
+  return !getCoverUrl(mem) && !getVideoPosterUrl(mem) && !!firstVideoUrl(mem)
 }
 function openNew() {
   router.push('/couple/memory/new')
@@ -123,8 +135,36 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
           <div v-for="mem in store.memories" :key="mem.id" class="memory-card animate-fade-in-up"
             @click="router.push(`/couple/memory/${mem.id}`)">
             <div class="memory-card__cover">
-              <img v-if="getCoverUrl(mem)" :src="getCoverUrl(mem)" :alt="mem.title" />
-              <div v-else-if="hasVideosOnly(mem)" class="memory-card__cover-placeholder memory-card__cover-placeholder--video" aria-hidden="true">🎬</div>
+              <img
+                v-if="getCoverUrl(mem)"
+                :src="getCoverUrl(mem)"
+                :alt="mem.title"
+                loading="lazy"
+              />
+              <img
+                v-else-if="getVideoPosterUrl(mem)"
+                :src="getVideoPosterUrl(mem)"
+                :alt="`${mem.title} 视频封面`"
+                loading="lazy"
+              />
+              <div
+                v-else-if="useVideoStillInList(mem)"
+                class="memory-card__cover-video-wrap"
+              >
+                <video
+                  class="memory-card__cover-video"
+                  :src="firstVideoUrl(mem)"
+                  preload="metadata"
+                  muted
+                  playsinline
+                  disablepictureinpicture
+                  disableremoteplayback
+                  aria-hidden="true"
+                />
+                <span class="memory-card__cover-video-badge" aria-hidden="true"
+                  >🎬</span
+                >
+              </div>
               <div v-else class="memory-card__cover-placeholder" aria-hidden="true">📷</div>
               <div class="memory-card__emotion" :style="{ background: emotionColors[mem.emotion] }">
                 {{ emotionLabels[mem.emotion] }}
@@ -570,6 +610,35 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
   justify-content: center;
   font-size: 2rem;
   opacity: 0.35;
+}
+
+.memory-card__cover-video-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.memory-card__cover-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+  transition: transform var(--transition-slow);
+}
+
+.memory-card:hover .memory-card__cover-video {
+  transform: scale(1.04);
+}
+
+.memory-card__cover-video-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  font-size: 1.25rem;
+  opacity: 0.85;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
 .memory-card__emotion {

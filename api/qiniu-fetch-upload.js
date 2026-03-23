@@ -61,6 +61,30 @@ function extFromUrlPath(u) {
   }
 }
 
+/** 豆包/部分 CDN 返回非 image/* 或空 Content-Type，用魔数判定 */
+function sniffImageFromBuffer(buf) {
+  if (!buf || buf.length < 12) return null
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
+    return { mime: 'image/jpeg', ext: 'jpg' }
+  }
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
+    return { mime: 'image/png', ext: 'png' }
+  }
+  if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46) {
+    return { mime: 'image/gif', ext: 'gif' }
+  }
+  if (
+    buf[0] === 0x52 &&
+    buf[1] === 0x49 &&
+    buf[2] === 0x46 &&
+    buf[3] === 0x46 &&
+    buf.toString('ascii', 8, 12) === 'WEBP'
+  ) {
+    return { mime: 'image/webp', ext: 'webp' }
+  }
+  return null
+}
+
 function sanitizeKeyPrefix(raw) {
   const s = String(raw || 'ai-generated')
     .trim()
@@ -97,8 +121,8 @@ export default async function handler(req, res) {
   if (!body || typeof body !== 'object') body = {}
 
   const sourceUrl = String(body.sourceUrl || '').trim()
-  if (!sourceUrl || !/^https:\/\//i.test(sourceUrl)) {
-    return res.status(400).json({ error: 'invalid_or_missing_sourceUrl_https_only' })
+  if (!sourceUrl || !/^https?:\/\//i.test(sourceUrl)) {
+    return res.status(400).json({ error: 'invalid_or_missing_sourceUrl' })
   }
 
   const accessKey = process.env.QINIU_ACCESS_KEY
@@ -119,24 +143,40 @@ export default async function handler(req, res) {
       redirect: 'follow',
       signal: ac.signal,
       headers: {
-        'User-Agent': 'chends-qiniu-mirror/1.0',
-        Accept: 'image/*,*/*;q=0.8',
+        'User-Agent':
+          'Mozilla/5.0 (compatible; chends-qiniu-mirror/1.0; +https://github.com)',
+        Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
       },
     })
     clearTimeout(t)
     if (!r.ok) {
       return res.status(502).json({ error: `source_fetch_failed_${r.status}` })
     }
-    const ct = (r.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
-    if (ct.startsWith('image/')) {
-      contentType = ct
-    } else if (ct === 'application/octet-stream' || ct === 'binary/octet-stream') {
-      contentType = 'application/octet-stream'
-    } else {
-      return res.status(400).json({ error: `unsupported_content_type:${ct || 'empty'}` })
-    }
+    const ctHeader = (r.headers.get('content-type') || '')
+      .split(';')[0]
+      .trim()
+      .toLowerCase()
     const ab = await r.arrayBuffer()
     buffer = Buffer.from(ab)
+
+    if (ctHeader.startsWith('image/')) {
+      contentType = ctHeader
+    } else {
+      const sniffed = sniffImageFromBuffer(buffer)
+      if (sniffed) {
+        contentType = sniffed.mime
+      } else if (
+        ctHeader === 'application/octet-stream' ||
+        ctHeader === 'binary/octet-stream' ||
+        ctHeader === ''
+      ) {
+        contentType = 'application/octet-stream'
+      } else {
+        return res.status(400).json({
+          error: `unsupported_content_type:${ctHeader || 'empty'}`,
+        })
+      }
+    }
   } catch (e) {
     const msg = e?.name === 'AbortError' ? 'source_fetch_timeout' : String(e?.message || e)
     console.error('[qiniu-fetch-upload] fetch', e)

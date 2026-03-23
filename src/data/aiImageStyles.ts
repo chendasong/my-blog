@@ -77,3 +77,23 @@ export function buildCoverImagePrompt(
   const t = subject.trim()
   return `宽屏横图，画幅比例约 16:9，高清精美插画。${style.promptFragment}。画面要有明确视觉主体，构图层次清晰、一眼能读懂。创作主题与内容：${t}`
 }
+
+/** 连载条漫单格：少套话，强调画满 + 对白气泡 */
+export function buildComicPanelPrompt(
+  scene: string,
+  style: AIImageStyle,
+  panelIndex: number,
+  totalPanels: number,
+  hasReferenceImage: boolean,
+): string {
+  const sceneT = scene.trim()
+  const ref = hasReferenceImage ? '接上一格，人设画风延续。' : '首格。'
+  return [
+    '单格漫画，完稿上色，背景与人物都画细，构图饱满，对话丰富。',
+    ref,
+    style.promptFragment,
+    '只用对白气泡呈现台词，不要旁白。',
+    `第${panelIndex + 1}/${totalPanels}格`,
+    sceneT,
+  ].join(' ')
+}

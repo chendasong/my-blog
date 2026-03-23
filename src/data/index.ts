@@ -8,5 +8,6 @@ export {
   DEFAULT_AI_IMAGE_STYLE_ID,
   getAiImageStyleById,
   buildCoverImagePrompt,
+  buildComicPanelPrompt,
 } from './aiImageStyles'
 export type { AIImageStyle } from './aiImageStyles'

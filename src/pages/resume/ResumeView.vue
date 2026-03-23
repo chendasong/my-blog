@@ -1,72 +1,37 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue"
-import { useRouter } from "vue-router"
-import { useAuthStore } from "@/stores/auth"
-import { resumeApi } from "@/api"
-import { useToast } from "@/composables/useToast"
-import type { Resume } from "@/types/resume"
-import AppButton from "@/components/common/AppButton.vue"
-import ResumeContent from "@/components/resume/ResumeContent.vue"
-
-const toast = useToast()
-const router = useRouter()
-const authStore = useAuthStore()
-const resume = ref<Resume | null>(null)
-const loading = ref(true)
-const downloading = ref(false)
-
-const visibleSections = computed(() => {
-  return resume.value?.sections.filter((s) => s.visible).sort((a, b) => a.order - b.order) || []
-})
-
-const handleEdit = () => {
-  router.push("/resume/edit")
-}
-
-const handleDownloadPDF = async () => {
-  try {
-    downloading.value = true
-    const contentElement = document.querySelector(".resume-content") as HTMLElement
-    if (contentElement) {
-      const html2pdf = (await import("html2pdf.js")).default
-      const opt: any = {
-        margin: 10,
-        filename: `陈大嵩的简历.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { orientation: "portrait", unit: "mm", format: "a4" },
-      }
-      html2pdf().set(opt).from(contentElement).save()
-    }
-  } catch (error) {
-    console.error("Failed to download PDF:", error)
-  } finally {
-    downloading.value = false
-    toast.success("下载成功")
-  }
-}
-
-onMounted(async () => {
-  try {
-    resume.value = await resumeApi.getResume()
-  } catch (error) {
-    console.error("Failed to load resume:", error)
-  } finally {
-    loading.value = false
-  }
-})
+import ResumeViewBody from "@/components/resume/ResumeViewBody.vue"
 </script>
 
 <template>
   <div class="resume-view">
-    <div v-if="loading" class="loading">加载中...</div>
-    <div v-else-if="resume" class="resume-container">
-      <div class="resume-header">
-        <AppButton v-if="authStore.isLoggedIn" @click="handleEdit" variant="primary" size="sm">✏️ 编辑</AppButton>
-        <AppButton @click="handleDownloadPDF" :loading="downloading" variant="secondary" size="sm">📥 下载PDF</AppButton>
-      </div>
-      <ResumeContent :sections="visibleSections" />
-    </div>
+    <Suspense>
+      <template #default>
+        <ResumeViewBody />
+      </template>
+      <template #fallback>
+        <div
+          class="resume-suspense-fallback"
+          aria-busy="true"
+          aria-label="加载简历"
+        >
+          <p class="resume-suspense-fallback__title">正在加载简历…</p>
+          <div class="resume-skeleton">
+            <div class="resume-skeleton__shine" />
+            <div class="resume-skeleton__toolbar">
+              <span class="resume-skeleton__pill" />
+              <span class="resume-skeleton__pill resume-skeleton__pill--short" />
+            </div>
+            <div class="resume-skeleton__line resume-skeleton__line--hero" />
+            <div class="resume-skeleton__line" />
+            <div class="resume-skeleton__line" />
+            <div class="resume-skeleton__line resume-skeleton__line--short" />
+            <div class="resume-skeleton__block" />
+            <div class="resume-skeleton__line" />
+            <div class="resume-skeleton__line resume-skeleton__line--medium" />
+          </div>
+        </div>
+      </template>
+    </Suspense>
   </div>
 </template>
 
@@ -74,25 +39,106 @@ onMounted(async () => {
 .resume-view {
   min-height: 100vh;
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  padding: 40px 24px
+  padding: 40px 24px;
 }
 
-.loading {
+.resume-suspense-fallback {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 0 0 48px;
+}
+
+.resume-suspense-fallback__title {
   text-align: center;
-  padding: 60px 24px;
-  color: var(--color-text-muted)
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  margin-bottom: 24px;
 }
 
-.resume-container {
-  width: 700px;
-  margin: 0 auto
+.resume-skeleton {
+  position: relative;
+  overflow: hidden;
+  min-height: 520px;
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.85);
+  padding: 24px 28px;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-.resume-header {
+.resume-skeleton__shine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(91, 138, 240, 0.07) 50%,
+    transparent 60%
+  );
+  background-size: 200% 100%;
+  animation: resume-skeleton-shine 1.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.resume-skeleton__toolbar {
   display: flex;
   justify-content: flex-end;
-  align-items: center;
-  margin-bottom: 20px;
-  gap: 20px
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.resume-skeleton__pill {
+  width: 88px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--color-border);
+  opacity: 0.55;
+}
+
+.resume-skeleton__pill--short {
+  width: 100px;
+}
+
+.resume-skeleton__line {
+  height: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-border);
+  opacity: 0.5;
+  width: 78%;
+}
+
+.resume-skeleton__line--hero {
+  width: 42%;
+  height: 22px;
+  margin-top: 4px;
+}
+
+.resume-skeleton__line--medium {
+  width: 62%;
+}
+
+.resume-skeleton__line--short {
+  width: 36%;
+}
+
+.resume-skeleton__block {
+  margin-top: 12px;
+  height: 120px;
+  border-radius: var(--radius-lg);
+  background: var(--color-border);
+  opacity: 0.35;
+  width: 100%;
+}
+
+@keyframes resume-skeleton-shine {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
 }
 </style>

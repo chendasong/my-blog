@@ -5,6 +5,7 @@ import { useToast } from '@/composables/useToast'
 import { useCoupleStore } from '@/stores/couple'
 import AppButton from '@/components/common/AppButton.vue'
 import type { CoupleMemory } from '@/types'
+import { captureVideoFrameAsJpegBlob } from '@/lib/videoCapture'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,8 +24,11 @@ const imageMetadata = ref<Array<{ isNew: boolean; url: string; file?: File }>>([
 const deletedImageUrls = ref<string[]>([])
 
 const videoPreviews = ref<string[]>([])
-const videoMetadata = ref<Array<{ isNew: boolean; url: string; file?: File }>>([])
+const videoMetadata = ref<
+  Array<{ isNew: boolean; url: string; file?: File; posterUrl?: string }>
+>([])
 const deletedVideoUrls = ref<string[]>([])
+const deletedVideoPosterUrls = ref<string[]>([])
 
 const videoViewerOpen = ref(false)
 const videoViewerIndex = ref(0)
@@ -129,7 +133,11 @@ onMounted(async () => {
         }
         if (mem.videos && mem.videos.length > 0) {
           videoPreviews.value = [...mem.videos]
-          videoMetadata.value = mem.videos.map(url => ({ isNew: false, url }))
+          videoMetadata.value = mem.videos.map((url, i) => ({
+            isNew: false,
+            url,
+            posterUrl: mem.videoPosters?.[i],
+          }))
         }
       } else {
         toast.error('记忆不存在')
@@ -185,6 +193,9 @@ function handleVideoSelect(e: Event) {
 function removeVideo(idx: number) {
   const meta = videoMetadata.value[idx]
   if (!meta.isNew && meta.url) deletedVideoUrls.value.push(meta.url)
+  if (!meta.isNew && meta.posterUrl?.trim()) {
+    deletedVideoPosterUrls.value.push(meta.posterUrl.trim())
+  }
   URL.revokeObjectURL(videoPreviews.value[idx])
   videoPreviews.value.splice(idx, 1)
   videoMetadata.value.splice(idx, 1)
@@ -234,12 +245,28 @@ async function handleSubmit() {
     }
 
     const allVideoUrls: string[] = []
+    const allVideoPosterUrls: string[] = []
     for (let i = 0; i < videoMetadata.value.length; i++) {
       const meta = videoMetadata.value[i]
+      let posterUrl = (meta.posterUrl || '').trim()
       if (meta.isNew && meta.file) {
         try {
           const url = await coupleApi.uploadImage(meta.file, 'love-video')
           allVideoUrls.push(url)
+          try {
+            const jpeg = await captureVideoFrameAsJpegBlob(meta.file)
+            const posterFile = new File([jpeg], 'poster.jpg', {
+              type: 'image/jpeg',
+            })
+            posterUrl = await coupleApi.uploadImage(
+              posterFile,
+              'love-video-poster',
+            )
+          } catch (capErr) {
+            console.warn('[memory] 视频封面截取失败，列表将用视频首帧兜底', capErr)
+            posterUrl = ''
+          }
+          allVideoPosterUrls.push(posterUrl)
         } catch (err) {
           toast.error(`第 ${i + 1} 个视频上传失败`)
           console.error('Video upload error:', err)
@@ -247,6 +274,7 @@ async function handleSubmit() {
         }
       } else {
         allVideoUrls.push(meta.url)
+        allVideoPosterUrls.push(posterUrl)
       }
     }
 
@@ -255,7 +283,13 @@ async function handleSubmit() {
         ? allImageUrls[Math.min(selectedIndex.value, allImageUrls.length - 1)] || allImageUrls[0]
         : ''
 
-    const data = { ...form.value, image: imageUrl, images: allImageUrls, videos: allVideoUrls }
+    const data = {
+      ...form.value,
+      image: imageUrl,
+      images: allImageUrls,
+      videos: allVideoUrls,
+      videoPosters: allVideoUrls.length ? allVideoPosterUrls : undefined,
+    }
     if (isEdit && route.params.id) {
       await store.update(route.params.id as string, data)
       
@@ -266,6 +300,10 @@ async function handleSubmit() {
       if (deletedVideoUrls.value.length > 0) {
         await coupleApi.deleteFiles(deletedVideoUrls.value)
         deletedVideoUrls.value = []
+      }
+      if (deletedVideoPosterUrls.value.length > 0) {
+        await coupleApi.deleteFiles(deletedVideoPosterUrls.value)
+        deletedVideoPosterUrls.value = []
       }
       
       toast.success('记忆已更新 💕')
