@@ -68,7 +68,6 @@ async function handleDelete(id: string) {
         <span class="empty-state__icon">📝</span>
         <p>还没有文章，去写第一篇吧！</p>
         <AppButton
-          v-if="authStore.isLoggedIn"
           @click="router.push('/blog/new')"
           >✏️ 写文章</AppButton
         >

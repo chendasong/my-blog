@@ -382,6 +382,20 @@ function normalizeArticleCategory(v: unknown): string {
   return map[s] || '技术'
 }
 
+/** 方案A：封面主题词只保留“画面内容”，比例/风格由 buildCoverImagePrompt 统一注入 */
+function normalizeCoverPrompt(v: unknown, fallback: string): string {
+  const raw = asString(v, fallback).trim()
+  if (!raw) return fallback
+  const compact = raw
+    .replace(/(?:宽高比|比例)\s*[:：]?\s*16\s*[:：/]\s*9/gi, '')
+    .replace(/16\s*[:：/]\s*9/g, '')
+    .replace(/吉伊卡哇风格|现代都市风格|精英风格|高端大气上档次/g, '')
+    .replace(/(宽屏横图|画幅比例约?|高清精美插画|画面要有明确视觉主体|构图层次清晰、一眼能读懂)/g, '')
+    .replace(/[，。；、\s]+/g, ' ')
+    .trim()
+  return compact || fallback
+}
+
 /** 第一步：根据用户描述生成「写作任务提示词」（供第二步使用） */
 export async function generateAgentWritingPrompt(
   mode: 'article' | 'note',
@@ -417,7 +431,7 @@ export async function generateAgentArticleDraft(
   "content": "Markdown 正文，800-2500 字，层次清晰",
   "category": "必须从以下选一：${CATEGORY_NAMES}",
   "tags": ["标签1","标签2"],
-  "coverPrompt": "给图片模型用的封面描述，需体现主题；建议包含：宽高比 16:9、吉伊卡哇风格科普插画、主题关键词",
+  "coverPrompt": "封面主题描述（只写画面内容与主体元素，不要写 16:9、横图、风格词；这些会由系统统一加）",
   "featured": false
 }
 重要：字符串里若出现英文双引号 "，必须写成 \\"；更推荐用中文引号「」或不用引号。禁止 markdown 代码围栏、禁止 JSON 外任何字符。`
@@ -447,7 +461,7 @@ export async function generateAgentArticleDraft(
     content: asString(obj.content, ''),
     category: normalizeArticleCategory(obj.category),
     tags: asStringArray(obj.tags).slice(0, 8),
-    coverPrompt: asString(obj.coverPrompt, userDescription.slice(0, 200)),
+    coverPrompt: normalizeCoverPrompt(obj.coverPrompt, userDescription.slice(0, 200)),
     featured: asBool(obj.featured, false),
   }
 }

@@ -124,11 +124,6 @@ function goToCreatedDetail() {
 /** 从头执行：清空状态，并允许本轮失败后再续跑 1 次 */
 async function runPipeline() {
   if (!userInput.value.trim() || isRunning.value) return
-  if (!authStore.isLoggedIn) {
-    toast.warning('请先登录管理员账号以创建内容')
-    router.push({ name: 'login', query: { redirect: '/ai/agent' } })
-    return
-  }
 
   createdId.value = null
   createdKind.value = null
@@ -157,8 +152,6 @@ async function resumeFromFailedStep() {
 }
 
 async function runPipelineInternal(startFrom: PipelineStepId) {
-  if (!authStore.isLoggedIn) return
-
   isRunning.value = true
   const ac = new AbortController()
   abortController.value = ac

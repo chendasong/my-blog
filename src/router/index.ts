@@ -24,7 +24,6 @@ const router = createRouter({
           path: 'blog/new',
           name: 'blog-new',
           component: () => import('@/pages/blog/BlogEditor.vue'),
-          meta: { requiresAuth: true },
         },
         { path: 'blog/:id', name: 'blog-detail', component: () => import('@/pages/blog/BlogDetail.vue') },
         {
@@ -34,7 +33,7 @@ const router = createRouter({
           meta: { requiresAuth: true },
         },
         { path: 'notes', name: 'notes', component: () => import('@/pages/notes/NotesPage.vue') },
-        { path: 'notes/new', name: 'notes-new', component: () => import('@/pages/notes/NoteEditor.vue'), meta: { requiresAuth: true } },
+        { path: 'notes/new', name: 'notes-new', component: () => import('@/pages/notes/NoteEditor.vue') },
         { path: 'notes/:id', name: 'notes-detail', component: () => import('@/pages/notes/NoteDetail.vue') },
         { path: 'notes/:id/edit', name: 'notes-edit', component: () => import('@/pages/notes/NoteEditor.vue'), meta: { requiresAuth: true } },
         { path: 'ai', name: 'ai', component: () => import('@/pages/ai/AIPage.vue') },
@@ -42,7 +41,6 @@ const router = createRouter({
           path: 'ai/agent',
           name: 'ai-agent',
           component: () => import('@/pages/ai/AgentPage.vue'),
-          meta: { requiresAuth: true },
         },
         { path: 'resume', name: 'resume', component: () => import('@/pages/resume/ResumeView.vue') },
         {

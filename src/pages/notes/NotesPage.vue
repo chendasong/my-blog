@@ -2,14 +2,12 @@
 import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useNoteStore } from "@/stores/note";
-import { useAuthStore } from "@/stores/auth";
 import NotesListResults from "@/components/notes/NotesListResults.vue";
 import AppButton from "@/components/common/AppButton.vue";
 import type { NoteCategory } from "@/types";
 
 const router = useRouter();
 const store = useNoteStore();
-const authStore = useAuthStore();
 
 const activeCategory = ref<NoteCategory | "all">("all");
 const searchQuery = ref("");
@@ -82,7 +80,6 @@ function nextPage() {
               🔍 搜索
             </button>
             <AppButton
-              v-if="authStore.isLoggedIn"
               @click="router.push('/notes/new')"
               >✏️ 写笔记</AppButton
             >

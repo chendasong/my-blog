@@ -2,14 +2,12 @@
 import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useArticleStore } from "@/stores/article";
-import { useAuthStore } from "@/stores/auth";
 import { categories } from "@/data";
 import BlogListResults from "@/components/blog/BlogListResults.vue";
 import AppButton from "@/components/common/AppButton.vue";
 
 const router = useRouter();
 const store = useArticleStore();
-const authStore = useAuthStore();
 
 const activeCategory = ref("all");
 /** 输入框草稿，不参与请求；点击「搜索」后写入 appliedSearchQuery */
@@ -83,7 +81,6 @@ function nextPage() {
               🔍 搜索
             </button>
             <AppButton
-              v-if="authStore.isLoggedIn"
               @click="router.push('/blog/new')"
               >✏️ 写文章</AppButton
             >

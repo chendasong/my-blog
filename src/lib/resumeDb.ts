@@ -34,6 +34,23 @@ export const resumeDb = {
     }
   },
 
+  /** 公开读取：用于未登录访客查看最新一份简历 */
+  async getPublicResume(): Promise<Resume | null> {
+    try {
+      const { data, error } = await supabase
+        .from("resumes")
+        .select("content")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data ? JSON.parse(data.content) : null;
+    } catch (error) {
+      console.error("Failed to fetch public resume from DB:", error);
+      return null;
+    }
+  },
+
   async deleteResume(userId: string): Promise<boolean> {
     try {
       const { error } = await supabase

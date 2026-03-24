@@ -88,7 +88,6 @@ async function handleTogglePin(note: Note) {
         <span class="empty-icon">📔</span>
         <p>还没有笔记，新建一条吧！</p>
         <AppButton
-          v-if="authStore.isLoggedIn"
           @click="router.push('/notes/new')"
           >✏️ 写笔记</AppButton
         >

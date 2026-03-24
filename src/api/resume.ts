@@ -12,6 +12,8 @@ export const resumeApi = {
         const dbResume = await resumeDb.getResume(authStore.user.id)
         if (dbResume) return dbResume
       }
+      const publicResume = await resumeDb.getPublicResume()
+      if (publicResume) return publicResume
       return generateDefaultResume()
     } catch {
       return generateDefaultResume()

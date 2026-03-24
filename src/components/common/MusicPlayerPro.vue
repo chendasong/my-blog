@@ -126,6 +126,20 @@ function saveFabPos() {
   localStorage.setItem(STORAGE_POS, JSON.stringify(position.value))
 }
 
+function prettifyTrackName(rawName: string, fallback: string): string {
+  if (!rawName) return fallback
+  const decoded = decodeURIComponent(rawName)
+  return decoded
+    .replace(/\.mp3$/i, '')
+    .replace(/_kgg-dec/g, ' ')
+    .trim() || fallback
+}
+
+function prettifyTrackNameFromUrl(url: string, fallback: string): string {
+  const raw = url.split('/').pop()?.split('?')[0] || ''
+  return prettifyTrackName(raw, fallback)
+}
+
 const playlist = computed(() => {
   if (!props.musicUrls) return []
   const urls = props.musicUrls
@@ -142,7 +156,10 @@ const playlist = computed(() => {
   
   return urls.map((url, idx) => ({
     url,
-    name: names[idx] || url.split('/').pop()?.split('?')[0] || `音乐 ${idx + 1}`,
+    name: prettifyTrackName(
+      names[idx] || prettifyTrackNameFromUrl(url, `音乐 ${idx + 1}`),
+      `音乐 ${idx + 1}`,
+    ),
   }))
 })
 
