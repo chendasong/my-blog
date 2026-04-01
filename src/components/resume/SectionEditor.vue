@@ -1,7 +1,31 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, nextTick } from "vue";
+import type { Directive } from "vue";
 import type { ResumeSection } from "@/types/resume";
 import { ensureHttpUrlForAssets } from "@/lib/qiniuClient";
+import { syncTextareaHeight } from "@/lib/autoResizeTextarea";
+
+function textareaMinPx(el: HTMLTextAreaElement): number {
+  const rows = parseInt(el.getAttribute("rows") || "2", 10);
+  const padY = 16;
+  return padY + Math.round(14 * 1.35 * Math.max(rows, 1));
+}
+
+const vAutosize: Directive<HTMLTextAreaElement> = {
+  mounted(el) {
+    const run = () => syncTextareaHeight(el, textareaMinPx(el), Number.POSITIVE_INFINITY);
+    el.addEventListener("input", run);
+    (el as HTMLTextAreaElement & { _resumeAutosize?: () => void })._resumeAutosize = run;
+    nextTick(run);
+  },
+  updated(el) {
+    syncTextareaHeight(el, textareaMinPx(el), Number.POSITIVE_INFINITY);
+  },
+  unmounted(el) {
+    const fn = (el as HTMLTextAreaElement & { _resumeAutosize?: () => void })._resumeAutosize;
+    if (fn) el.removeEventListener("input", fn);
+  },
+};
 
 interface Props {
   section: ResumeSection;
@@ -40,7 +64,7 @@ const addItem = (type: string) => {
     case "project":
       newItem.name = "";
       newItem.description = "";
-      newItem.technologies = [];
+      newItem.link = "";
       break;
     case "award":
       newItem.title = "";
@@ -147,7 +171,7 @@ const handleChange = () => {
           <div class="form-group"><label class="form-label">开始日期</label><input v-model="item.startDate" type="month" class="form-input" @change="handleChange" /></div>
           <div class="form-group"><label class="form-label">结束日期</label><input v-model="item.endDate" type="month" class="form-input" @change="handleChange" /></div>
         </div>
-        <div class="form-group"><label class="form-label">描述</label><textarea v-model="item.description" class="form-textarea" rows="2" @change="handleChange"></textarea></div>
+        <div class="form-group"><label class="form-label">描述</label><textarea v-model="item.description" v-autosize class="form-textarea" rows="2" @change="handleChange"></textarea></div>
       </div>
       <button @click="addItem('education')" class="btn-add">+ 添加教育背景</button>
     </div>
@@ -162,7 +186,7 @@ const handleChange = () => {
           <div class="form-group"><label class="form-label">开始日期</label><input v-model="item.startDate" type="month" class="form-input" @change="handleChange" /></div>
           <div class="form-group"><label class="form-label">结束日期</label><input v-model="item.endDate" type="month" class="form-input" @change="handleChange" /></div>
         </div>
-        <div class="form-group"><label class="form-label">描述</label><textarea v-model="item.description" class="form-textarea" rows="2" @change="handleChange"></textarea></div>
+        <div class="form-group"><label class="form-label">描述</label><textarea v-model="item.description" v-autosize class="form-textarea" rows="2" @change="handleChange"></textarea></div>
       </div>
       <button @click="addItem('experience')" class="btn-add">+ 添加工作经历</button>
     </div>
@@ -171,7 +195,7 @@ const handleChange = () => {
         <div class="item-header">
           <h4>技能</h4><button @click="removeItem(index)" class="btn-remove">✕</button>
         </div>
-        <div class="form-group"><input v-model="item.skill" type="text" class="form-input" @change="handleChange" /></div>
+        <div class="form-group"><textarea v-model="item.skill" v-autosize class="form-textarea" rows="2" placeholder="支持换行" @change="handleChange"></textarea></div>
       </div>
       <button @click="addItem('skill')" class="btn-add">+ 添加技能</button>
     </div>
@@ -181,9 +205,8 @@ const handleChange = () => {
           <h4>{{ item.name || '新项目' }}</h4><button @click="removeItem(index)" class="btn-remove">✕</button>
         </div>
         <div class="form-group"><label class="form-label">项目名称</label><input v-model="item.name" type="text" class="form-input" @change="handleChange" /></div>
-        <div class="form-group"><label class="form-label">描述</label><textarea v-model="item.description" class="form-textarea" rows="2" @change="handleChange"></textarea></div>
-        <div class="form-group"><label class="form-label">技术栈（逗号分隔）</label><input v-model="item.technologies" type="text" class="form-input" @change="handleChange" /></div>
-        <div class="form-group"><label class="form-label">项目链接</label><input v-model="item.link" type="url" class="form-input" @change="handleChange" /></div>
+        <div class="form-group"><label class="form-label">描述</label><textarea v-model="item.description" v-autosize class="form-textarea" rows="2" @change="handleChange"></textarea></div>
+        <div class="form-group"><label class="form-label">项目链接</label><input v-model="item.link" type="url" class="form-input" placeholder="https://..." @change="handleChange" /></div>
       </div>
       <button @click="addItem('project')" class="btn-add">+ 添加项目</button>
     </div>
@@ -194,8 +217,8 @@ const handleChange = () => {
         </div>
         <div class="form-group"><label class="form-label">奖项名称</label><input v-model="item.title" type="text" class="form-input" @change="handleChange" /></div>
         <div class="form-group"><label class="form-label">颁发机构</label><input v-model="item.issuer" type="text" class="form-input" @change="handleChange" /></div>
-        <div class="form-group"><label class="form-label">获奖日期</label><input v-model="item.date" type="date" class="form-input" @change="handleChange" /></div>
-        <div class="form-group"><label class="form-label">描述</label><textarea v-model="item.description" class="form-textarea" rows="2" @change="handleChange"></textarea></div>
+        <div class="form-group"><label class="form-label">获奖日期</label><input v-model="item.date" type="month" class="form-input" @change="handleChange" /></div>
+        <div class="form-group"><label class="form-label">描述</label><textarea v-model="item.description" v-autosize class="form-textarea" rows="2" @change="handleChange"></textarea></div>
       </div>
       <button @click="addItem('award')" class="btn-add">+ 添加奖项</button>
     </div>
@@ -206,14 +229,14 @@ const handleChange = () => {
         </div>
         <div class="form-group"><label class="form-label">证书名称</label><input v-model="item.name" type="text" class="form-input" @change="handleChange" /></div>
         <div class="form-group"><label class="form-label">颁发机构</label><input v-model="item.issuer" type="text" class="form-input" @change="handleChange" /></div>
-        <div class="form-group"><label class="form-label">获证日期</label><input v-model="item.date" type="date" class="form-input" @change="handleChange" /></div>
+        <div class="form-group"><label class="form-label">获证日期</label><input v-model="item.date" type="month" class="form-input" @change="handleChange" /></div>
         <div class="form-group"><label class="form-label">凭证ID</label><input v-model="item.credentialId" type="text" class="form-input" placeholder="可选" @change="handleChange" /></div>
         <div class="form-group"><label class="form-label">凭证链接</label><input v-model="item.credentialUrl" type="url" class="form-input" placeholder="可选" @change="handleChange" /></div>
       </div>
       <button @click="addItem('certification')" class="btn-add">+ 添加证书</button>
     </div>
     <div v-else-if="section.type === 'introduction'" class="editor-form">
-      <div class="form-group"><label class="form-label">个人介绍</label><textarea v-model="section.content.text" class="form-textarea" rows="6" placeholder="介绍你自己..." @change="handleChange"></textarea></div>
+      <div class="form-group"><label class="form-label">个人介绍</label><textarea v-model="section.content.text" v-autosize class="form-textarea" rows="6" placeholder="介绍你自己..." @change="handleChange"></textarea></div>
     </div>
     <div v-else class="editor-form">
       <p class="text-muted">此模块类型暂不支持编辑</p>
@@ -224,6 +247,8 @@ const handleChange = () => {
 <style scoped>
 .section-editor {
   height: 100%;
+  width: 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column
 }
@@ -239,6 +264,7 @@ const handleChange = () => {
 }
 .editor-form {
   flex: 1;
+  min-width: 0;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -247,7 +273,8 @@ const handleChange = () => {
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px
+  gap: 6px;
+  min-width: 0
 }
 .form-label {
   font-size: 0.875rem;
@@ -261,7 +288,19 @@ const handleChange = () => {
   border-radius: var(--radius-md);
   font-size: 0.875rem;
   font-family: inherit;
-  transition: all 0.2s ease
+  transition: all 0.2s ease;
+  box-sizing: border-box
+}
+
+.form-textarea {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  resize: vertical;
+  overflow-y: hidden;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  line-height: 1.35
 }
 .form-input:focus,
 .form-textarea:focus {
@@ -281,7 +320,8 @@ const handleChange = () => {
   border-radius: var(--radius-md);
   display: flex;
   flex-direction: column;
-  gap: 12px
+  gap: 12px;
+  min-width: 0
 }
 .item-header {
   display: flex;

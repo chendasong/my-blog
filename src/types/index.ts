@@ -123,7 +123,7 @@ export interface Resume {
     name: string
     description: string
     link: string
-    technologies: string[]
+    technologies?: string[]
   }>
   certifications: Array<{
     id: string

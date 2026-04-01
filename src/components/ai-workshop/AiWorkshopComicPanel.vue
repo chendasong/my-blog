@@ -301,12 +301,29 @@ function clearComicOutput() {
           <p>{{ statusLine || '准备中…' }}</p>
         </div>
         <div v-else-if="comicScenes.length" class="comic-strip">
+          <div class="comic-strip__toolbar">
+            <button
+              v-if="comicUrls.length >= 2"
+              type="button"
+              class="tag tag--primary"
+              :disabled="isStitching || isLoading"
+              @click="downloadStitchedStrip"
+            >
+              {{
+                isStitching
+                  ? '拼接中…'
+                  : `📥 一键下载整条漫画（${comicUrls.length} 格）`
+              }}
+            </button>
+            <button type="button" class="tag" @click="clearComicOutput">
+              清除结果
+            </button>
+          </div>
           <div
             v-for="(_, i) in comicScenes"
             :key="i"
-            class="comic-strip__panel"
+            class="comic-strip__item"
           >
-            <div class="comic-strip__label">第 {{ i + 1 }} 格</div>
             <div class="comic-strip__media">
               <img
                 v-if="comicUrls[i]"
@@ -322,34 +339,16 @@ function clearComicOutput() {
                 <div class="comic-strip__skeleton-shine" />
               </div>
               <div v-else class="comic-strip__missing">本格未生成</div>
-            </div>
-            <div v-if="comicUrls[i]" class="ai-output__actions comic-strip__dl">
               <button
+                v-if="comicUrls[i]"
                 type="button"
-                class="tag tag--primary"
+                class="tag tag--primary comic-strip__download-corner"
                 @click="openComicPanelImage(i)"
               >
-                🔗 打开原图
+                📥 下载
               </button>
+              <div class="comic-strip__index">第 {{ i + 1 }} 格</div>
             </div>
-          </div>
-          <div class="comic-strip__footer">
-            <button
-              v-if="comicUrls.length >= 2"
-              type="button"
-              class="tag tag--primary"
-              :disabled="isStitching || isLoading"
-              @click="downloadStitchedStrip"
-            >
-              {{
-                isStitching
-                  ? '拼接中…'
-                  : `📥 拼成长图下载（${comicUrls.length} 格）`
-              }}
-            </button>
-            <button type="button" class="tag" @click="clearComicOutput">
-              清除结果
-            </button>
           </div>
         </div>
         <div v-else class="ai-output-empty">
@@ -392,26 +391,24 @@ function clearComicOutput() {
 .comic-strip {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
 }
-.comic-strip__panel {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: var(--color-bg-card);
+.comic-strip__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-start;
+  margin-bottom: 2px;
 }
-.comic-strip__label {
-  padding: 8px 12px;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  color: var(--color-text-muted);
-  background: var(--color-bg);
-  border-bottom: 1px solid var(--color-border);
+.comic-strip__item {
+  position: relative;
 }
 .comic-strip__media {
   position: relative;
   min-height: 120px;
-  background: var(--color-bg);
+  background: transparent;
+  border-radius: var(--radius-md);
+  overflow: hidden;
 }
 .comic-strip__img {
   display: block;
@@ -419,6 +416,17 @@ function clearComicOutput() {
   max-height: min(70vh, 900px);
   object-fit: contain;
   background: var(--color-bg);
+}
+.comic-strip__index {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  padding: 4px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  color: #fff;
+  background: rgba(20, 20, 30, 0.45);
+  backdrop-filter: blur(3px);
 }
 .comic-strip__skeleton {
   position: relative;
@@ -456,17 +464,10 @@ function clearComicOutput() {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
-.comic-strip__dl {
-  padding: 10px 12px;
-  border-top: 1px solid var(--color-border);
-  justify-content: flex-start;
-}
-.comic-strip__footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  justify-content: center;
-  padding-top: 8px;
+.comic-strip__download-corner {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
 }
 .tag--primary {
   border-color: rgba(91, 138, 240, 0.45);

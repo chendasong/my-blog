@@ -12,6 +12,13 @@ const formatDate = (date: string) => {
   if (!date) return ''
   return new Date(date).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit' })
 }
+
+function normalizeResumeLink(url: string): string {
+  const t = (url || '').trim()
+  if (!t) return '#'
+  if (/^https?:\/\//i.test(t)) return t
+  return `https://${t}`
+}
 </script>
 
 <template>
@@ -43,10 +50,9 @@ const formatDate = (date: string) => {
         <h3 class="section-title">🎓 {{ section.title }}</h3>
         <div v-for="item in section.content.items" :key="item.id" class="section-item">
           <div class="item-header">
-            <h4 class="item-title">{{ item.school }}</h4>
+            <h4 class="item-title">{{ item.school }}<span class="item-subtitle">{{ item.degree }} · {{ item.field }}</span></h4>
             <span class="item-date">{{ formatDate(item.startDate) }} - {{ formatDate(item.endDate) }}</span>
           </div>
-          <p class="item-subtitle">{{ item.degree }} · {{ item.field }}</p>
           <p v-if="item.description" class="item-desc">{{ item.description }}</p>
         </div>
       </div>
@@ -55,10 +61,9 @@ const formatDate = (date: string) => {
         <h3 class="section-title">💼 {{ section.title }}</h3>
         <div v-for="item in section.content.items" :key="item.id" class="section-item">
           <div class="item-header">
-            <p class="item-title">{{ item.company }}</p>
+            <p class="item-title">{{ item.company }}<span class="item-subtitle" v-if="item.position">{{ item.position }}</span></p>
             <span class="item-date">{{ formatDate(item.startDate) }} - {{ formatDate(item.endDate) }}</span>
           </div>
-          <h4 class="item-subtitle">职&emsp;&emsp;位：{{ item.position }}</h4>
           <p v-if="item.description" class="item-desc">工作职责：{{ item.description }}</p>
         </div>
       </div>
@@ -73,14 +78,17 @@ const formatDate = (date: string) => {
       <div v-else-if="section.type === 'projects'" class="section">
         <h3 class="section-title">🚀 {{ section.title }}</h3>
         <div v-for="item in section.content.items" :key="item.id" class="section-item">
-          <div class="item-header">
-            <h4 class="item-title">{{ item.name }}</h4>
-            <span v-if="item.link" class="item-link"><a :href="item.link" target="_blank">查看</a></span>
+          <div class="item-header project-item-header">
+            <h4 class="item-title project-item-title">{{ item.name }}</h4>
+            <a
+              v-if="item.link?.trim()"
+              class="project-link-url"
+              :href="normalizeResumeLink(item.link)"
+              target="_blank"
+              rel="noopener noreferrer"
+            >{{ item.link.trim() }}</a>
           </div>
           <p v-if="item.description" class="item-desc">{{ item.description }}</p>
-          <div v-if="item.technologies?.length" class="tech-tags">
-            <span v-for="(tech, i) in item.technologies" :key="i" class="tech-tag">{{ tech }}</span>
-          </div>
         </div>
       </div>
 
@@ -88,10 +96,9 @@ const formatDate = (date: string) => {
         <h3 class="section-title">🏆 {{ section.title }}</h3>
         <div v-for="item in section.content.items" :key="item.id" class="section-item">
           <div class="item-header">
-            <h4 class="item-title">{{ item.title }}</h4>
+            <h4 class="item-title">{{ item.title }}<span class="item-subtitle">{{ item.issuer }}</span></h4>
             <span class="item-date">{{ formatDate(item.date) }}</span>
           </div>
-          <p class="item-subtitle">{{ item.issuer }}</p>
           <p v-if="item.description" class="item-desc">{{ item.description }}</p>
         </div>
       </div>
@@ -112,7 +119,7 @@ const formatDate = (date: string) => {
 
       <div v-else-if="section.type === 'introduction'" class="section">
         <h3 class="section-title">✨ {{ section.title }}</h3>
-        <p class="intro-text">{{ section.content.text }}</p>
+        <p class="intro-text" v-html="section.content.text.replace(/\n/g, '<br />')"></p>
       </div>
     </div>
   </div>
@@ -189,7 +196,8 @@ const formatDate = (date: string) => {
   font-size: 0.95rem;
   line-height: 1.6;
   color: var(--color-text-secondary);
-  margin: 16px 0 0 0
+  margin: 16px 0 0 0;
+  white-space: pre-line
 }
 
 .section {
@@ -205,7 +213,7 @@ const formatDate = (date: string) => {
 }
 
 .section-item {
-  margin-bottom: 16px
+  margin-bottom: 12px
 }
 
 .item-header {
@@ -213,46 +221,70 @@ const formatDate = (date: string) => {
   justify-content: space-between;
   align-items: baseline;
   gap: 12px;
-  margin-bottom: 4px
+  margin-bottom: 6px
 }
 
 .item-title {
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
   color: var(--color-text-primary);
   margin: 0
 }
-
+.item-position{
+  margin-left: 16px;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  font-weight: 500
+}
 .item-date {
   font-size: 0.85rem;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
   white-space: nowrap
 }
 
 .item-subtitle {
   font-size: 0.9rem;
   color: var(--color-text-secondary);
-  margin: 0 0 6px 0;
+  margin: 0 0 0 12px;
   font-weight: 500
 }
 
 .item-desc {
   font-size: 0.9rem;
   line-height: 1.5;
-  color: var(--color-text-secondary);
-  margin: 0
+  color: var(--color-text-primary);
+  margin: 0;
+  white-space: pre-line
 }
 
-.item-link {
-  font-size: 0.85rem
+/* 证书模块：颁发机构单独成段，可换行 */
+.section-item > p.item-subtitle {
+  white-space: pre-line
 }
 
-.item-link a {
+.project-item-header {
+  align-items: flex-start
+}
+
+.project-item-title {
+  flex: 1;
+  min-width: 0
+}
+
+.project-link-url {
+  margin-left: 12px;
+  font-size: 0.82rem;
   color: var(--color-primary);
-  text-decoration: none
+  text-decoration: none;
+  text-align: right;
+  max-width: 52%;
+  word-break: break-all;
+  line-height: 1.4;
+  flex-shrink: 0
 }
 
-.item-link a:hover {
+.project-link-url:hover {
   text-decoration: underline
 }
 
@@ -265,26 +297,6 @@ const formatDate = (date: string) => {
   font-weight: 600;
   color: var(--color-text-primary);
   margin: 0 0 8px 0
-}
-
-.skill-tags,
-.tech-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px
-}
-
-.skill-tag,
-.tech-tag {
-  display: inline-block;
-  padding: 4px 10px;
-  background: rgba(91, 138, 240, 0.1);
-  border: 1px solid rgba(91, 138, 240, 0.2);
-  border-radius: 16px;
-  font-size: 0.8rem;
-  color: var(--color-primary);
-  font-weight: 500
 }
 
 .cert-link {
@@ -302,9 +314,9 @@ const formatDate = (date: string) => {
 }
 
 .intro-text {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   line-height: 1.8;
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   margin: 0
 }
 
@@ -321,14 +333,25 @@ const formatDate = (date: string) => {
     width: 100px;
     height: 100px
   }
-}
-</style>
 
+  .project-item-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px
+  }
+
+  .project-link-url {
+    margin-left: 0;
+    max-width: 100%;
+    text-align: left
+  }
+}
 
 .skill-item {
   font-size: 0.9rem;
-  color: var(--color-text-secondary);
-  margin-bottom: 8px;
-  line-height: 1.6
+  color: var(--color-text-primary);
+  margin-bottom: 6px;
+  line-height: 1.6;
+  white-space: pre-line
 }
-
+</style>

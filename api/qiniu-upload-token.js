@@ -9,14 +9,14 @@ function setCors(res) {
   res.setHeader('Access-Control-Allow-Headers', 'x-qiniu-admin-secret, Content-Type')
 }
 
-/** 无协议时浏览器会把最终 URL 当相对路径；未购证书时绑定域名多为 http */
+/** 无协议时浏览器会把最终 URL 当相对路径；默认 https（CDN 常见）；纯 HTTP 请写完整 http:// */
 function normalizePublicBase(raw) {
   const s = String(raw || '')
     .trim()
     .replace(/\/$/, '')
   if (!s) return ''
   if (/^https?:\/\//i.test(s)) return s
-  return `http://${s.replace(/^\/+/, '')}`
+  return `https://${s.replace(/^\/+/, '')}`
 }
 
 export default function handler(req, res) {

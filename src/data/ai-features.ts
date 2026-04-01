@@ -1,18 +1,20 @@
 import type { AIFeature } from '@/types'
 
 export const aiFeatures: AIFeature[] = [
-  // 上排：文案、生图、视频、代码
+  // 上排：连载漫画、生图、视频、代码
   {
-    id: '1',
-    name: 'AI 文案创作',
-    description: '输入主题和关键词，AI 为你生成高质量的文章、标题、营销文案，支持多种风格切换。',
-    emoji: '✍️',
-    icon: 'mdi:pencil-box',
-    category: 'writing',
-    tags: ['文案', '创作', '写作'],
-    isNew: false,
+    id: '13',
+    name: 'AI 连载漫画',
+    description:
+      '粘贴文章或故事，先由大模型拆成多格分镜，再按格用火山生图；从第 2 格起将上一格成图作为参考传入，尽量保持角色与画风连贯（依赖模型是否支持参考图）。',
+    emoji: '📖',
+    icon: 'mdi:book-open-page-variant',
+    category: 'creative',
+    tags: ['漫画', '条漫', '生图'],
+    isNew: true,
     isPro: false,
-    placeholder: '请输入文章主题或关键词，如：「Vue3 最佳实践」或「夏日生活记录」...',
+    placeholder:
+      '粘贴一篇短文、故事梗概或章节… 将自动提炼分镜并生成多格连续漫画。',
   },
   {
     id: '11',
@@ -54,20 +56,18 @@ export const aiFeatures: AIFeature[] = [
     isPro: false,
     placeholder: '描述你需要的代码功能，如：「用 Vue3 实现一个防抖 Hook」...',
   },
-  // 下排：连载漫画、诗词、食谱、医生
+  // 下排：文案、诗词、食谱、医生
   {
-    id: '13',
-    name: 'AI 连载漫画',
-    description:
-      '粘贴文章或故事，先由大模型拆成多格分镜，再按格用火山生图；从第 2 格起将上一格成图作为参考传入，尽量保持角色与画风连贯（依赖模型是否支持参考图）。',
-    emoji: '📖',
-    icon: 'mdi:book-open-page-variant',
-    category: 'creative',
-    tags: ['漫画', '条漫', '生图'],
-    isNew: true,
+    id: '1',
+    name: 'AI 文案创作',
+    description: '输入主题和关键词，AI 为你生成高质量的文章、标题、营销文案，支持多种风格切换。',
+    emoji: '✍️',
+    icon: 'mdi:pencil-box',
+    category: 'writing',
+    tags: ['文案', '创作', '写作'],
+    isNew: false,
     isPro: false,
-    placeholder:
-      '粘贴一篇短文、故事梗概或章节… 将自动提炼分镜并生成多格连续漫画。',
+    placeholder: '请输入文章主题或关键词，如：「Vue3 最佳实践」或「夏日生活记录」...',
   },
   {
     id: '7',

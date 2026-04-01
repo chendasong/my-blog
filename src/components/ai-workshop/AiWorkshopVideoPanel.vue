@@ -21,8 +21,8 @@ const toast = useToast()
 const inputText = ref('')
 const outputText = ref('')
 const isLoading = ref(false)
-let abortFlag = false
 const videoGenAbortController = ref<AbortController | null>(null)
+let videoRunSeq = 0
 
 const VIDEO_RATIO_PRESETS: { value: SeedanceRatio; label: string }[] = [
   { value: '21:9', label: '21:9' },
@@ -179,9 +179,7 @@ function randomizeVideoSeed() {
 }
 
 function handleStop() {
-  abortFlag = true
   videoGenAbortController.value?.abort()
-  isLoading.value = false
 }
 
 function copyVideoUrl(url: string) {
@@ -200,17 +198,19 @@ async function handleGenerate() {
   if (!inputText.value.trim() && !videoCanRunWithoutText) return
 
   if (isLoading.value) {
-    abortFlag = true
+    videoGenAbortController.value?.abort()
     return
   }
 
+  videoGenAbortController.value?.abort()
+  const runId = ++videoRunSeq
   isLoading.value = true
   generatedVideoUrls.value = []
   outputText.value = ''
-  abortFlag = false
   videoStatusHint.value = ''
-  videoGenAbortController.value = new AbortController()
-  const vidSig = videoGenAbortController.value.signal
+  const ac = new AbortController()
+  videoGenAbortController.value = ac
+  const vidSig = ac.signal
 
   try {
     const n = Math.min(4, Math.max(1, Math.round(Number(videoCount.value)) || 1))
@@ -275,11 +275,11 @@ async function handleGenerate() {
       videoGenerateAudio.value,
     )
     outputText.value = videoPrompt
-    if (abortFlag) throw new Error('已停止')
+    if (vidSig.aborted) throw new Error('已停止')
 
     const urls: string[] = []
     for (let i = 0; i < n; i++) {
-      if (abortFlag) break
+      if (vidSig.aborted) break
       videoStatusHint.value = `第 ${i + 1}/${n} 条：创建任务…`
       const taskId = await createSeedanceVideoTask(videoPrompt, {
         ratio: videoRatio.value,
@@ -291,9 +291,10 @@ async function handleGenerate() {
           referenceFrames.length > 0 ? referenceFrames : undefined,
       })
       videoStatusHint.value = `第 ${i + 1}/${n} 条：渲染中（通常需数分钟，请勿关闭页面）…`
-      const url = await waitSeedanceVideoTask(taskId, () => abortFlag)
+      const url = await waitSeedanceVideoTask(taskId, () => vidSig.aborted)
       urls.push(url)
     }
+    if (videoRunSeq !== runId) return
     generatedVideoUrls.value = urls
     if (urls.length === n) {
       toast.success(n === 1 ? '视频已生成' : `已生成 ${n} 条视频`)
@@ -303,13 +304,16 @@ async function handleGenerate() {
       toast.info('已停止')
     }
   } catch (e) {
+    if (videoRunSeq !== runId) return
     const msg = e instanceof Error ? e.message : ''
     if (msg === '已停止') toast.info('已停止')
     else toast.error(msg || '视频生成失败')
   } finally {
-    videoGenAbortController.value = null
-    isLoading.value = false
-    videoStatusHint.value = ''
+    if (videoRunSeq === runId) {
+      if (videoGenAbortController.value === ac) videoGenAbortController.value = null
+      isLoading.value = false
+      videoStatusHint.value = ''
+    }
   }
 }
 </script>

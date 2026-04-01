@@ -95,7 +95,6 @@ export function generateDefaultResume(): Resume {
               id: 'proj-1',
               name: '个人博客系统',
               description: '一个功能完整的博客平台，支持文章发布、评论、标签等功能',
-              technologies: ['Vue 3', 'TypeScript', 'Supabase', 'Tailwind CSS'],
               link: 'https://example.com',
             },
           ],

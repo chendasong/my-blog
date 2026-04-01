@@ -1,16 +1,22 @@
-/** 将 textarea 高度设为内容高度，夹在 minPx ~ maxPx 之间；无内容时固定为单行 min，避免占位/scrollHeight 抖动与内部滚动条 */
+/**
+ * 将 textarea 高度设为内容高度，不低于 minPx。
+ * maxPx 为有限数时不超过 maxPx，超出部分出现纵向滚动；为 Infinity 时随内容增高、不出现内部滚动条。
+ */
 export function syncTextareaHeight(
   el: HTMLTextAreaElement | null,
   minPx: number,
-  maxPx: number
+  maxPx: number = Number.POSITIVE_INFINITY
 ) {
   if (!el) return
-  el.style.overflowY = 'hidden'
+  const finiteMax = Number.isFinite(maxPx)
   if (!el.value) {
+    el.style.overflowY = 'hidden'
     el.style.height = `${minPx}px`
     return
   }
   el.style.height = 'auto'
-  const h = Math.min(Math.max(el.scrollHeight, minPx), maxPx)
+  const natural = el.scrollHeight
+  const h = finiteMax ? Math.min(Math.max(natural, minPx), maxPx) : Math.max(natural, minPx)
   el.style.height = `${h}px`
+  el.style.overflowY = finiteMax && natural > maxPx ? 'auto' : 'hidden'
 }

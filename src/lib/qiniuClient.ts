@@ -1,23 +1,23 @@
 import { supabase } from '@/lib/supabase'
 
-/** 绑定域名漏写协议时，拼接出的地址会被浏览器当成相对路径；无证书场景默认补 http:// */
+/** 绑定域名漏写协议时，拼接出的地址会被浏览器当成相对路径；默认补 https://（与常见 CDN/HTTPS 绑定一致） */
 function normalizeQiniuPublicBase(raw: string | undefined | null): string {
   const s = String(raw ?? '').trim().replace(/\/$/, '')
   if (!s) return ''
   if (/^https?:\/\//i.test(s)) return s
-  return `http://${s.replace(/^\/+/, '')}`
+  return `https://${s.replace(/^\/+/, '')}`
 }
 
 /**
- * 展示用：补全无协议的七牛/CDN 串；站内路径（以 / 开头）、data:/blob: 原样返回。
- * 未写协议时默认 http://（与无证书绑定域名一致）；若需 https 请在库里存完整 URL 或环境变量写 https://
+ * 展示用：把「无协议」的七牛/CDN 串补成绝对地址（默认 https，避免旧逻辑误补 http://）。
+ * 站内路径（以 / 开头）、data:/blob: 原样返回；已带 http(s):// 的整串原样返回（与库内一致）。
  */
 export function ensureHttpUrlForAssets(url: string | undefined | null): string {
   const u = String(url ?? '').trim()
   if (!u) return ''
   if (u.startsWith('/') || u.startsWith('data:') || u.startsWith('blob:')) return u
   if (/^https?:\/\//i.test(u)) return u
-  return `http://${u.replace(/^\/+/, '')}`
+  return `https://${u.replace(/^\/+/, '')}`
 }
 
 export function isQiniuConfigured(): boolean {
@@ -257,7 +257,9 @@ export function urlHostedOnConfiguredQiniu(fileUrl: string): boolean {
   const base = normalizeQiniuPublicBase(import.meta.env.VITE_QINIU_PUBLIC_BASE as string | undefined)
   if (!base) return false
   try {
-    return new URL(fileUrl).origin === new URL(base).origin
+    const u = new URL(fileUrl)
+    const b = new URL(base)
+    return u.hostname.toLowerCase() === b.hostname.toLowerCase()
   } catch {
     return false
   }

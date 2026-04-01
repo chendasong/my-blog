@@ -2,13 +2,12 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
-import { useAuthStore } from '@/stores/auth'
+import { authApi, COUPLE_SAVED_PWD_STORAGE_KEY } from '@/api/auth'
 import { useToast } from '@/composables/useToast'
 import AppButton from '@/components/common/AppButton.vue'
 
 const router = useRouter()
 const appStore = useAppStore()
-const authStore = useAuthStore()
 const toast = useToast()
 
 const password = ref('')
@@ -16,23 +15,19 @@ const loading = ref(false)
 const checking = ref(true)
 const showPwd = ref(false)
 
-const COUPLE_PWD_KEY = 'couple_saved_pwd'
-
 onMounted(async () => {
-  if (!authStore.siteSettings) {
-    await authStore.fetchSiteSettings()
-  }
-  // 自动验证已存储的密码
-  const saved = localStorage.getItem(COUPLE_PWD_KEY)
+  const saved = localStorage.getItem(COUPLE_SAVED_PWD_STORAGE_KEY)
   if (saved) {
-    const correct = authStore.siteSettings?.couple_password || '2024-11-09'
-    if (saved === correct) {
-      appStore.setCoupleAuth(true)
-      router.replace('/couple/space')
-      return
-    } else {
-      // 密码已被管理员修改，清除旧缓存
-      localStorage.removeItem(COUPLE_PWD_KEY)
+    try {
+      const ok = await authApi.verifyCouplePassword(saved)
+      if (ok) {
+        appStore.setCoupleAuth(true)
+        router.replace('/couple/space')
+        return
+      }
+      localStorage.removeItem(COUPLE_SAVED_PWD_STORAGE_KEY)
+    } catch {
+      // 网络异常：保留已存密码，进入表单以便手动重试
     }
   }
   checking.value = false
@@ -41,15 +36,18 @@ onMounted(async () => {
 async function handleSubmit() {
   if (!password.value) { toast.warning('请输入密码'); return }
   loading.value = true
-  await new Promise(r => setTimeout(r, 500))
-  const correct = authStore.siteSettings?.couple_password || '2024-11-09'
-  if (password.value === correct) {
-    localStorage.setItem(COUPLE_PWD_KEY, password.value)
-    appStore.setCoupleAuth(true)
-    router.push('/couple/space')
-  } else {
-    toast.error('密码不正确，请再试一次 💔')
-    password.value = ''
+  try {
+    const ok = await authApi.verifyCouplePassword(password.value)
+    if (ok) {
+      localStorage.setItem(COUPLE_SAVED_PWD_STORAGE_KEY, password.value)
+      appStore.setCoupleAuth(true)
+      router.push('/couple/space')
+    } else {
+      toast.error('密码不正确，请再试一次 💔')
+      password.value = ''
+    }
+  } catch {
+    toast.error('网络异常，请稍后重试')
   }
   loading.value = false
 }

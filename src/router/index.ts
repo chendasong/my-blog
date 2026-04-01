@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { authApi, COUPLE_SAVED_PWD_STORAGE_KEY } from '@/api/auth'
+import { useAppStore } from '@/stores/app'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -82,14 +84,30 @@ const router = createRouter({
   },
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   if (to.meta.requiresAuth) {
     const stored = localStorage.getItem('admin_user')
     if (!stored) return { name: 'login', query: { redirect: to.fullPath } }
   }
   if (to.meta.requiresCoupleAuth) {
     const authed = sessionStorage.getItem('couple_auth')
-    if (!authed) return { name: 'couple-entry' }
+    const savedPwd = localStorage.getItem(COUPLE_SAVED_PWD_STORAGE_KEY)
+    if (!authed || !savedPwd) {
+      return { name: 'couple-entry', query: { redirect: to.fullPath } }
+    }
+    try {
+      const ok = await authApi.verifyCouplePassword(savedPwd)
+      if (!ok) {
+        const appStore = useAppStore()
+        appStore.setCoupleAuth(false)
+        localStorage.removeItem(COUPLE_SAVED_PWD_STORAGE_KEY)
+        return { name: 'couple-entry', query: { redirect: to.fullPath } }
+      }
+    } catch {
+      const appStore = useAppStore()
+      appStore.setCoupleAuth(false)
+      return { name: 'couple-entry', query: { redirect: to.fullPath } }
+    }
   }
 })
 

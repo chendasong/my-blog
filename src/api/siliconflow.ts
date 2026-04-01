@@ -137,7 +137,7 @@ export async function extractComicScenesFromArticle(
   const system = `漫画分镜。只输出 JSON 数组，长度 ${n}，无 markdown、无解释。
 每项一条中文字符串，≥20字，≤130字，含两部分：
 画：信息写满——场景、人物外貌与动作表情、道具与环境细节、光影色调，避免空洞词。
-对白：只用角色台词，不写旁白。可多人多泡：甲:「……」乙:「……」，台词具体有戏，忌一句带过。
+对白：只用角色台词，不写旁白。多人多泡：甲说:……，乙说:……，台词具体有戏，忌一句带过。
 顺叙；第1格交代场景与人物关系。`
   const user = `正文拆 ${n} 格，JSON 数组：\n\n${article.trim()}`
   const raw = await completeChat(system, user, {

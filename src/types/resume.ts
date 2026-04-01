@@ -56,7 +56,7 @@ export interface ProjectItem {
   id: string
   name: string
   description: string
-  technologies: string[]
+  technologies?: string[]
   link?: string
   startDate?: string
   endDate?: string

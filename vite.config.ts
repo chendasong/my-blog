@@ -42,7 +42,7 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
-      open: true,
+      open: false,
     },
     define: {
       'import.meta.env.VITE_QINIU_PUBLIC_BASE': JSON.stringify(qiniuPublic),

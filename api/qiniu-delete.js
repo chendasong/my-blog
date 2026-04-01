@@ -15,7 +15,7 @@ function normalizePublicBase(raw) {
     .replace(/\/$/, '')
   if (!s) return ''
   if (/^https?:\/\//i.test(s)) return s
-  return `http://${s.replace(/^\/+/, '')}`
+  return `https://${s.replace(/^\/+/, '')}`
 }
 
 function resolveZone(q, name) {

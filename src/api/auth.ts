@@ -11,6 +11,11 @@ export interface AdminUser {
   bio: string
 }
 
+/** localStorage key for last successful couple password (used to re-verify on each visit). */
+export const COUPLE_SAVED_PWD_STORAGE_KEY = 'couple_saved_pwd'
+
+const COUPLE_PASSWORD_FALLBACK = '2024-11-09'
+
 export interface SiteSettings {
   id: number
   site_name: string
@@ -35,6 +40,13 @@ export interface SiteSettings {
 
 async function verifyPassword(password: string, hash: string): Promise<boolean> {
   return bcrypt.compare(password, hash)
+}
+
+async function loadCouplePasswordFromDb(): Promise<string> {
+  const { data, error } = await supabase.from('site_settings').select('couple_password').eq('id', 1).maybeSingle()
+  if (error) throw error
+  const raw = (data?.couple_password ?? '').trim()
+  return raw || COUPLE_PASSWORD_FALLBACK
 }
 
 export const authApi = {
@@ -88,6 +100,16 @@ export const authApi = {
     const { data, error } = await supabase.from('site_settings').select('*').eq('id', 1).single()
     if (error) throw error
     return data
+  },
+
+  /** Fresh read from DB; used so cached session cannot outlive an admin password change. */
+  async fetchCouplePassword(): Promise<string> {
+    return loadCouplePasswordFromDb()
+  },
+
+  async verifyCouplePassword(candidate: string): Promise<boolean> {
+    const expected = await loadCouplePasswordFromDb()
+    return candidate.trim() === expected
   },
 
   async updateSiteSettings(settings: Partial<SiteSettings> & { avatar_file?: File; background_file?: File }): Promise<SiteSettings> {

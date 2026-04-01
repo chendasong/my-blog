@@ -83,10 +83,10 @@ export function buildComicPanelPrompt(
   const sceneT = scene.trim()
   const ref = hasReferenceImage ? '接上一格，人设画风延续。' : '首格。'
   return [
-    '单格漫画，完稿上色，背景与人物都画细，构图饱满，对话丰富。',
+    '单格漫画，背景与人物都画细，构图饱满，对话丰富。',
     ref,
     style.promptFragment,
-    '只用对白气泡呈现台词，不要旁白。',
+    '只用对白气泡呈现台词，不要旁白，角色气泡引用要正确，不要有错别字。',
     `第${panelIndex + 1}/${totalPanels}格`,
     sceneT,
   ].join(' ')
