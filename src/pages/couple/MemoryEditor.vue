@@ -114,6 +114,26 @@ function onModalVideoLoaded() {
   void modalVideoRef.value?.play().catch(() => {})
 }
 
+/**
+ * 手机 WebKit 上本地 blob 视频常不画首帧，需轻微 seek 触发解码；电脑端一般无感。
+ */
+function nudgeVideoFirstFrame(e: Event) {
+  const v = e.target as HTMLVideoElement
+  if (!v?.src?.startsWith('blob:')) return
+  const apply = () => {
+    try {
+      const d = v.duration
+      if (!Number.isFinite(d) || d <= 0) return
+      const t = Math.min(0.08, Math.max(0.001, d * 0.02))
+      if (Math.abs(v.currentTime - t) > 0.001) v.currentTime = t
+    } catch {
+      /* seek 在部分机型上可能暂不可用 */
+    }
+  }
+  apply()
+  requestAnimationFrame(apply)
+}
+
 onMounted(async () => {
   window.addEventListener('keydown', onVideoViewerKeydown)
   if (isEdit) {
@@ -219,6 +239,125 @@ function removeImage(idx: number) {
   if (selectedIndex.value >= imagePreviews.value.length) {
     selectedIndex.value = Math.max(0, imagePreviews.value.length - 1)
   }
+}
+
+const imageDragFrom = ref<number | null>(null)
+const imageDropHover = ref<number | null>(null)
+
+function onImgDragStart(e: DragEvent, idx: number) {
+  imageDragFrom.value = idx
+  imageDropHover.value = null
+  e.dataTransfer!.effectAllowed = 'move'
+  e.dataTransfer!.setData('text/plain', String(idx))
+}
+
+function onImgDragOver(e: DragEvent, idx: number) {
+  e.preventDefault()
+  e.dataTransfer!.dropEffect = 'move'
+  imageDropHover.value = idx
+}
+
+function onImgDrop(e: DragEvent, toIdx: number) {
+  e.preventDefault()
+  const fromStr = e.dataTransfer?.getData('text/plain')
+  const parsed = fromStr !== '' && fromStr != null ? parseInt(fromStr, 10) : NaN
+  const from = Number.isNaN(parsed) ? imageDragFrom.value : parsed
+  imageDropHover.value = null
+  imageDragFrom.value = null
+  if (from == null || Number.isNaN(from)) return
+  reorderMemoryImages(from, toIdx)
+}
+
+/** 拖拽结束后极短时间内忽略 click，避免误触发「设封面选中 / 打开视频」 */
+const clickSuppressUntil = ref(0)
+function armClickSuppress() {
+  clickSuppressUntil.value = Date.now() + 400
+}
+function isClickSuppressed() {
+  return Date.now() < clickSuppressUntil.value
+}
+
+function onImgDragEnd() {
+  imageDragFrom.value = null
+  imageDropHover.value = null
+  armClickSuppress()
+}
+
+/** 点击缩略图：设为封面（不调整顺序）；拖拽结束后短延迟内忽略，避免误触 */
+function onImageThumbClick(idx: number) {
+  if (isClickSuppressed()) return
+  if (idx < 0 || idx >= imagePreviews.value.length) return
+  selectedIndex.value = idx
+}
+
+function reorderMemoryImages(from: number, to: number) {
+  const len = imagePreviews.value.length
+  if (from < 0 || to < 0 || from >= len || to >= len || from === to) return
+  const selectedMeta = imageMetadata.value[selectedIndex.value]
+  const previews = [...imagePreviews.value]
+  const metas = [...imageMetadata.value]
+  const [p] = previews.splice(from, 1)
+  const [m] = metas.splice(from, 1)
+  previews.splice(to, 0, p)
+  metas.splice(to, 0, m)
+  imagePreviews.value = previews
+  imageMetadata.value = metas
+  const ni = metas.indexOf(selectedMeta)
+  selectedIndex.value = ni >= 0 ? ni : 0
+}
+
+const videoDragFrom = ref<number | null>(null)
+const videoDropHover = ref<number | null>(null)
+
+function onVideoThumbClick(idx: number) {
+  if (isClickSuppressed()) return
+  openVideoViewer(idx)
+}
+
+function onVideoDragStart(e: DragEvent, idx: number) {
+  videoDragFrom.value = idx
+  videoDropHover.value = null
+  e.dataTransfer!.effectAllowed = 'move'
+  e.dataTransfer!.setData('text/plain', String(idx))
+}
+
+function onVideoDragOver(e: DragEvent, idx: number) {
+  e.preventDefault()
+  e.dataTransfer!.dropEffect = 'move'
+  videoDropHover.value = idx
+}
+
+function onVideoDrop(e: DragEvent, toIdx: number) {
+  e.preventDefault()
+  const fromStr = e.dataTransfer?.getData('text/plain')
+  const parsed = fromStr !== '' && fromStr != null ? parseInt(fromStr, 10) : NaN
+  const from = Number.isNaN(parsed) ? videoDragFrom.value : parsed
+  videoDropHover.value = null
+  videoDragFrom.value = null
+  if (from == null || Number.isNaN(from)) return
+  reorderMemoryVideos(from, toIdx)
+}
+
+function onVideoDragEnd() {
+  videoDragFrom.value = null
+  videoDropHover.value = null
+  armClickSuppress()
+}
+
+function reorderMemoryVideos(from: number, to: number) {
+  const len = videoPreviews.value.length
+  if (from < 0 || to < 0 || from >= len || to >= len || from === to) return
+  const playingMeta = videoMetadata.value[videoViewerIndex.value]
+  const previews = [...videoPreviews.value]
+  const metas = [...videoMetadata.value]
+  const [p] = previews.splice(from, 1)
+  const [m] = metas.splice(from, 1)
+  previews.splice(to, 0, p)
+  metas.splice(to, 0, m)
+  videoPreviews.value = previews
+  videoMetadata.value = metas
+  const ni = metas.indexOf(playingMeta)
+  if (videoViewerOpen.value && ni >= 0) videoViewerIndex.value = ni
 }
 
 async function handleSubmit() {
@@ -345,16 +484,29 @@ async function handleSubmit() {
           />
         </div>
         <div class="form-group">
-          <label class="form-label">图片 <span class="form-hint">（最多 {{ MAX_IMAGES }} 张，点击缩略图设为封面）</span></label>
+          <label class="form-label">图片 <span class="form-hint">（最多 {{ MAX_IMAGES }} 张，点击设封面，可拖拽排序）</span></label>
           <div class="thumb-grid">
             <div
               v-for="(src, idx) in imagePreviews"
-              :key="idx"
-              :class="['thumb-item', { 'thumb-item--active': selectedIndex === idx }]"
-              @click="selectedIndex = idx"
+              :key="imageMetadata[idx]?.url ?? idx"
+              :class="[
+                'thumb-item',
+                {
+                  'thumb-item--active': selectedIndex === idx,
+                  'thumb-item--dragging': imageDragFrom === idx,
+                  'thumb-item--drop-hover': imageDropHover === idx && imageDragFrom !== null && imageDragFrom !== idx,
+                },
+              ]"
+              draggable="true"
+              title="点击设为封面；拖拽排序"
+              @click="onImageThumbClick(idx)"
+              @dragstart="onImgDragStart($event, idx)"
+              @dragover="onImgDragOver($event, idx)"
+              @drop="onImgDrop($event, idx)"
+              @dragend="onImgDragEnd"
             >
-              <img :src="src" alt="" />
-              <button type="button" class="thumb-remove" @click.stop="removeImage(idx)">✕</button>
+              <img :src="src" alt="" draggable="false" />
+              <button type="button" class="thumb-remove" draggable="false" @mousedown.stop @click.stop="removeImage(idx)">✕</button>
               <span v-if="selectedIndex === idx" class="thumb-cover-badge">封面</span>
             </div>
             <label v-if="imagePreviews.length < MAX_IMAGES" class="thumb-add">
@@ -366,31 +518,48 @@ async function handleSubmit() {
           <p class="cover-hint">已选 {{ imagePreviews.length }} / {{ MAX_IMAGES }} 张</p>
         </div>
         <div class="form-group">
-          <label class="form-label">视频 <span class="form-hint">（最多 {{ MAX_VIDEOS }} 个；点击缩略图全屏播放，左右键或滑动切换）</span></label>
+          <label class="form-label">视频 <span class="form-hint">（最多 {{ MAX_VIDEOS }} 个；点击全屏播放，可拖拽排序，左右键或滑动切换）</span></label>
           <div class="thumb-grid thumb-grid--video">
             <div
               v-for="(src, idx) in videoPreviews"
-              :key="'v' + idx + src"
-              class="thumb-item thumb-item--video"
+              :key="videoMetadata[idx]?.url ?? 'v' + idx"
+              :class="[
+                'thumb-item',
+                'thumb-item--video',
+                {
+                  'thumb-item--dragging': videoDragFrom === idx,
+                  'thumb-item--drop-hover': videoDropHover === idx && videoDragFrom !== null && videoDragFrom !== idx,
+                },
+              ]"
+              draggable="true"
               role="button"
               tabindex="0"
+              title="点击全屏播放；拖拽调整顺序"
               :aria-label="`全屏播放第 ${idx + 1} 个视频`"
-              @click="openVideoViewer(idx)"
-              @keydown.enter.prevent="openVideoViewer(idx)"
-              @keydown.space.prevent="openVideoViewer(idx)"
+              @click="onVideoThumbClick(idx)"
+              @keydown.enter.prevent="onVideoThumbClick(idx)"
+              @keydown.space.prevent="onVideoThumbClick(idx)"
+              @dragstart="onVideoDragStart($event, idx)"
+              @dragover="onVideoDragOver($event, idx)"
+              @drop="onVideoDrop($event, idx)"
+              @dragend="onVideoDragEnd"
             >
               <video
                 :src="src"
                 class="thumb-item__video"
                 muted
                 playsinline
-                preload="metadata"
+                webkit-playsinline=""
+                preload="auto"
                 disablePictureInPicture
                 controlsList="nodownload noremoteplayback noplaybackrate"
                 tabindex="-1"
+                draggable="false"
+                @loadedmetadata="nudgeVideoFirstFrame"
+                @loadeddata="nudgeVideoFirstFrame"
               />
               <span class="thumb-item__video-play-hint" aria-hidden="true">▶</span>
-              <button type="button" class="thumb-remove" @click.stop="removeVideo(idx)">✕</button>
+              <button type="button" class="thumb-remove" draggable="false" @mousedown.stop @click.stop="removeVideo(idx)">✕</button>
             </div>
             <label v-if="videoPreviews.length < MAX_VIDEOS" class="thumb-add thumb-add--video">
               <span class="thumb-add__icon" aria-hidden="true">🎬</span>
@@ -427,7 +596,9 @@ async function handleSubmit() {
               :src="videoPreviews[videoViewerIndex]"
               controls
               playsinline
-              preload="metadata"
+              webkit-playsinline=""
+              preload="auto"
+              @loadedmetadata="nudgeVideoFirstFrame"
               @loadeddata="onModalVideoLoaded"
             />
             <template v-if="videoPreviews.length > 1">
@@ -490,7 +661,10 @@ async function handleSubmit() {
 .content-textarea::placeholder { color: var(--color-text-muted); }
 .cover-hint { font-size: 11px; color: var(--color-text-muted); margin-top: 2px; }
 .thumb-grid { display: grid; grid-template-columns: repeat(auto-fill, 88px); gap: 10px; justify-content: start; }
-.thumb-item { position: relative; border-radius: var(--radius-md); overflow: hidden; aspect-ratio: 1; width: 88px; cursor: pointer; border: 2px solid transparent; transition: border-color var(--transition-fast); background: var(--color-bg-glass); }
+.thumb-item { position: relative; border-radius: var(--radius-md); overflow: hidden; aspect-ratio: 1; width: 88px; cursor: grab; border: 2px solid transparent; transition: border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease; background: var(--color-bg-glass); }
+.thumb-item:active { cursor: grabbing; }
+.thumb-item--dragging { opacity: 0.45; }
+.thumb-item--drop-hover { border-color: #E8607A; box-shadow: 0 0 0 2px rgba(232, 96, 122, 0.35); }
 .thumb-add {
   position: relative;
   display: flex;
@@ -519,11 +693,12 @@ async function handleSubmit() {
 .thumb-cover-badge { position: absolute; bottom: 3px; left: 3px; background: rgba(232,96,122,.9); color: white; font-size: 9px; padding: 2px 5px; border-radius: var(--radius-full); }
 .thumb-grid--video { margin-top: 0; }
 .thumb-item--video {
-  cursor: pointer;
+  cursor: grab;
   outline: none;
   border-color: rgba(139, 111, 240, 0.22);
   background: #0f0f12;
 }
+.thumb-item--video:active { cursor: grabbing; }
 .thumb-item--video:hover { border-color: rgba(139, 111, 240, 0.5); }
 .thumb-item--video:focus-visible { box-shadow: 0 0 0 2px rgba(139, 111, 240, 0.5); }
 .thumb-item__video {

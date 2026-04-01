@@ -102,7 +102,7 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
               class="couple-avatar__name">{{ person2.nickname }}</span></div>
         </div>
         <div class="couple-hero__info animate-fade-in-up delay-200">
-          <p class="couple-hero__motto">「{{ coupleInfo.motto }}」</p>
+          <!-- <p class="couple-hero__motto">「{{ coupleInfo.motto }}」</p> -->
           <div class="couple-hero__counter">
             <p class="couple-hero__counter-label">我们在一起已经</p>
             <DayCounter :start-date="startDate" />
@@ -252,7 +252,7 @@ function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
   align-items: center;
   justify-content: center;
   gap: 24px;
-  margin-bottom: 32px;
+  margin-bottom: 8px;
 }
 
 .couple-avatar {

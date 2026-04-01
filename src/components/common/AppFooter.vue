@@ -15,6 +15,13 @@ onMounted(async () => {
       <div class="footer__brand">
         <span class="footer__logo">✦ {{ authStore.siteSettings?.site_name || 'Luminary' }}</span>
         <p class="footer__bio">{{ authStore.siteSettings?.site_subtitle || '热爱生活，热爱代码。' }}</p>
+        <p v-if="authStore.siteSettings?.icp_number?.trim()" class="footer__icp">
+          <a
+            href="https://beian.miit.gov.cn/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >{{ authStore.siteSettings.icp_number.trim() }}</a>
+        </p>
       </div>
       <div class="footer__links">
         <div class="footer__col">
@@ -43,10 +50,10 @@ onMounted(async () => {
         </div> -->
       </div>
     </div>
-    <div class="footer__bottom">
+    <!-- <div class="footer__bottom">
       <span>© 2026 chends · 用心记录每一天</span>
       <span>Made by chends ❤️</span>
-    </div>
+    </div> -->
   </footer>
 </template>
 
@@ -56,6 +63,9 @@ onMounted(async () => {
 .footer__brand { flex: 1; min-width: 200px; }
 .footer__logo { font-size: 1.2rem; font-weight: 700; background: var(--gradient-primary); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 .footer__bio { margin-top: 10px; color: var(--color-text-muted); font-size: var(--text-sm); line-height: 1.7; max-width: 280px; }
+.footer__icp { margin-top: 8px; margin-bottom: 0; font-size: var(--text-xs); line-height: 1.5; }
+.footer__icp a { color: var(--color-text-muted); text-decoration: none; transition: color var(--transition-fast); }
+.footer__icp a:hover { color: var(--color-primary); text-decoration: underline; }
 .footer__links { display: flex; gap: 48px; }
 .footer__col { display: flex; flex-direction: column; gap: 10px; }
 .footer__col-title { font-size: var(--text-sm); font-weight: 600; color: var(--color-text-primary); margin-bottom: 2px; }

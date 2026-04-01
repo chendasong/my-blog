@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "serve:api": "node scripts/serve-api.mjs"
   },
   "dependencies": {
+    "dotenv": "^16.4.5",
     "@supabase/supabase-js": "^2.45.0",
     "@types/bcryptjs": "^2.4.6",
     "@vueuse/core": "^10.9.0",
@@ -26,7 +28,6 @@
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.4",
-    "dotenv": "^16.4.5",
     "typescript": "^5.2.2",
     "vite": "^5.2.0"
   }
