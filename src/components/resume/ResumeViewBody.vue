@@ -3,14 +3,11 @@ import { ref, computed } from "vue"
 import { useRouter } from "vue-router"
 import { useAuthStore } from "@/stores/auth"
 import { resumeApi } from "@/api"
-import { useToast } from "@/composables/useToast"
 import AppButton from "@/components/common/AppButton.vue"
 import ResumeContent from "@/components/resume/ResumeContent.vue"
 
-const toast = useToast()
 const router = useRouter()
 const authStore = useAuthStore()
-const downloading = ref(false)
 
 /** 首屏：Suspense 会等到该 Promise 完成再替换 #fallback */
 const resume = ref(await resumeApi.getResume())
@@ -21,42 +18,38 @@ const visibleSections = computed(() => {
     .sort((a, b) => a.order - b.order)
 })
 
+/** 打印/另存为 PDF 时，系统默认文件名常取自 document.title */
+const printPdfDefaultFileBase = computed(() => {
+  const sec = resume.value.sections.find((s) => s.type === "basic")
+  const raw = typeof sec?.content?.name === "string" ? sec.content.name.trim() : ""
+  const safe = raw.replace(/[/\\:*?"<>|]/g, " ").replace(/\s+/g, " ").trim()
+  return safe ? `${safe}的简历` : "陈大嵩的简历"
+})
+
 const handleEdit = () => {
   router.push("/resume/edit")
 }
 
-const handleDownloadPDF = async () => {
-  try {
-    downloading.value = true
-    const contentElement = document.querySelector(".resume-content") as HTMLElement
-    if (contentElement) {
-      const html2pdf = (await import("html2pdf.js")).default
-      const opt: any = {
-        margin: 10,
-        filename: `陈大嵩的简历.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { orientation: "portrait", unit: "mm", format: "a4" },
-      }
-      html2pdf().set(opt).from(contentElement).save()
-    }
-  } catch (error) {
-    console.error("Failed to download PDF:", error)
-  } finally {
-    downloading.value = false
-    toast.success("下载成功")
+const handlePrintResume = () => {
+  const prevTitle = document.title
+  document.title = printPdfDefaultFileBase.value
+  const restoreTitle = () => {
+    document.title = prevTitle
+    window.removeEventListener("afterprint", restoreTitle)
   }
+  window.addEventListener("afterprint", restoreTitle)
+  window.print()
 }
 </script>
 
 <template>
   <div class="resume-container">
-    <div class="resume-header">
+    <div class="resume-header resume-no-print">
       <AppButton v-if="authStore.isLoggedIn" variant="primary" size="sm" @click="handleEdit"
         >✏️ 编辑</AppButton
       >
-      <AppButton variant="secondary" size="sm" :loading="downloading" @click="handleDownloadPDF"
-        >📥 下载PDF</AppButton
+      <AppButton variant="primary" size="sm" @click="handlePrintResume"
+        >🖨️ 打印 / 下载 PDF</AppButton
       >
     </div>
     <ResumeContent :sections="visibleSections" />

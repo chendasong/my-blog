@@ -233,3 +233,10 @@ select:not([size]):not([multiple]) {
   color: inherit;
   font-size: 0.9em;
 }
+
+@media print {
+  /* 全站悬浮 AI 助手（fixed），不参与打印 */
+  .ai-assistant {
+    display: none !important;
+  }
+}

@@ -58,23 +58,8 @@ export const resumeApi = {
     }
   },
 
-  async exportPDF(resumeElement?: HTMLElement): Promise<Blob> {
+  async exportPDF(): Promise<Blob> {
     try {
-      if (resumeElement) {
-        const html2pdf = (await import('html2pdf.js')).default
-        return new Promise((resolve, reject) => {
-          const opt: any = {
-            margin: 10,
-            filename: `resume-${Date.now()}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2 },
-            jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' },
-          }
-          html2pdf().set(opt).from(resumeElement).save().then(() => {
-            resolve(new Blob(['PDF exported'], { type: 'application/pdf' }))
-          }).catch(reject)
-        })
-      }
       const response = await http.get('/resume/export/pdf', { responseType: 'blob' })
       return response.data as Blob
     } catch {

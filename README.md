@@ -32,7 +32,7 @@
 - **七牛云 Kodo**（直传凭证、删除、外链拉取转存）
 - **Axios / fetch**（API 调用）
 - **marked + highlight.js**（Markdown 与代码高亮）
-- 其他：**dayjs**、**@vueuse/core**、**html2pdf.js**（导出等）
+- 其他：**dayjs**、**@vueuse/core**
 
 ---
 

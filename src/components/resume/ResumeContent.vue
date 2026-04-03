@@ -23,6 +23,8 @@ function normalizeResumeLink(url: string): string {
 
 <template>
   <div class="resume-content">
+    <!-- 仅导出此层：无圆角/描边/阴影与内边距；页面留白由外层 resume-content 的 padding 负责 -->
+    <div class="resume-content-pdf">
     <div v-for="section in sections.filter(s => s.visible)" :key="section.id">
       <div v-if="section.type === 'basic'" class="basic-section">
         <div class="basic-header">
@@ -47,7 +49,9 @@ function normalizeResumeLink(url: string): string {
       </div>
 
       <div v-else-if="section.type === 'education'" class="section">
-        <h3 class="section-title">🎓 {{ section.title }}</h3>
+        <div class="section-heading">
+          <div class="section-title" role="heading" aria-level="3">{{ section.title }}</div>
+        </div>
         <div v-for="item in section.content.items" :key="item.id" class="section-item">
           <div class="item-header">
             <h4 class="item-title">{{ item.school }}<span class="item-subtitle">{{ item.degree }} · {{ item.field }}</span></h4>
@@ -58,10 +62,12 @@ function normalizeResumeLink(url: string): string {
       </div>
 
       <div v-else-if="section.type === 'experience'" class="section">
-        <h3 class="section-title">💼 {{ section.title }}</h3>
+        <div class="section-heading">
+          <div class="section-title" role="heading" aria-level="3">{{ section.title }}</div>
+        </div>
         <div v-for="item in section.content.items" :key="item.id" class="section-item">
           <div class="item-header">
-            <p class="item-title">{{ item.company }}<span class="item-subtitle" v-if="item.position">{{ item.position }}</span></p>
+            <p class="item-title">{{ item.company }}<span v-if="item.position" class="item-subtitle">{{ item.position }}</span></p>
             <span class="item-date">{{ formatDate(item.startDate) }} - {{ formatDate(item.endDate) }}</span>
           </div>
           <p v-if="item.description" class="item-desc">工作职责：{{ item.description }}</p>
@@ -69,14 +75,18 @@ function normalizeResumeLink(url: string): string {
       </div>
 
       <div v-else-if="section.type === 'skills'" class="section">
-        <h3 class="section-title">🛠️ {{ section.title }}</h3>
+        <div class="section-heading">
+          <div class="section-title" role="heading" aria-level="3">{{ section.title }}</div>
+        </div>
         <div v-for="item in section.content.items" :key="item.id" class="skill-item">
           {{ item.skill }}
         </div>
       </div>
 
       <div v-else-if="section.type === 'projects'" class="section">
-        <h3 class="section-title">🚀 {{ section.title }}</h3>
+        <div class="section-heading">
+          <div class="section-title" role="heading" aria-level="3">{{ section.title }}</div>
+        </div>
         <div v-for="item in section.content.items" :key="item.id" class="section-item">
           <div class="item-header project-item-header">
             <h4 class="item-title project-item-title">{{ item.name }}</h4>
@@ -93,7 +103,9 @@ function normalizeResumeLink(url: string): string {
       </div>
 
       <div v-else-if="section.type === 'awards'" class="section">
-        <h3 class="section-title">🏆 {{ section.title }}</h3>
+        <div class="section-heading">
+          <div class="section-title" role="heading" aria-level="3">{{ section.title }}</div>
+        </div>
         <div v-for="item in section.content.items" :key="item.id" class="section-item">
           <div class="item-header">
             <h4 class="item-title">{{ item.title }}<span class="item-subtitle">{{ item.issuer }}</span></h4>
@@ -104,7 +116,9 @@ function normalizeResumeLink(url: string): string {
       </div>
 
       <div v-else-if="section.type === 'certifications'" class="section">
-        <h3 class="section-title">📜 {{ section.title }}</h3>
+        <div class="section-heading">
+          <div class="section-title" role="heading" aria-level="3">{{ section.title }}</div>
+        </div>
         <div v-for="item in section.content.items" :key="item.id" class="section-item">
           <div class="item-header">
             <h4 class="item-title">{{ item.name }}</h4>
@@ -118,20 +132,56 @@ function normalizeResumeLink(url: string): string {
       </div>
 
       <div v-else-if="section.type === 'introduction'" class="section">
-        <h3 class="section-title">✨ {{ section.title }}</h3>
+        <div class="section-heading">
+          <div class="section-title" role="heading" aria-level="3">{{ section.title }}</div>
+        </div>
         <p class="intro-text" v-html="section.content.text.replace(/\n/g, '<br />')"></p>
       </div>
+    </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+/* 简历预览：白底、正文黑字；仅副标题/日期/联系方式等用灰（不用站点蓝） */
 .resume-content {
+  --resume-text: #111111;
+  --resume-muted: #666666;
+  --resume-border: #e8e8e8;
+  --resume-rule: #222222;
+
+  font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+
   width: 700px;
-  background: #fff;
-  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid var(--resume-border);
+  border-radius: 8px;
   padding: 30px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08)
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-sizing: border-box;
+}
+
+/* 打印时与外层卡片分离：无圆角/描边/阴影；页面留白由外层 .resume-content padding 负责 */
+.resume-content-pdf {
+  padding: 0;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 0;
+  background: #ffffff;
+}
+
+/* 打印分页时尽量保持块完整（浏览器 print 与屏幕布局均参考） */
+.resume-content-pdf .section-heading,
+.resume-content-pdf .section-item,
+.resume-content-pdf .basic-section,
+.resume-content-pdf .skill-item,
+.resume-content-pdf .item-header,
+.resume-content-pdf .item-desc,
+.resume-content-pdf .intro-text,
+.resume-content-pdf .bio,
+.resume-content-pdf .cert-link {
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .basic-section {
@@ -154,13 +204,13 @@ function normalizeResumeLink(url: string): string {
 .name {
   font-size: 1.6rem;
   font-weight: 700;
-  color: var(--color-text-primary);
+  color: var(--resume-text);
   margin: 0 0 6px 0
 }
 
 .title {
   font-size: 1.25rem;
-  color: var(--color-primary);
+  color: var(--resume-muted);
   margin: 0 0 12px 0;
   font-weight: 500
 }
@@ -170,9 +220,9 @@ function normalizeResumeLink(url: string): string {
   grid-template-columns: 180px 180px 150px;
   /* 2行，每行等分高度（也可以用 auto 自适应内容） */
   grid-template-rows: 1fr 1fr;
-  row-gap: 12px;
+  row-gap: 6px;
   font-size: 0.95rem;
-  color: var(--color-text-secondary)
+  color: var(--resume-text);
 }
 .imageUrl{
   width: 80px;
@@ -195,25 +245,38 @@ function normalizeResumeLink(url: string): string {
 .bio {
   font-size: 0.95rem;
   line-height: 1.6;
-  color: var(--color-text-secondary);
+  color: var(--resume-text);
   margin: 16px 0 0 0;
   white-space: pre-line
 }
 
 .section {
-  margin-bottom: 28px
+  margin-bottom: 20px
+}
+
+.section-heading {
+  margin: 0 0 16px 0;
 }
 
 .section-title {
   font-size: 1.2rem;
   font-weight: 700;
-  color: var(--color-text-primary);
-  margin: 0 0 16px 0;
-  border-bottom: 2px solid var(--color-primary)
+  color: var(--resume-text);
+  margin: 0;
+  padding: 0 0 8px 0;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+  display: block;
+  border-bottom: 1px solid var(--resume-rule);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
 }
 
 .section-item {
-  margin-bottom: 12px
+  margin-bottom: 16px
+}
+.section-item:last-child {
+  margin-bottom: 0
 }
 
 .item-header {
@@ -221,39 +284,45 @@ function normalizeResumeLink(url: string): string {
   justify-content: space-between;
   align-items: baseline;
   gap: 12px;
-  margin-bottom: 6px
+  margin-bottom: 3px
 }
 
+/*
+ * 微软雅黑网页常用字重只有 400/700，500、600 往往台阶很大。
+ * 条目主行单独用 Noto Sans SC（思源黑体同源）：自带 400/500/600 等真实字重，观感仍接近雅黑类黑体。
+ */
 .item-title {
+  font-family: "Noto Sans SC", "Microsoft YaHei", "微软雅黑", sans-serif;
   font-size: 1rem;
   font-weight: 600;
-  color: var(--color-text-primary);
-  margin: 0
+  color: var(--resume-text);
+  margin: 0;
 }
-.item-position{
+
+.item-position {
   margin-left: 16px;
   font-size: 0.9rem;
-  color: var(--color-text-secondary);
+  color: var(--resume-muted);
   white-space: nowrap;
-  font-weight: 500
+  font-weight: 400;
 }
 .item-date {
   font-size: 0.85rem;
-  color: var(--color-text-secondary);
+  color: var(--resume-muted);
   white-space: nowrap
 }
 
 .item-subtitle {
   font-size: 0.9rem;
-  color: var(--color-text-secondary);
+  color: var(--resume-muted);
   margin: 0 0 0 12px;
-  font-weight: 500
+  font-weight: 400;
 }
 
 .item-desc {
   font-size: 0.9rem;
   line-height: 1.5;
-  color: var(--color-text-primary);
+  color: var(--resume-text);
   margin: 0;
   white-space: pre-line
 }
@@ -275,8 +344,10 @@ function normalizeResumeLink(url: string): string {
 .project-link-url {
   margin-left: 12px;
   font-size: 0.82rem;
-  color: var(--color-primary);
-  text-decoration: none;
+  color: var(--resume-text);
+  text-decoration: underline;
+  text-decoration-color: #999999;
+  text-underline-offset: 2px;
   text-align: right;
   max-width: 52%;
   word-break: break-all;
@@ -285,7 +356,7 @@ function normalizeResumeLink(url: string): string {
 }
 
 .project-link-url:hover {
-  text-decoration: underline
+  text-decoration-color: var(--resume-text);
 }
 
 .skill-group {
@@ -294,9 +365,9 @@ function normalizeResumeLink(url: string): string {
 
 .skill-category {
   font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  margin: 0 0 8px 0
+  font-weight: 400;
+  color: var(--resume-text);
+  margin: 0 0 8px 0;
 }
 
 .cert-link {
@@ -305,22 +376,25 @@ function normalizeResumeLink(url: string): string {
 
 .cert-link a {
   font-size: 0.85rem;
-  color: var(--color-primary);
-  text-decoration: none
+  color: var(--resume-text);
+  text-decoration: underline;
+  text-decoration-color: #999999;
+  text-underline-offset: 2px;
 }
 
 .cert-link a:hover {
-  text-decoration: underline
+  text-decoration-color: var(--resume-text);
 }
 
 .intro-text {
   font-size: 0.9rem;
   line-height: 1.8;
-  color: var(--color-text-primary);
+  color: var(--resume-text);
   margin: 0
 }
 
-@media (max-width:768px) {
+/* 必须带 screen：打印时视口常按纸张宽度算，会误触 max-width，把头像挤到文字下方 */
+@media screen and (max-width: 768px) {
   .resume-content {
     padding: 24px
   }
@@ -349,8 +423,8 @@ function normalizeResumeLink(url: string): string {
 
 .skill-item {
   font-size: 0.9rem;
-  color: var(--color-text-primary);
-  margin-bottom: 6px;
+  color: var(--resume-text);
+  margin-bottom: 3px;
   line-height: 1.6;
   white-space: pre-line
 }

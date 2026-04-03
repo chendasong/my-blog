@@ -1,0 +1,81 @@
+/* 仅在简历页通过 ResumeView 引入；@media print 在打印/「另存为 PDF」时生效 */
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* 主布局里隐藏导航与页脚（比 visibility 技巧更稳） */
+  .navbar,
+  .footer {
+    display: none !important;
+  }
+
+  .layout__main {
+    padding-top: 0 !important;
+  }
+
+  .resume-view {
+    background: #fff !important;
+    padding: 0 !important;
+    min-height: 0 !important;
+  }
+
+  .resume-no-print {
+    display: none !important;
+  }
+
+  .resume-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+
+  /* 打印时去掉卡片装饰，宽度交给 @page margin */
+  .resume-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+  }
+
+  /* 避免误用屏幕窄屏规则后，打印仍保持头像与信息左右排布 */
+  .basic-header {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+  }
+
+  /* 打印时放宽 break-inside，减少大块留白，由浏览器按内容分页 */
+  .resume-content-pdf .section-heading,
+  .resume-content-pdf .section-item,
+  .resume-content-pdf .basic-section,
+  .resume-content-pdf .skill-item,
+  .resume-content-pdf .item-header,
+  .resume-content-pdf .item-desc,
+  .resume-content-pdf .intro-text,
+  .resume-content-pdf .bio,
+  .resume-content-pdf .cert-link {
+    break-inside: auto !important;
+    page-break-inside: auto !important;
+  }
+
+  .resume-content-pdf .section-item,
+  .resume-content-pdf .basic-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

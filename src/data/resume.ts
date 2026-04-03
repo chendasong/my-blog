@@ -66,7 +66,7 @@ export function generateDefaultResume(): Resume {
       {
         id: 'section-skills',
         type: 'skills',
-        title: '技能',
+        title: '技能特长',
         visible: true,
         order: 3,
         content: {
@@ -86,7 +86,7 @@ export function generateDefaultResume(): Resume {
       {
         id: 'section-projects',
         type: 'projects',
-        title: '项目',
+        title: '项目经验',
         visible: true,
         order: 4,
         content: {

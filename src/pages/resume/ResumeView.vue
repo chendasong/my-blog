@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import ResumeViewBody from "@/components/resume/ResumeViewBody.vue"
+import "@/assets/styles/resume-print.css"
 </script>
 
 <template>
