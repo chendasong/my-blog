@@ -65,6 +65,8 @@ const addItem = (type: string) => {
       newItem.name = "";
       newItem.description = "";
       newItem.link = "";
+      newItem.startDate = "";
+      newItem.endDate = "";
       break;
     case "award":
       newItem.title = "";
@@ -205,6 +207,10 @@ const handleChange = () => {
           <h4>{{ item.name || '新项目' }}</h4><button @click="removeItem(index)" class="btn-remove">✕</button>
         </div>
         <div class="form-group"><label class="form-label">项目名称</label><input v-model="item.name" type="text" class="form-input" @change="handleChange" /></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">开始时间</label><input v-model="item.startDate" type="text" class="form-input" placeholder="推荐 2024.04，或 2024/4/1" @change="handleChange" /></div>
+          <div class="form-group"><label class="form-label">结束时间</label><input v-model="item.endDate" type="text" class="form-input" placeholder="推荐 2025.07；空则预览为「~ 至今」" @change="handleChange" /></div>
+        </div>
         <div class="form-group"><label class="form-label">描述</label><textarea v-model="item.description" v-autosize class="form-textarea" rows="2" @change="handleChange"></textarea></div>
         <div class="form-group"><label class="form-label">项目链接</label><input v-model="item.link" type="url" class="form-input" placeholder="https://..." @change="handleChange" /></div>
       </div>

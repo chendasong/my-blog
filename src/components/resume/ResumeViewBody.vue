@@ -18,12 +18,24 @@ const visibleSections = computed(() => {
     .sort((a, b) => a.order - b.order)
 })
 
-/** 打印/另存为 PDF 时，系统默认文件名常取自 document.title */
+/** 去掉 Windows/浏览器文件名非法字符与多余空白 */
+function sanitizeFileSegment(raw: string): string {
+  return raw.replace(/[/\\:*?"<>|]/g, " ").replace(/\s+/g, " ").trim()
+}
+
+/** 打印/另存为 PDF 时，系统默认文件名常取自 document.title；姓名、岗位来自基本信息区块 */
 const printPdfDefaultFileBase = computed(() => {
   const sec = resume.value.sections.find((s) => s.type === "basic")
-  const raw = typeof sec?.content?.name === "string" ? sec.content.name.trim() : ""
-  const safe = raw.replace(/[/\\:*?"<>|]/g, " ").replace(/\s+/g, " ").trim()
-  return safe ? `${safe}的简历` : "陈大嵩的简历"
+  const rawName =
+    typeof sec?.content?.name === "string" ? sec.content.name.trim() : ""
+  const rawTitle =
+    typeof sec?.content?.title === "string" ? sec.content.title.trim() : ""
+  const name = sanitizeFileSegment(rawName)
+  const title = sanitizeFileSegment(rawTitle)
+  if (name && title) return `${name}-${title}`
+  if (name) return `${name}的简历`
+  if (title) return title
+  return "我的简历"
 })
 
 const handleEdit = () => {

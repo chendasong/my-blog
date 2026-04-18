@@ -58,6 +58,7 @@ export interface ProjectItem {
   description: string
   technologies?: string[]
   link?: string
+  /** 项目时间（手输原文，预览右侧展示为 YYYY.MM ~ YYYY.MM） */
   startDate?: string
   endDate?: string
 }

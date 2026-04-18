@@ -1,17 +1,13 @@
 <script setup lang="ts">
 import type { ResumeSection } from '@/types/resume'
 import { ensureHttpUrlForAssets } from '@/lib/qiniuClient'
+import { formatResumeMonthRange, formatResumeMonthSingle } from '@/lib/resumeDates'
 
 interface Props {
   sections: ResumeSection[]
 }
 
 defineProps<Props>()
-
-const formatDate = (date: string) => {
-  if (!date) return ''
-  return new Date(date).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit' })
-}
 
 function normalizeResumeLink(url: string): string {
   const t = (url || '').trim()
@@ -55,7 +51,7 @@ function normalizeResumeLink(url: string): string {
         <div v-for="item in section.content.items" :key="item.id" class="section-item">
           <div class="item-header">
             <h4 class="item-title">{{ item.school }}<span class="item-subtitle">{{ item.degree }} · {{ item.field }}</span></h4>
-            <span class="item-date">{{ formatDate(item.startDate) }} - {{ formatDate(item.endDate) }}</span>
+            <span class="item-date">{{ formatResumeMonthRange(item.startDate, item.endDate) }}</span>
           </div>
           <p v-if="item.description" class="item-desc">{{ item.description }}</p>
         </div>
@@ -68,9 +64,9 @@ function normalizeResumeLink(url: string): string {
         <div v-for="item in section.content.items" :key="item.id" class="section-item">
           <div class="item-header">
             <p class="item-title">{{ item.company }}<span v-if="item.position" class="item-subtitle">{{ item.position }}</span></p>
-            <span class="item-date">{{ formatDate(item.startDate) }} - {{ formatDate(item.endDate) }}</span>
+            <span class="item-date">{{ formatResumeMonthRange(item.startDate, item.endDate) }}</span>
           </div>
-          <p v-if="item.description" class="item-desc">工作职责：{{ item.description }}</p>
+          <p v-if="item.description" class="item-desc">{{ item.description }}</p>
         </div>
       </div>
 
@@ -88,15 +84,20 @@ function normalizeResumeLink(url: string): string {
           <div class="section-title" role="heading" aria-level="3">{{ section.title }}</div>
         </div>
         <div v-for="item in section.content.items" :key="item.id" class="section-item">
-          <div class="item-header project-item-header">
-            <h4 class="item-title project-item-title">{{ item.name }}</h4>
-            <a
-              v-if="item.link?.trim()"
-              class="project-link-url"
-              :href="normalizeResumeLink(item.link)"
-              target="_blank"
-              rel="noopener noreferrer"
-            >{{ item.link.trim() }}</a>
+          <div class="item-header">
+            <p class="item-title project-item-title">
+              {{ item.name }}<a
+                v-if="item.link?.trim()"
+                class="item-subtitle project-link-inline"
+                :href="normalizeResumeLink(item.link)"
+                target="_blank"
+                rel="noopener noreferrer"
+              >{{ item.link.trim() }}</a>
+            </p>
+            <span
+              v-if="formatResumeMonthRange(item.startDate, item.endDate)"
+              class="item-date"
+            >{{ formatResumeMonthRange(item.startDate, item.endDate) }}</span>
           </div>
           <p v-if="item.description" class="item-desc">{{ item.description }}</p>
         </div>
@@ -109,7 +110,7 @@ function normalizeResumeLink(url: string): string {
         <div v-for="item in section.content.items" :key="item.id" class="section-item">
           <div class="item-header">
             <h4 class="item-title">{{ item.title }}<span class="item-subtitle">{{ item.issuer }}</span></h4>
-            <span class="item-date">{{ formatDate(item.date) }}</span>
+            <span class="item-date">{{ formatResumeMonthSingle(item.date) }}</span>
           </div>
           <p v-if="item.description" class="item-desc">{{ item.description }}</p>
         </div>
@@ -122,7 +123,7 @@ function normalizeResumeLink(url: string): string {
         <div v-for="item in section.content.items" :key="item.id" class="section-item">
           <div class="item-header">
             <h4 class="item-title">{{ item.name }}</h4>
-            <span class="item-date">{{ formatDate(item.date) }}</span>
+            <span class="item-date">{{ formatResumeMonthSingle(item.date) }}</span>
           </div>
           <p class="item-subtitle">{{ item.issuer }}</p>
           <div v-if="item.credentialUrl" class="cert-link">
@@ -217,7 +218,7 @@ function normalizeResumeLink(url: string): string {
 
 .contact-info {
   display: grid;
-  grid-template-columns: 180px 180px 150px;
+  grid-template-columns: 220px 180px 120px;
   /* 2行，每行等分高度（也可以用 auto 自适应内容） */
   grid-template-rows: 1fr 1fr;
   row-gap: 6px;
@@ -332,31 +333,19 @@ function normalizeResumeLink(url: string): string {
   white-space: pre-line
 }
 
-.project-item-header {
-  align-items: flex-start
-}
-
 .project-item-title {
   flex: 1;
   min-width: 0
 }
 
-.project-link-url {
-  margin-left: 12px;
-  font-size: 0.82rem;
-  color: var(--resume-text);
-  text-decoration: underline;
-  text-decoration-color: #999999;
-  text-underline-offset: 2px;
-  text-align: right;
-  max-width: 52%;
+.project-link-inline {
+  text-decoration: none;
   word-break: break-all;
-  line-height: 1.4;
-  flex-shrink: 0
+  color: var(--resume-muted);
 }
 
-.project-link-url:hover {
-  text-decoration-color: var(--resume-text);
+.project-link-inline:hover {
+  color: var(--resume-text);
 }
 
 .skill-group {
@@ -408,17 +397,6 @@ function normalizeResumeLink(url: string): string {
     height: 100px
   }
 
-  .project-item-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px
-  }
-
-  .project-link-url {
-    margin-left: 0;
-    max-width: 100%;
-    text-align: left
-  }
 }
 
 .skill-item {

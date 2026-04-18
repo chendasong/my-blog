@@ -33,7 +33,8 @@ function keyFromPublicUrl(fileUrl, publicBase) {
   const base = publicBase.replace(/\/$/, '')
   const u = new URL(fileUrl)
   const b = new URL(base)
-  if (u.origin !== b.origin) return null
+  // 与 origin 严格相等会误判：库里可能是 http://，环境变量常为 https://
+  if (u.hostname.toLowerCase() !== b.hostname.toLowerCase()) return null
   const k = u.pathname.replace(/^\//, '')
   return decodeURIComponent(k) || null
 }

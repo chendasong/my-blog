@@ -1,13 +1,23 @@
 <script setup lang="ts">
-import { ref, computed, watch, type Component } from 'vue'
+import { ref, computed, watch, defineAsyncComponent, type Component } from 'vue'
 import { useRoute } from 'vue-router'
 import { aiFeatures } from '@/data'
 import { getVolcanoVideoModel } from '@/api/volcano'
-import AiWorkshopChatPanel from '@/components/ai-workshop/AiWorkshopChatPanel.vue'
-import AiWorkshopImagePanel from '@/components/ai-workshop/AiWorkshopImagePanel.vue'
-import AiWorkshopVideoPanel from '@/components/ai-workshop/AiWorkshopVideoPanel.vue'
-import AiWorkshopComicPanel from '@/components/ai-workshop/AiWorkshopComicPanel.vue'
 import type { AIFeature, AICategory } from '@/types'
+
+/** 各面板独立 chunk，进入 /ai 只拉当前类型；切换功能时再请求对应分包 */
+const AiWorkshopChatPanel = defineAsyncComponent(() =>
+  import('@/components/ai-workshop/AiWorkshopChatPanel.vue'),
+)
+const AiWorkshopImagePanel = defineAsyncComponent(() =>
+  import('@/components/ai-workshop/AiWorkshopImagePanel.vue'),
+)
+const AiWorkshopVideoPanel = defineAsyncComponent(() =>
+  import('@/components/ai-workshop/AiWorkshopVideoPanel.vue'),
+)
+const AiWorkshopComicPanel = defineAsyncComponent(() =>
+  import('@/components/ai-workshop/AiWorkshopComicPanel.vue'),
+)
 
 const route = useRoute()
 const selectedFeature = ref<AIFeature | null>(aiFeatures[0])
@@ -154,11 +164,18 @@ function handleSelect(feature: AIFeature) {
               <p class="ai-ws-desc">{{ workspaceSubtitle }}</p>
             </div>
           </div>
-          <component
-            :is="workshopPanel"
-            :feature="selectedFeature"
-            class="ai-workspace-panel-host"
-          />
+          <Suspense>
+            <component
+              :is="workshopPanel"
+              :feature="selectedFeature"
+              class="ai-workspace-panel-host"
+            />
+            <template #fallback>
+              <div class="ai-workspace-panel-fallback" role="status" aria-live="polite">
+                加载面板中…
+              </div>
+            </template>
+          </Suspense>
         </div>
       </Transition>
     </div>
@@ -345,6 +362,14 @@ function handleSelect(feature: AIFeature) {
   color: var(--color-text-muted);
   line-height: 1.5;
   overflow-wrap: anywhere;
+}
+.ai-workspace-panel-fallback {
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
 }
 .ai-fade-enter-active,
 .ai-fade-leave-active {

@@ -96,6 +96,8 @@ export function generateDefaultResume(): Resume {
               name: '个人博客系统',
               description: '一个功能完整的博客平台，支持文章发布、评论、标签等功能',
               link: 'https://example.com',
+              startDate: '2023.04',
+              endDate: '2024.06',
             },
           ],
         },
