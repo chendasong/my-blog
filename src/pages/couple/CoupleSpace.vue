@@ -3,7 +3,6 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { coupleInfo } from '@/data'
 import { useCoupleStore } from '@/stores/couple'
-import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import DayCounter from '@/components/common/DayCounter.vue'
 import AppButton from '@/components/common/AppButton.vue'
@@ -11,7 +10,6 @@ import type { CoupleMemory } from '@/types'
 import { ensureHttpUrlForAssets } from '@/lib/qiniuClient'
 
 const router = useRouter()
-const appStore = useAppStore()
 const authStore = useAuthStore()
 const store = useCoupleStore()
 const activeFilter = ref('all')
@@ -82,8 +80,6 @@ async function handleDelete(id: string) {
   if (!confirm('确定删除这条记忆吗？')) return
   await store.remove(id)
 }
-
-function handleLogout() { appStore.setCoupleAuth(false); router.push('/') }
 </script>
 
 <template>

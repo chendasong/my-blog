@@ -22,7 +22,7 @@ export async function fetchRemoteImageBlob(remoteUrl: string): Promise<Blob> {
   const viaProxy = async () => {
     const res = await fetch(buildImageProxyUrl(remoteUrl), { mode: 'cors' })
     if (!res.ok) {
-      let detail = ''
+      let detail: string
       try {
         const j = (await res.json()) as { error?: string }
         detail = typeof j?.error === 'string' ? j.error : JSON.stringify(j)

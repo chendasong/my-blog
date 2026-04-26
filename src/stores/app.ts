@@ -1,9 +1,24 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { applyThemeToDocument, getStoredTheme, persistTheme, type AppTheme, VALID_APP_THEMES } from '@/lib/theme'
 
 export const useAppStore = defineStore('app', () => {
   const isMenuOpen = ref(false)
   const isCoupleAuthed = ref(false)
+  const theme = ref<AppTheme>(getStoredTheme())
+
+  function setTheme(t: AppTheme) {
+    if (!VALID_APP_THEMES.includes(t)) return
+    theme.value = t
+    persistTheme(t)
+    applyThemeToDocument(t)
+  }
+
+  function initTheme() {
+    const t = getStoredTheme()
+    theme.value = t
+    applyThemeToDocument(t)
+  }
 
   function toggleMenu() {
     isMenuOpen.value = !isMenuOpen.value
@@ -27,5 +42,5 @@ export const useAppStore = defineStore('app', () => {
     isCoupleAuthed.value = !!authed
   }
 
-  return { isMenuOpen, isCoupleAuthed, toggleMenu, closeMenu, setCoupleAuth, initCoupleAuth }
+  return { isMenuOpen, isCoupleAuthed, theme, setTheme, initTheme, toggleMenu, closeMenu, setCoupleAuth, initCoupleAuth }
 })

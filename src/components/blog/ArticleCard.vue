@@ -92,8 +92,8 @@ const displayDate = computed(() => {
   border-color: var(--color-border-strong);
 }
 .article-card--featured {
-  border-color: rgba(91, 138, 240, 0.35);
-  box-shadow: 0 0 0 1px rgba(91, 138, 240, 0.12);
+  border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 .article-card__featured-pill {
   position: absolute;
@@ -105,7 +105,7 @@ const displayDate = computed(() => {
   font-weight: 700;
   letter-spacing: 0.02em;
   color: #fff;
-  background: linear-gradient(135deg, #5b8af0, #8b6ff0);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-ui-gradient-mid));
   border-radius: var(--radius-full);
   pointer-events: none;
 }
@@ -157,8 +157,8 @@ const displayDate = computed(() => {
   background: rgba(255, 255, 255, 0.12);
 }
 .card-action-btn--edit:hover {
-  background: rgba(91, 138, 240, 0.85);
-  border-color: rgba(91, 138, 240, 0.5);
+  background: color-mix(in srgb, var(--color-primary) 85%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
 }
 .card-action-btn--delete:hover {
   background: rgba(232, 96, 122, 0.85);
@@ -176,7 +176,7 @@ const displayDate = computed(() => {
 .tag {
   font-size: 10px;
   color: var(--color-primary);
-  background: rgba(91, 138, 240, 0.1);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   padding: 2px 6px;
   border-radius: var(--radius-full);
   line-height: 1.3;

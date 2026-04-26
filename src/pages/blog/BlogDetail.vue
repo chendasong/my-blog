@@ -250,7 +250,7 @@ const displayDate = computed(() => {
     transform 0.2s ease;
 }
 .rec-item__link:hover {
-  background: rgba(91, 138, 240, 0.08);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
 }
 .rec-item__thumb {
   width: 72px;

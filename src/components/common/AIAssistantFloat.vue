@@ -41,7 +41,53 @@ let dragStartX = 0
 let dragStartY = 0
 let posStartX = 0
 let posStartY = 0
+let dragPointerId: number | null = null
+let dragListenersAttached = false
 let abortCtl: AbortController | null = null
+
+function removeFabDragListeners() {
+  if (!dragListenersAttached) return
+  dragListenersAttached = false
+  window.removeEventListener('pointermove', onWindowPointerMoveFab, true)
+  window.removeEventListener('pointerup', onWindowPointerUpFab, true)
+  window.removeEventListener('pointercancel', onWindowPointerUpFab, true)
+}
+
+function onWindowPointerMoveFab(e: PointerEvent) {
+  if (!isDragging.value || e.pointerId !== dragPointerId) return
+  if (e.pointerType === 'touch') e.preventDefault()
+  const dx = e.clientX - dragStartX
+  const dy = e.clientY - dragStartY
+  if (Math.abs(dx) + Math.abs(dy) > 4) dragMoved.value = true
+  let nx = posStartX + dx
+  let ny = posStartY + dy
+  nx = Math.max(0, Math.min(nx, window.innerWidth - FAB))
+  ny = Math.max(0, Math.min(ny, window.innerHeight - FAB))
+  position.value = { x: nx, y: ny }
+}
+
+function onWindowPointerUpFab(e: PointerEvent) {
+  if (!isDragging.value || e.pointerId !== dragPointerId) return
+  removeFabDragListeners()
+  dragPointerId = null
+  isDragging.value = false
+  if (!dragMoved.value) return
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const snapped = snapFabToEdges(
+    position.value.x,
+    position.value.y,
+    FAB,
+    vw,
+    vh
+  )
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      position.value = snapped
+      savePos()
+    })
+  })
+}
 
 /** 面板用 fixed，避免与已 left/top 偏移的父级叠加导致水平错位 */
 const panelStyle = computed(() => {
@@ -139,58 +185,31 @@ onMounted(() => {
       fabSnapTransitionReady.value = true
     })
   })
-  window.addEventListener('mousemove', onMouseMove, true)
-  window.addEventListener('mouseup', onMouseUp, true)
   resizeInput()
 })
 
 onUnmounted(() => {
-  window.removeEventListener('mousemove', onMouseMove, true)
-  window.removeEventListener('mouseup', onMouseUp, true)
+  removeFabDragListeners()
+  dragPointerId = null
+  isDragging.value = false
   abortCtl?.abort()
 })
 
-function onFabMouseDown(e: MouseEvent) {
+function onFabPointerDown(e: PointerEvent) {
   if (e.button !== 0) return
   isDragging.value = true
   dragMoved.value = false
+  dragPointerId = e.pointerId
   dragStartX = e.clientX
   dragStartY = e.clientY
   posStartX = position.value.x
   posStartY = position.value.y
-}
-
-function onMouseMove(e: MouseEvent) {
-  if (!isDragging.value) return
-  const dx = e.clientX - dragStartX
-  const dy = e.clientY - dragStartY
-  if (Math.abs(dx) + Math.abs(dy) > 4) dragMoved.value = true
-  let nx = posStartX + dx
-  let ny = posStartY + dy
-  nx = Math.max(0, Math.min(nx, window.innerWidth - FAB))
-  ny = Math.max(0, Math.min(ny, window.innerHeight - FAB))
-  position.value = { x: nx, y: ny }
-}
-
-function onMouseUp() {
-  if (!isDragging.value) return
-  isDragging.value = false
-  if (!dragMoved.value) return
-  const vw = window.innerWidth
-  const vh = window.innerHeight
-  const snapped = snapFabToEdges(
-    position.value.x,
-    position.value.y,
-    FAB,
-    vw,
-    vh
-  )
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      position.value = snapped
-      savePos()
-    })
-  })
+  if (!dragListenersAttached) {
+    dragListenersAttached = true
+    window.addEventListener('pointermove', onWindowPointerMoveFab, { capture: true, passive: false })
+    window.addEventListener('pointerup', onWindowPointerUpFab, true)
+    window.addEventListener('pointercancel', onWindowPointerUpFab, true)
+  }
 }
 
 function togglePanel(e?: MouseEvent) {
@@ -320,7 +339,7 @@ const quickActionGroups: QuickChipGroup[] = [
       type="button"
       class="ai-assistant__fab"
       aria-label="打开 AI 助手"
-      @mousedown="onFabMouseDown"
+      @pointerdown="onFabPointerDown"
       @click="togglePanel"
     >
       <span class="ai-assistant__fab-icon">🤖</span>
@@ -441,8 +460,9 @@ const quickActionGroups: QuickChipGroup[] = [
   border-radius: 50%;
   border: none;
   cursor: grab;
+  touch-action: none;
   background: linear-gradient(145deg, #6b9cf5 0%, #8b6fd8 100%);
-  box-shadow: 0 6px 20px rgba(91, 138, 240, 0.45);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--color-primary) 45%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -450,7 +470,7 @@ const quickActionGroups: QuickChipGroup[] = [
 }
 .ai-assistant__fab:hover {
   transform: scale(1.06);
-  box-shadow: 0 8px 26px rgba(91, 138, 240, 0.5);
+  box-shadow: 0 8px 26px color-mix(in srgb, var(--color-primary) 50%, transparent);
 }
 .ai-assistant__fab-icon {
   font-size: 1.45rem;
@@ -491,7 +511,7 @@ const quickActionGroups: QuickChipGroup[] = [
   border-radius: var(--radius-md);
 }
 .ai-assistant__close:hover {
-  background: rgba(91, 138, 240, 0.08);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
   color: var(--color-primary);
 }
 .ai-assistant__hint {
@@ -562,8 +582,8 @@ const quickActionGroups: QuickChipGroup[] = [
 .ai-assistant__msg--user {
   align-self: flex-end;
   max-width: 92%;
-  background: rgba(91, 138, 240, 0.12);
-  border: 1px solid rgba(91, 138, 240, 0.2);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 .ai-assistant__msg--bot {
   align-self: stretch;

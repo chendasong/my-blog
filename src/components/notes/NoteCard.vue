@@ -50,7 +50,7 @@ const categoryLabels: Record<string, string> = {
   transform: translateX(3px);
 }
 .note-card--active {
-  background: rgba(91,138,240,0.06);
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
   border-color: var(--color-primary);
   box-shadow: var(--shadow-md);
 }

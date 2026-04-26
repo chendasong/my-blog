@@ -66,7 +66,7 @@ export const coupleApi = {
   },
 
   async updateMemory(id: string, input: Partial<CoupleMemory>): Promise<CoupleMemory> {
-    const updateData: Record<string, any> = {}
+    const updateData: Record<string, unknown> = {}
     
     if (input.title !== undefined) updateData.title = input.title
     if (input.description !== undefined) updateData.description = input.description

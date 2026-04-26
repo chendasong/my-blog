@@ -148,18 +148,18 @@ const handleVolumeChange = (e: Event) => {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #5b8af0 0%, #8b6ff0 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-ui-gradient-mid) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(91, 138, 240, 0.3);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--color-primary) 30%, transparent);
   transition: all var(--transition-base);
 }
 
 .music-player__button:hover {
   transform: scale(1.1);
-  box-shadow: 0 8px 24px rgba(91, 138, 240, 0.4);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--color-primary) 40%, transparent);
 }
 
 .music-player__icon {
@@ -191,8 +191,8 @@ const handleVolumeChange = (e: Event) => {
   backdrop-filter: blur(10px);
   border-radius: var(--radius-xl);
   padding: 16px;
-  box-shadow: 0 8px 32px rgba(91, 138, 240, 0.2);
-  border: 1px solid rgba(91, 138, 240, 0.1);
+  box-shadow: 0 8px 32px color-mix(in srgb, var(--color-primary) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 
 .music-player__header {
@@ -233,7 +233,7 @@ const handleVolumeChange = (e: Event) => {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #5b8af0 0%, #8b6ff0 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-ui-gradient-mid) 100%);
   border: none;
   color: white;
   font-size: 1.2rem;
@@ -258,7 +258,7 @@ const handleVolumeChange = (e: Event) => {
 
 .music-player__progress {
   height: 4px;
-  background: rgba(91, 138, 240, 0.1);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   border-radius: 2px;
   cursor: pointer;
   overflow: hidden;
@@ -266,7 +266,7 @@ const handleVolumeChange = (e: Event) => {
 
 .music-player__progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, #5b8af0 0%, #8b6ff0 100%);
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-ui-gradient-mid) 100%);
   border-radius: 2px;
   transition: width 0.1s linear;
 }
@@ -292,7 +292,7 @@ const handleVolumeChange = (e: Event) => {
   flex: 1;
   height: 4px;
   border-radius: 2px;
-  background: rgba(91, 138, 240, 0.1);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   outline: none;
   -webkit-appearance: none;
   appearance: none;
@@ -304,7 +304,7 @@ const handleVolumeChange = (e: Event) => {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #5b8af0 0%, #8b6ff0 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-ui-gradient-mid) 100%);
   cursor: pointer;
 }
 
@@ -312,7 +312,7 @@ const handleVolumeChange = (e: Event) => {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #5b8af0 0%, #8b6ff0 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-ui-gradient-mid) 100%);
   cursor: pointer;
   border: none;
 }

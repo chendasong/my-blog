@@ -65,7 +65,7 @@ export function localVercelApiPlugin(root: string): Plugin {
       const fetchUploadHref = pathToFileURL(join(root, 'api', 'qiniu-fetch-upload.js')).href
       const imageProxyHref = pathToFileURL(join(root, 'api', 'image-proxy.js')).href
 
-      server.middlewares.use('/api/qiniu-upload-token', (req, res, _next) => {
+      server.middlewares.use('/api/qiniu-upload-token', (req, res) => {
         const nodeRes = res as unknown as ServerResponse
         const patched = patchVercelRes(nodeRes)
         import(/* @vite-ignore */ tokenHref)
@@ -78,7 +78,7 @@ export function localVercelApiPlugin(root: string): Plugin {
           })
       })
 
-      server.middlewares.use('/api/qiniu-delete', (req, res, _next) => {
+      server.middlewares.use('/api/qiniu-delete', (req, res) => {
         const nodeRes = res as unknown as ServerResponse
         const patched = patchVercelRes(nodeRes)
         void (async () => {
@@ -96,7 +96,7 @@ export function localVercelApiPlugin(root: string): Plugin {
         })()
       })
 
-      server.middlewares.use('/api/qiniu-fetch-upload', (req, res, _next) => {
+      server.middlewares.use('/api/qiniu-fetch-upload', (req, res) => {
         const nodeRes = res as unknown as ServerResponse
         const patched = patchVercelRes(nodeRes)
         void (async () => {
@@ -114,7 +114,7 @@ export function localVercelApiPlugin(root: string): Plugin {
         })()
       })
 
-      server.middlewares.use('/api/image-proxy', (req, res, _next) => {
+      server.middlewares.use('/api/image-proxy', (req, res) => {
         const nodeRes = res as unknown as ServerResponse
         const patched = patchVercelRes(nodeRes)
         void (async () => {

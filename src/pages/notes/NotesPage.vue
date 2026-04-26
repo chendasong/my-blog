@@ -208,7 +208,7 @@ function nextPage() {
 }
 .search-input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(91, 138, 240, 0.12);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 .search-input::placeholder {
   color: var(--color-text-muted);
@@ -256,9 +256,9 @@ function nextPage() {
   color: var(--color-primary);
 }
 .cat-btn--active {
-  background: rgba(91, 138, 240, 0.1);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   color: var(--color-primary);
-  border-color: rgba(91, 138, 240, 0.3);
+  border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
   font-weight: 600;
 }
 .notes-body {
@@ -298,7 +298,7 @@ function nextPage() {
   background: linear-gradient(
     105deg,
     transparent 40%,
-    rgba(91, 138, 240, 0.06) 50%,
+    color-mix(in srgb, var(--color-primary) 6%, transparent) 50%,
     transparent 60%
   );
   background-size: 200% 100%;

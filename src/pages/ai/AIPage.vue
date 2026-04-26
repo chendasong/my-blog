@@ -203,7 +203,7 @@ function handleSelect(feature: AIFeature) {
 .ai-blob--1 {
   width: 400px;
   height: 400px;
-  background: rgba(91, 138, 240, 0.2);
+  background: color-mix(in srgb, var(--color-primary) 20%, transparent);
   top: -100px;
   right: -100px;
   animation: float 8s ease-in-out infinite;
@@ -267,8 +267,8 @@ function handleSelect(feature: AIFeature) {
   color: var(--color-primary);
 }
 .ai-cat-btn--active {
-  background: rgba(91, 138, 240, 0.1);
-  border-color: rgba(91, 138, 240, 0.3);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
   color: var(--color-primary);
   font-weight: 600;
 }
@@ -298,8 +298,8 @@ function handleSelect(feature: AIFeature) {
 }
 .ai-tool-card--active {
   border-color: var(--color-primary);
-  background: rgba(91, 138, 240, 0.06);
-  box-shadow: 0 0 0 3px rgba(91, 138, 240, 0.12);
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 .ai-tool-card__icon {
   font-size: 1.8rem;

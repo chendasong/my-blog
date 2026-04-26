@@ -110,13 +110,6 @@ function handleAvatarChange(e: Event) {
   avatarPreview.value = URL.createObjectURL(file);
 }
 
-function handleOwnerAvatarChange(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0];
-  if (!file) return;
-  ownerAvatarFile.value = file;
-  ownerAvatarPreview.value = URL.createObjectURL(file);
-}
-
 function handleBackgroundImageChange(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0];
   if (!file) return;
@@ -153,27 +146,6 @@ function removeSavedMusic(index: number) {
   settings.value.music_names = names.join('\n')
 }
 
-async function cleanupDeletedMusic(oldUrls: string[], newUrls: string[]) {
-  const oldSet = new Set(oldUrls)
-  const newSet = new Set(newUrls)
-  const deletedUrls = Array.from(oldSet).filter(url => !newSet.has(url))
-  
-  if (deletedUrls.length > 0) {
-    try {
-      const { coupleApi } = await import('@/api')
-      await coupleApi.deleteFiles(deletedUrls)
-    } catch (err) {
-      console.error('清理删除的音乐文件失败:', err)
-    }
-  }
-}
-
-async function handleMusicCleanup(musicUrls: string) {
-  const oldMusicUrls = settings.value.music_urls.split('\n').filter(url => url.trim())
-  const newMusicUrls = musicUrls.split('\n').filter(url => url.trim())
-  await cleanupDeletedMusic(oldMusicUrls, newMusicUrls)
-}
-
 async function saveProfile() {
   saving.value = true;
   try {
@@ -194,9 +166,6 @@ async function saveProfile() {
 async function saveSettings() {
   savingSettings.value = true
   try {
-    // 保存旧的音乐URL列表（用于后续清理）
-    const oldMusicUrls = settings.value.music_urls.split('\n').filter(url => url.trim())
-    
     let musicUrls = settings.value.music_urls
     let musicNames = settings.value.music_names
     
@@ -211,7 +180,7 @@ async function saveSettings() {
           const url = await coupleApi.uploadImage(file, 'music')
           uploadedUrls.push(url)
           uploadedNames.push(file.name)
-        } catch (err) {
+        } catch {
           toast.error(`音乐文件 ${file.name} 上传失败`)
           return
         }
@@ -313,11 +282,6 @@ async function saveCouple() {
   } finally {
     savingCouple.value = false;
   }
-}
-
-function handleLogout() {
-  authStore.logout();
-  router.push("/");
 }
 </script>
 
@@ -856,7 +820,7 @@ function handleLogout() {
 .form-input:focus,
 .form-textarea:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(91, 138, 240, 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 .form-textarea {
   resize: vertical;
@@ -987,7 +951,7 @@ function handleLogout() {
   flex: 1;
   height: 4px;
   border-radius: 2px;
-  background: rgba(91, 138, 240, 0.1);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   outline: none;
   -webkit-appearance: none;
   appearance: none;
@@ -998,14 +962,14 @@ function handleLogout() {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #5b8af0 0%, #8b6ff0 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-ui-gradient-mid) 100%);
   cursor: pointer;
 }
 .opacity-slider::-moz-range-thumb {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #5b8af0 0%, #8b6ff0 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-ui-gradient-mid) 100%);
   cursor: pointer;
   border: none;
 }

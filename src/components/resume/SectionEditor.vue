@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { ref, nextTick } from "vue";
 import type { Directive } from "vue";
-import type { ResumeSection } from "@/types/resume";
+import type {
+  AwardItem,
+  CertificationItem,
+  EducationItem,
+  ExperienceItem,
+  ProjectItem,
+  ResumeSection
+} from "@/types/resume";
 import { ensureHttpUrlForAssets } from "@/lib/qiniuClient";
 import { syncTextareaHeight } from "@/lib/autoResizeTextarea";
 
@@ -39,11 +46,49 @@ const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 const avatarInput = ref<HTMLInputElement>();
 
-const addItem = (type: string) => {
-  if (!props.section.content.items) {
-    props.section.content.items = [];
+type MutableItem = Record<string, unknown>;
+type SectionContent = Record<string, unknown> & { items?: MutableItem[] };
+type SkillEditorItem = { id: string; skill: string };
+
+function getSectionContent(): SectionContent {
+  return props.section.content as SectionContent;
+}
+
+function getOrInitItems(): MutableItem[] {
+  const content = getSectionContent();
+  if (!Array.isArray(content.items)) {
+    content.items = [];
   }
-  const newItem: any = { id: `item-+${Date.now()}` };
+  return content.items;
+}
+
+function getEducationItems(): EducationItem[] {
+  return getOrInitItems() as unknown as EducationItem[];
+}
+
+function getExperienceItems(): ExperienceItem[] {
+  return getOrInitItems() as unknown as ExperienceItem[];
+}
+
+function getSkillItems(): SkillEditorItem[] {
+  return getOrInitItems() as SkillEditorItem[];
+}
+
+function getProjectItems(): ProjectItem[] {
+  return getOrInitItems() as unknown as ProjectItem[];
+}
+
+function getAwardItems(): AwardItem[] {
+  return getOrInitItems() as unknown as AwardItem[];
+}
+
+function getCertificationItems(): CertificationItem[] {
+  return getOrInitItems() as unknown as CertificationItem[];
+}
+
+const addItem = (type: string) => {
+  const items = getOrInitItems();
+  const newItem: Record<string, unknown> = { id: `item-+${Date.now()}` };
   switch (type) {
     case "education":
       newItem.school = "";
@@ -82,13 +127,14 @@ const addItem = (type: string) => {
       newItem.credentialUrl = "";
       break;
   }
-  props.section.content.items.push(newItem);
+  items.push(newItem);
   emit("update", props.section);
 };
 
 const removeItem = (index: number | string) => {
-  if (props.section.content.items) {
-    props.section.content.items.splice(index, 1);
+  const content = getSectionContent();
+  if (Array.isArray(content.items)) {
+    content.items.splice(Number(index), 1);
     emit("update", props.section);
   }
 };
@@ -107,7 +153,7 @@ const handleAvatarUpload = (e: Event) => {
     const reader = new FileReader();
     reader.onload = (event) => {
       const result = event.target?.result as string;
-      props.section.content.avatar = result;
+      getSectionContent().avatar = result;
       emit("update", props.section);
     };
     reader.readAsDataURL(file);
@@ -115,12 +161,32 @@ const handleAvatarUpload = (e: Event) => {
 };
 
 const removeAvatar = () => {
-  props.section.content.avatar = '';
+  getSectionContent().avatar = '';
   emit("update", props.section);
   if (avatarInput.value) {
     avatarInput.value.value = '';
   }
 };
+
+function getBasicAvatar(): string {
+  const v = getSectionContent().avatar;
+  return typeof v === "string" ? v : "";
+}
+
+function getBasicName(): string {
+  const v = getSectionContent().name;
+  return typeof v === "string" ? v : "";
+}
+
+function getIntroText(): string {
+  const v = getSectionContent().text;
+  return typeof v === "string" ? v : "";
+}
+
+function setIntroText(value: string) {
+  getSectionContent().text = value;
+  emit("update", props.section);
+}
 
 const handleChange = () => {
   emit("update", props.section);
@@ -138,7 +204,7 @@ const handleChange = () => {
         <div class="avatar-upload-container">
           <div class="avatar-upload-row">
             <div class="avatar-preview" @click="avatarInput?.click()">
-              <img v-if="section.content.avatar" :src="ensureHttpUrlForAssets(section.content.avatar)" :alt="section.content.name" class="avatar-image" />
+              <img v-if="section.content.avatar" :src="ensureHttpUrlForAssets(getBasicAvatar())" :alt="getBasicName()" class="avatar-image" />
               <div v-else class="avatar-placeholder">
                 <span class="placeholder-icon">📷</span>
                 <span class="placeholder-text">上传头像</span>
@@ -162,7 +228,7 @@ const handleChange = () => {
       <div class="form-group"><label class="form-label">籍贯</label><input v-model="section.content.location" type="text" class="form-input" @change="handleChange" /></div>
     </div>
     <div v-else-if="section.type === 'education'" class="editor-form">
-      <div v-for="(item, index) in section.content.items" :key="item.id" class="item-card">
+      <div v-for="(item, index) in getEducationItems()" :key="item.id" class="item-card">
         <div class="item-header">
           <h4>{{ item.school || '新学校' }}</h4><button @click="removeItem(index)" class="btn-remove">✕</button>
         </div>
@@ -178,7 +244,7 @@ const handleChange = () => {
       <button @click="addItem('education')" class="btn-add">+ 添加教育背景</button>
     </div>
     <div v-else-if="section.type === 'experience'" class="editor-form">
-      <div v-for="(item, index) in section.content.items" :key="item.id" class="item-card">
+      <div v-for="(item, index) in getExperienceItems()" :key="item.id" class="item-card">
         <div class="item-header">
           <h4>{{ item.company || '新公司' }}</h4><button @click="removeItem(index)" class="btn-remove">✕</button>
         </div>
@@ -193,7 +259,7 @@ const handleChange = () => {
       <button @click="addItem('experience')" class="btn-add">+ 添加工作经历</button>
     </div>
     <div v-else-if="section.type === 'skills'" class="editor-form">
-      <div v-for="(item, index) in section.content.items" :key="item.id" class="item-card">
+      <div v-for="(item, index) in getSkillItems()" :key="item.id" class="item-card">
         <div class="item-header">
           <h4>技能</h4><button @click="removeItem(index)" class="btn-remove">✕</button>
         </div>
@@ -202,7 +268,7 @@ const handleChange = () => {
       <button @click="addItem('skill')" class="btn-add">+ 添加技能</button>
     </div>
     <div v-else-if="section.type === 'projects'" class="editor-form">
-      <div v-for="(item, index) in section.content.items" :key="item.id" class="item-card">
+      <div v-for="(item, index) in getProjectItems()" :key="item.id" class="item-card">
         <div class="item-header">
           <h4>{{ item.name || '新项目' }}</h4><button @click="removeItem(index)" class="btn-remove">✕</button>
         </div>
@@ -217,7 +283,7 @@ const handleChange = () => {
       <button @click="addItem('project')" class="btn-add">+ 添加项目</button>
     </div>
     <div v-else-if="section.type === 'awards'" class="editor-form">
-      <div v-for="(item, index) in section.content.items" :key="item.id" class="item-card">
+      <div v-for="(item, index) in getAwardItems()" :key="item.id" class="item-card">
         <div class="item-header">
           <h4>{{ item.title || '新奖项' }}</h4><button @click="removeItem(index)" class="btn-remove">✕</button>
         </div>
@@ -229,7 +295,7 @@ const handleChange = () => {
       <button @click="addItem('award')" class="btn-add">+ 添加奖项</button>
     </div>
     <div v-else-if="section.type === 'certifications'" class="editor-form">
-      <div v-for="(item, index) in section.content.items" :key="item.id" class="item-card">
+      <div v-for="(item, index) in getCertificationItems()" :key="item.id" class="item-card">
         <div class="item-header">
           <h4>{{ item.name || '新证书' }}</h4><button @click="removeItem(index)" class="btn-remove">✕</button>
         </div>
@@ -242,7 +308,7 @@ const handleChange = () => {
       <button @click="addItem('certification')" class="btn-add">+ 添加证书</button>
     </div>
     <div v-else-if="section.type === 'introduction'" class="editor-form">
-      <div class="form-group"><label class="form-label">个人介绍</label><textarea v-model="section.content.text" v-autosize class="form-textarea" rows="6" placeholder="介绍你自己..." @change="handleChange"></textarea></div>
+      <div class="form-group"><label class="form-label">个人介绍</label><textarea :value="getIntroText()" v-autosize class="form-textarea" rows="6" placeholder="介绍你自己..." @input="setIntroText(($event.target as HTMLTextAreaElement).value)"></textarea></div>
     </div>
     <div v-else class="editor-form">
       <p class="text-muted">此模块类型暂不支持编辑</p>
@@ -312,7 +378,7 @@ const handleChange = () => {
 .form-textarea:focus {
   outline: 0;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(91, 138, 240, 0.1)
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 10%, transparent)
 }
 .form-row {
   display: grid;
@@ -366,12 +432,12 @@ const handleChange = () => {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: rgba(91, 138, 240, 0.1);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   color: var(--color-primary);
   border: 1px dashed var(--color-primary)
 }
 .btn-add:hover {
-  background: rgba(91, 138, 240, 0.2)
+  background: color-mix(in srgb, var(--color-primary) 20%, transparent)
 }
 .avatar-upload-container {
   display: flex;
@@ -402,7 +468,7 @@ const handleChange = () => {
 }
 .avatar-preview:hover {
   border-color: var(--color-primary);
-  background: rgba(91, 138, 240, 0.05)
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent)
 }
 .avatar-image {
   width: 100%;
@@ -446,7 +512,7 @@ const handleChange = () => {
   background: var(--color-bg-card)
 }
 .btn-upload:hover {
-  background: rgba(91, 138, 240, 0.1);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   border-color: var(--color-primary);
   color: var(--color-primary)
 }

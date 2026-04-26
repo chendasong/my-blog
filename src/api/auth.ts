@@ -125,7 +125,6 @@ export const authApi = {
       backgroundUrl = await uploadImageSmart(settings.background_file, 'site/hero-bg')
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { avatar_file: _f, background_file: _bf, ...settingsData } = settings
     const { data, error } = await supabase
       .from('site_settings')

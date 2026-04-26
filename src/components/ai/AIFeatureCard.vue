@@ -5,11 +5,24 @@ import AppBadge from '@/components/common/AppBadge.vue'
 const props = defineProps<{ feature: AIFeature; active?: boolean }>()
 defineEmits<{ select: [feature: AIFeature] }>()
 
-const categoryColors: Record<string, string> = {
-  writing: '#5B8AF0',
-  vision: '#8B6FF0',
-  analysis: '#4CAF82',
-  creative: '#F0A05B',
+const categoryIconBackground: Record<string, string> = {
+  writing: 'color-mix(in srgb, var(--color-info) 12%, transparent)',
+  vision: 'color-mix(in srgb, var(--color-ui-gradient-mid) 12%, transparent)',
+  analysis: 'color-mix(in srgb, #4caf82 12%, transparent)',
+  creative: 'color-mix(in srgb, #f0a05b 12%, transparent)',
+}
+
+const categoryBadgeStyle: Record<string, { background: string; color: string }> = {
+  writing: {
+    background: 'color-mix(in srgb, var(--color-info) 18%, transparent)',
+    color: 'var(--color-info)',
+  },
+  vision: {
+    background: 'color-mix(in srgb, var(--color-ui-gradient-mid) 18%, transparent)',
+    color: 'var(--color-ui-gradient-mid)',
+  },
+  analysis: { background: 'color-mix(in srgb, #4caf82 18%, transparent)', color: '#4caf82' },
+  creative: { background: 'color-mix(in srgb, #f0a05b 18%, transparent)', color: '#f0a05b' },
 }
 
 const categoryLabels: Record<string, string> = {
@@ -25,7 +38,10 @@ const categoryLabels: Record<string, string> = {
     :class="['ai-card', { 'ai-card--active': props.active }]"
     @click="$emit('select', props.feature)"
   >
-    <div class="ai-card__icon" :style="{ background: categoryColors[props.feature.category] + '18' }">
+    <div
+      class="ai-card__icon"
+      :style="{ background: categoryIconBackground[props.feature.category] || categoryIconBackground.writing }"
+    >
       <span style="font-size: 1.5rem;">{{ props.feature.emoji }}</span>
     </div>
     <div class="ai-card__content">
@@ -38,9 +54,9 @@ const categoryLabels: Record<string, string> = {
       </div>
       <p class="ai-card__desc">{{ props.feature.description }}</p>
       <div class="ai-card__footer">
-        <AppBadge :color="categoryColors[props.feature.category]" size="sm">
+        <span class="ai-card__cat" :style="categoryBadgeStyle[props.feature.category] || categoryBadgeStyle.writing">
           {{ categoryLabels[props.feature.category] }}
-        </AppBadge>
+        </span>
         <div class="ai-card__tags">
           <span v-for="tag in props.feature.tags.slice(0,2)" :key="tag" class="tag">{{ tag }}</span>
         </div>
@@ -67,7 +83,7 @@ const categoryLabels: Record<string, string> = {
   border-color: var(--color-border-strong);
 }
 .ai-card--active {
-  background: rgba(91,138,240,0.06);
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
   border-color: var(--color-primary);
   box-shadow: var(--shadow-md);
 }
@@ -109,6 +125,15 @@ const categoryLabels: Record<string, string> = {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+.ai-card__cat {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  white-space: nowrap;
 }
 .ai-card__tags { display: flex; gap: 4px; }
 </style>

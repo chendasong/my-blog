@@ -76,7 +76,7 @@ import "@/assets/styles/resume-print.css"
   background: linear-gradient(
     105deg,
     transparent 40%,
-    rgba(91, 138, 240, 0.07) 50%,
+    color-mix(in srgb, var(--color-primary) 7%, transparent) 50%,
     transparent 60%
   );
   background-size: 200% 100%;

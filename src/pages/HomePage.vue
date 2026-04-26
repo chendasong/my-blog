@@ -222,8 +222,8 @@ onMounted(async () => {
   position: absolute;
   inset: 0;
   background-image: 
-    linear-gradient(rgba(91, 138, 240, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(91, 138, 240, 0.05) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--color-primary) 5%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 5%, transparent) 1px, transparent 1px);
   background-size: 60px 60px;
   opacity: 0.5;
 }
@@ -238,7 +238,7 @@ onMounted(async () => {
 .hero__blob--1 {
   width: 600px;
   height: 600px;
-  background: rgba(91, 138, 240, 0.12);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
   top: -200px;
   right: -100px;
   animation: float 12s ease-in-out infinite;
@@ -269,8 +269,8 @@ onMounted(async () => {
 .hero__badge {
   display: inline-block;
   padding: 8px 16px;
-  background: rgba(91, 138, 240, 0.1);
-  border: 1px solid rgba(91, 138, 240, 0.2);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
   border-radius: var(--radius-full);
   font-size: var(--text-sm);
   color: var(--color-primary);
@@ -347,7 +347,7 @@ onMounted(async () => {
   padding: 16px;
   background: rgba(255, 255, 255, 0.6);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(91, 138, 240, 0.1);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 10%, transparent);
   border-radius: var(--radius-lg);
   transition: all var(--transition-base);
 }
@@ -355,8 +355,8 @@ onMounted(async () => {
 .stat-card:hover {
   transform: translateY(-2px);
   background: rgba(255, 255, 255, 0.8);
-  border-color: rgba(91, 138, 240, 0.2);
-  box-shadow: 0 4px 16px rgba(91, 138, 240, 0.08);
+  border-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--color-primary) 8%, transparent);
 }
 
 .stat-card__icon {
@@ -393,7 +393,7 @@ onMounted(async () => {
 }
 
 .section--alt {
-  background: rgba(91, 138, 240, 0.02);
+  background: color-mix(in srgb, var(--color-primary) 2%, transparent);
 }
 
 .section--entry-banners {
@@ -529,8 +529,8 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   padding: 32px 40px;
-  background: linear-gradient(135deg, rgba(91, 138, 240, 0.08) 0%, rgba(139, 111, 240, 0.08) 100%);
-  border: 1px solid rgba(91, 138, 240, 0.18);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 8%, transparent) 0%, rgba(139, 111, 240, 0.08) 100%);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 18%, transparent);
   border-radius: var(--radius-2xl);
   cursor: pointer;
   transition: all var(--transition-base);
@@ -540,8 +540,8 @@ onMounted(async () => {
 
 .resume-entry-banner:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 32px rgba(91, 138, 240, 0.15);
-  border-color: rgba(91, 138, 240, 0.3);
+  box-shadow: 0 8px 32px color-mix(in srgb, var(--color-primary) 15%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
 }
 
 .resume-entry-banner__content {

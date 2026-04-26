@@ -22,7 +22,7 @@ export const useArticleStore = defineStore('article', () => {
       const { items, total } = await articleApi.getPage(params)
       articles.value = items
       listTotal.value = total
-    } catch (e) {
+    } catch {
       error.value = '加载失败'
     } finally {
       loading.value = false

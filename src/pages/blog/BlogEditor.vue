@@ -379,7 +379,7 @@ async function handleSubmit() {
 .form-input:focus,
 .form-select:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(91, 138, 240, 0.10);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 
 .form-textarea {
@@ -389,7 +389,7 @@ async function handleSubmit() {
 
 .content-textarea:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(91, 138, 240, 0.10);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 
 .content-textarea {
@@ -469,13 +469,13 @@ async function handleSubmit() {
 
 .cover-btn--ai {
   border-style: solid;
-  background: rgba(91, 138, 240, 0.06);
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
   color: var(--color-primary);
-  border-color: rgba(91, 138, 240, 0.3);
+  border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
 }
 
 .cover-btn--ai:hover:not(:disabled) {
-  background: rgba(91, 138, 240, 0.12);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
 .cover-btn:disabled {

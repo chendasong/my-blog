@@ -825,8 +825,8 @@ async function handleSubmit() {
   .video-viewer__nav--prev { left: 4px; }
   .video-viewer__nav--next { right: 4px; }
 }
-.thumb-add--video:hover { border-color: #8b6ff0; color: #8b6ff0; }
-.thumb-add--video:hover .thumb-add__text { color: #8b6ff0; }
+.thumb-add--video:hover { border-color: var(--color-ui-gradient-mid); color: var(--color-ui-gradient-mid); }
+.thumb-add--video:hover .thumb-add__text { color: var(--color-ui-gradient-mid); }
 .sidebar-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius-xl); padding: 20px; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 80px; }
 .sidebar-card__title { font-size: var(--text-base); font-weight: 600; color: var(--color-text-primary); padding-bottom: 12px; border-bottom: 1px solid var(--color-border); }
 .form-input, .form-select { padding: 9px 13px; border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-sm); color: var(--color-text-primary); outline: none; width: 100%; font-family: var(--font-sans); transition: border-color var(--transition-fast); }

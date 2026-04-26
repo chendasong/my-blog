@@ -516,7 +516,7 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
 .agent-blob--1 {
   width: 380px;
   height: 380px;
-  background: rgba(91, 138, 240, 0.22);
+  background: color-mix(in srgb, var(--color-primary) 22%, transparent);
   top: -90px;
   right: -80px;
   animation: float 8s ease-in-out infinite;
@@ -635,7 +635,7 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
   letter-spacing: -0.01em;
 }
 .agent-mode-chip:hover:not(:disabled) {
-  border-color: rgba(91, 138, 240, 0.45);
+  border-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
   box-shadow: var(--shadow-sm);
 }
 .agent-mode-chip:hover:not(:disabled) .agent-mode-chip__label {
@@ -643,8 +643,8 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
 }
 .agent-mode-chip--active {
   border-color: var(--color-primary);
-  background: rgba(91, 138, 240, 0.08);
-  box-shadow: 0 0 0 3px rgba(91, 138, 240, 0.12);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 .agent-mode-chip--active .agent-mode-chip__label {
   color: var(--color-primary);
@@ -699,7 +699,7 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
 }
 .agent-textarea:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(91, 138, 240, 0.1);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 .agent-textarea:disabled {
   opacity: 0.7;
@@ -738,8 +738,8 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
   margin-top: 20px;
   padding: 16px 18px;
   border-radius: var(--radius-lg);
-  border: 1px solid rgba(91, 138, 240, 0.2);
-  background: rgba(91, 138, 240, 0.04);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 4%, transparent);
 }
 .agent-preview--muted {
   background: var(--color-bg-glass);
@@ -807,7 +807,7 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
   padding: 10px 16px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-primary);
-  background: rgba(91, 138, 240, 0.08);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
   color: var(--color-primary);
   font-size: var(--text-sm);
   font-weight: 600;
@@ -815,7 +815,7 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
   transition: background var(--transition-fast);
 }
 .agent-resume-btn:hover {
-  background: rgba(91, 138, 240, 0.14);
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
 }
 .agent-progress__done {
   margin-top: 18px;
@@ -910,8 +910,8 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
 }
 .agent-pipeline__badge--run {
   border-color: var(--color-primary);
-  background: rgba(91, 138, 240, 0.12);
-  box-shadow: 0 0 0 3px rgba(91, 138, 240, 0.15);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
   animation: pipeline-pulse 1.4s ease-in-out infinite;
 }
 .agent-pipeline__label {
@@ -946,7 +946,7 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
   transition: background 0.35s ease;
 }
 .agent-pipeline__link--passed .agent-pipeline__link-line {
-  background: linear-gradient(90deg, #4caf82 0%, rgba(91, 138, 240, 0.55) 100%);
+  background: linear-gradient(90deg, #4caf82 0%, color-mix(in srgb, var(--color-primary) 55%, transparent) 100%);
 }
 .agent-pipeline__link-arrow {
   position: absolute;
@@ -965,10 +965,10 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
 @keyframes pipeline-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 3px rgba(91, 138, 240, 0.15);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 15%, transparent);
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(91, 138, 240, 0.08);
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-primary) 8%, transparent);
   }
 }
 .agent-progress__loading {
@@ -1065,7 +1065,7 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
     background: var(--color-border);
   }
   .agent-pipeline__link--passed .agent-pipeline__link-line {
-    background: linear-gradient(180deg, #4caf82 0%, rgba(91, 138, 240, 0.55) 100%);
+    background: linear-gradient(180deg, #4caf82 0%, color-mix(in srgb, var(--color-primary) 55%, transparent) 100%);
   }
   .agent-pipeline__link-arrow {
     display: none;

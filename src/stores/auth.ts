@@ -29,6 +29,9 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = result
       localStorage.setItem(STORAGE_KEY, JSON.stringify(result))
       return result
+    } catch (error: unknown) {
+      console.error('登录失败:', error instanceof Error ? error.message : String(error))
+      return null
     } finally {
       loading.value = false
     }

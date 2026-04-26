@@ -94,7 +94,7 @@ import ResumeEditorBody from "@/components/resume/ResumeEditorBody.vue"
 
 .editor-skeleton-pill--primary {
   width: 88px;
-  background: rgba(91, 138, 240, 0.25);
+  background: color-mix(in srgb, var(--color-primary) 25%, transparent);
 }
 
 .editor-skeleton-title {
@@ -164,7 +164,7 @@ import ResumeEditorBody from "@/components/resume/ResumeEditorBody.vue"
   background: linear-gradient(
     105deg,
     transparent 40%,
-    rgba(91, 138, 240, 0.06) 50%,
+    color-mix(in srgb, var(--color-primary) 6%, transparent) 50%,
     transparent 60%
   );
   background-size: 200% 100%;

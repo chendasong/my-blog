@@ -1,10 +1,20 @@
-export interface ResumeSection {
+export type ResumeSectionType =
+  | 'basic'
+  | 'education'
+  | 'experience'
+  | 'skills'
+  | 'projects'
+  | 'awards'
+  | 'languages'
+  | 'certifications'
+  | 'introduction'
+
+export interface ResumeSectionBase {
   id: string
-  type: 'basic' | 'education' | 'experience' | 'skills' | 'projects' | 'awards' | 'languages' | 'certifications' | 'introduction'
+  type: ResumeSectionType
   title: string
   visible: boolean
   order: number
-  content: Record<string, any>
 }
 
 export interface Resume {
@@ -22,6 +32,8 @@ export interface BasicInfo {
   email: string
   phone: string
   location: string
+  workYears?: string
+  status?: string
   avatar?: string
   bio?: string
 }
@@ -48,8 +60,7 @@ export interface ExperienceItem {
 
 export interface SkillItem {
   id: string
-  category: string
-  skills: string[]
+  skill: string
 }
 
 export interface ProjectItem {
@@ -85,3 +96,59 @@ export interface CertificationItem {
   credentialId?: string
   credentialUrl?: string
 }
+
+export interface BasicSection extends ResumeSectionBase {
+  type: 'basic'
+  content: BasicInfo
+}
+
+export interface EducationSection extends ResumeSectionBase {
+  type: 'education'
+  content: { items: EducationItem[] }
+}
+
+export interface ExperienceSection extends ResumeSectionBase {
+  type: 'experience'
+  content: { items: ExperienceItem[] }
+}
+
+export interface SkillsSection extends ResumeSectionBase {
+  type: 'skills'
+  content: { items: SkillItem[] }
+}
+
+export interface ProjectsSection extends ResumeSectionBase {
+  type: 'projects'
+  content: { items: ProjectItem[] }
+}
+
+export interface AwardsSection extends ResumeSectionBase {
+  type: 'awards'
+  content: { items: AwardItem[] }
+}
+
+export interface LanguagesSection extends ResumeSectionBase {
+  type: 'languages'
+  content: { items: LanguageItem[] }
+}
+
+export interface CertificationsSection extends ResumeSectionBase {
+  type: 'certifications'
+  content: { items: CertificationItem[] }
+}
+
+export interface IntroductionSection extends ResumeSectionBase {
+  type: 'introduction'
+  content: { text: string }
+}
+
+export type ResumeSection =
+  | BasicSection
+  | EducationSection
+  | ExperienceSection
+  | SkillsSection
+  | ProjectsSection
+  | AwardsSection
+  | LanguagesSection
+  | CertificationsSection
+  | IntroductionSection

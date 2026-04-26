@@ -73,7 +73,11 @@ export const noteApi = {
     return toNote(data)
   },
 
-  async create(input: Omit<Note, 'id'>): Promise<Note> {
+  /** 新建笔记：服务端生成 id；createdAt/updatedAt 可省略（由 DB 或 toNote 填充） */
+  async create(
+    input: Pick<Note, 'title' | 'content' | 'category' | 'tags' | 'color' | 'pinned'> &
+      Partial<Pick<Note, 'createdAt' | 'updatedAt'>>,
+  ): Promise<Note> {
     const { data, error } = await supabase.from('notes').insert({
       title: input.title,
       content: input.content,

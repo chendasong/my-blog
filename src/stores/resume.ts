@@ -11,7 +11,7 @@ export const useResumeStore = defineStore('resume', () => {
     resume.value = data
   }
 
-  const updateSection = (sectionId: string, content: any) => {
+  const updateSection = (sectionId: string, content: Record<string, unknown>) => {
     if (!resume.value) return
     const section = resume.value.sections.find(s => s.id === sectionId)
     if (section) {

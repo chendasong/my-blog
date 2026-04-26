@@ -45,6 +45,53 @@ let dragStartX = 0
 let dragStartY = 0
 let dragStartPosX = 0
 let dragStartPosY = 0
+let dragPointerId: number | null = null
+let dragListenersAttached = false
+
+function removePlayerDragListeners() {
+  if (!dragListenersAttached) return
+  dragListenersAttached = false
+  window.removeEventListener('pointermove', onWindowPointerMovePlayer, true)
+  window.removeEventListener('pointerup', onWindowPointerUpPlayer, true)
+  window.removeEventListener('pointercancel', onWindowPointerUpPlayer, true)
+}
+
+function onWindowPointerMovePlayer(e: PointerEvent) {
+  if (!isDragging.value || e.pointerId !== dragPointerId) return
+  if (e.pointerType === 'touch') e.preventDefault()
+  const deltaX = e.clientX - dragStartX
+  const deltaY = e.clientY - dragStartY
+  if (Math.abs(deltaX) + Math.abs(deltaY) > 4) dragMoved.value = true
+
+  let newX = dragStartPosX + deltaX
+  let newY = dragStartPosY + deltaY
+  newX = Math.max(0, Math.min(newX, window.innerWidth - PLAYER))
+  newY = Math.max(0, Math.min(newY, window.innerHeight - PLAYER))
+  position.value = { x: newX, y: newY }
+}
+
+function onWindowPointerUpPlayer(e: PointerEvent) {
+  if (!isDragging.value || e.pointerId !== dragPointerId) return
+  removePlayerDragListeners()
+  dragPointerId = null
+  isDragging.value = false
+  if (!dragMoved.value) return
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const snapped = snapFabToEdges(
+    position.value.x,
+    position.value.y,
+    PLAYER,
+    vw,
+    vh
+  )
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      position.value = snapped
+      saveFabPos()
+    })
+  })
+}
 
 const MUSIC_PANEL_W = 320
 
@@ -367,9 +414,6 @@ onMounted(() => {
   if (currentTrack.value && audioRef.value) {
     audioRef.value.src = currentTrack.value.url
   }
-  window.addEventListener('mousemove', handleMouseMove, true)
-  window.addEventListener('mouseup', handleMouseUp, true)
-
   unlistenMusicBridge = onMusicCommand((cmd) => {
     if (!hasMusic.value) return
     switch (cmd.type) {
@@ -399,8 +443,9 @@ onMounted(() => {
 onUnmounted(() => {
   unlistenMusicBridge?.()
   unlistenMusicBridge = null
-  window.removeEventListener('mousemove', handleMouseMove, true)
-  window.removeEventListener('mouseup', handleMouseUp, true)
+  removePlayerDragListeners()
+  dragPointerId = null
+  isDragging.value = false
   if (animationFrameId) {
     cancelAnimationFrame(animationFrameId)
   }
@@ -544,49 +589,21 @@ const handleVolumeInput = (e: Event) => {
   }, 50)
 }
 
-const handleMouseDown = (e: MouseEvent) => {
+const handlePointerDown = (e: PointerEvent) => {
   if (e.button !== 0) return
-  e.preventDefault()
   isDragging.value = true
   dragMoved.value = false
+  dragPointerId = e.pointerId
   dragStartX = e.clientX
   dragStartY = e.clientY
   dragStartPosX = position.value.x
   dragStartPosY = position.value.y
-}
-
-const handleMouseMove = (e: MouseEvent) => {
-  if (!isDragging.value) return
-  const deltaX = e.clientX - dragStartX
-  const deltaY = e.clientY - dragStartY
-  if (Math.abs(deltaX) + Math.abs(deltaY) > 4) dragMoved.value = true
-
-  let newX = dragStartPosX + deltaX
-  let newY = dragStartPosY + deltaY
-  newX = Math.max(0, Math.min(newX, window.innerWidth - PLAYER))
-  newY = Math.max(0, Math.min(newY, window.innerHeight - PLAYER))
-  position.value = { x: newX, y: newY }
-}
-
-const handleMouseUp = () => {
-  if (!isDragging.value) return
-  isDragging.value = false
-  if (!dragMoved.value) return
-  const vw = window.innerWidth
-  const vh = window.innerHeight
-  const snapped = snapFabToEdges(
-    position.value.x,
-    position.value.y,
-    PLAYER,
-    vw,
-    vh
-  )
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      position.value = snapped
-      saveFabPos()
-    })
-  })
+  if (!dragListenersAttached) {
+    dragListenersAttached = true
+    window.addEventListener('pointermove', onWindowPointerMovePlayer, { capture: true, passive: false })
+    window.addEventListener('pointerup', onWindowPointerUpPlayer, true)
+    window.addEventListener('pointercancel', onWindowPointerUpPlayer, true)
+  }
 }
 
 const handleButtonClick = () => {
@@ -616,7 +633,7 @@ const handleButtonClick = () => {
       @ended="handleEnded"
     />
 
-    <div class="music-player__button" @mousedown="handleMouseDown" @click="handleButtonClick">
+    <div class="music-player__button" @pointerdown="handlePointerDown" @click="handleButtonClick">
       <div class="music-player__icon">
         <span v-if="!isPlaying" class="icon">🎵</span>
         <span v-else class="icon rotating">🎶</span>
@@ -732,7 +749,7 @@ const handleButtonClick = () => {
             :value="progress"
             :disabled="!duration"
             :style="{
-              background: `linear-gradient(to right, #5b8af0 0%, #8b6ff0 ${progress}%, rgba(91,138,240,0.14) ${progress}%, rgba(91,138,240,0.14) 100%)`,
+              background: `linear-gradient(to right, var(--color-primary) 0%, var(--color-ui-gradient-mid) ${progress}%, color-mix(in srgb, var(--color-primary) 14%, transparent) ${progress}%, color-mix(in srgb, var(--color-primary) 14%, transparent) 100%)`,
             }"
             aria-label="播放进度"
             @pointerdown="onProgressPointerDown"
@@ -826,12 +843,13 @@ const handleButtonClick = () => {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(91, 138, 240, 0.9) 0%, rgba(139, 111, 240, 0.9) 100%);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 90%, transparent) 0%, color-mix(in srgb, var(--color-ui-gradient-mid) 90%, transparent) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: grab;
-  box-shadow: 0 8px 32px rgba(91, 138, 240, 0.4);
+  touch-action: none;
+  box-shadow: 0 8px 32px color-mix(in srgb, var(--color-primary) 40%, transparent);
   transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
   backdrop-filter: blur(10px);
@@ -840,7 +858,7 @@ const handleButtonClick = () => {
 
 .music-player__button:hover {
   transform: scale(1.15);
-  box-shadow: 0 12px 48px rgba(91, 138, 240, 0.5);
+  box-shadow: 0 12px 48px color-mix(in srgb, var(--color-primary) 50%, transparent);
 }
 
 .music-player__button:active {
@@ -972,8 +990,8 @@ const handleButtonClick = () => {
   height: 36px;
   padding: 0;
   border-radius: 50%;
-  background: rgba(91, 138, 240, 0.2);
-  border: 1px solid rgba(91, 138, 240, 0.3);
+  background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
   color: rgba(255, 255, 255, 0.7);
   font-size: 1rem;
   line-height: 1;
@@ -985,8 +1003,8 @@ const handleButtonClick = () => {
 }
 
 .music-player__control-btn:hover:not(:disabled) {
-  background: rgba(91, 138, 240, 0.3);
-  border-color: rgba(91, 138, 240, 0.5);
+  background: color-mix(in srgb, var(--color-primary) 30%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
   color: rgba(255, 255, 255, 0.9);
 }
 
@@ -1028,8 +1046,8 @@ const handleButtonClick = () => {
 }
 
 .music-player__loop-btn--one {
-  border-color: rgba(139, 111, 240, 0.35);
-  background: rgba(139, 111, 240, 0.12);
+  border-color: color-mix(in srgb, var(--color-ui-gradient-mid) 35%, transparent);
+  background: color-mix(in srgb, var(--color-ui-gradient-mid) 12%, transparent);
 }
 
 .music-player__loop-svg {
@@ -1060,7 +1078,7 @@ const handleButtonClick = () => {
 }
 
 .music-player__loop-btn--one:hover {
-  background: rgba(139, 111, 240, 0.2);
+  background: color-mix(in srgb, var(--color-ui-gradient-mid) 20%, transparent);
   border-color: rgba(186, 170, 255, 0.45);
 }
 
@@ -1069,7 +1087,7 @@ const handleButtonClick = () => {
   height: 44px;
   padding: 0;
   border-radius: 50%;
-  background: linear-gradient(135deg, #5b8af0 0%, #8b6ff0 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-ui-gradient-mid) 100%);
   border: none;
   color: white;
   font-size: 1.2rem;
@@ -1083,7 +1101,7 @@ const handleButtonClick = () => {
 
 .music-player__play-btn:hover {
   transform: scale(1.1);
-  box-shadow: 0 4px 16px rgba(91, 138, 240, 0.4);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--color-primary) 40%, transparent);
 }
 
 .music-player__progress-container {
@@ -1121,7 +1139,7 @@ const handleButtonClick = () => {
   height: 11px;
   margin-top: -3.5px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #5b8af0 0%, #8b6ff0 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-ui-gradient-mid) 100%);
   cursor: grab;
 }
 
@@ -1140,7 +1158,7 @@ const handleButtonClick = () => {
   height: 11px;
   border: none;
   border-radius: 50%;
-  background: linear-gradient(135deg, #5b8af0 0%, #8b6ff0 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-ui-gradient-mid) 100%);
   box-shadow: 0 0 0 1.5px rgba(20, 20, 30, 0.95);
   cursor: grab;
 }
@@ -1167,7 +1185,7 @@ const handleButtonClick = () => {
   flex: 1;
   height: 4px;
   border-radius: 2px;
-  background: rgba(91, 138, 240, 0.1);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   outline: none;
   -webkit-appearance: none;
   appearance: none;
@@ -1179,7 +1197,7 @@ const handleButtonClick = () => {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #5b8af0 0%, #8b6ff0 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-ui-gradient-mid) 100%);
   cursor: pointer;
 }
 
@@ -1187,7 +1205,7 @@ const handleButtonClick = () => {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #5b8af0 0%, #8b6ff0 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-ui-gradient-mid) 100%);
   cursor: pointer;
   border: none;
 }
@@ -1195,13 +1213,13 @@ const handleButtonClick = () => {
 .music-player__playlist-toggle {
   text-align: center;
   padding-top: 12px;
-  border-top: 1px solid rgba(91, 138, 240, 0.1);
+  border-top: 1px solid color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 
 .music-player__playlist-btn {
   background: none;
   border: none;
-  color: #8b6ff0;
+  color: var(--color-ui-gradient-mid);
   font-size: 12px;
   cursor: pointer;
   font-weight: 600;
@@ -1209,7 +1227,7 @@ const handleButtonClick = () => {
 }
 
 .music-player__playlist-btn:hover {
-  color: #5b8af0;
+  color: var(--color-primary);
 }
 
 .music-player__playlist-shell {
@@ -1235,7 +1253,7 @@ const handleButtonClick = () => {
   contain: content;
   margin-top: 10px;
   padding-top: 8px;
-  border-top: 1px solid rgba(91, 138, 240, 0.12);
+  border-top: 1px solid color-mix(in srgb, var(--color-primary) 12%, transparent);
 }
 
 .music-player__playlist-shell:not(.music-player__playlist-shell--open) .music-player__playlist {
@@ -1257,12 +1275,12 @@ const handleButtonClick = () => {
 }
 
 .music-player__playlist-item:hover {
-  background: rgba(91, 138, 240, 0.1);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 
 .music-player__playlist-item--active {
-  background: rgba(91, 138, 240, 0.2);
-  color: #8b6ff0;
+  background: color-mix(in srgb, var(--color-primary) 20%, transparent);
+  color: var(--color-ui-gradient-mid);
   font-weight: 600;
 }
 
@@ -1281,7 +1299,7 @@ const handleButtonClick = () => {
 
 .music-player__playlist-playing {
   font-size: 0.75rem;
-  color: #8b6ff0;
+  color: var(--color-ui-gradient-mid);
   margin-left: 4px;
 }
 

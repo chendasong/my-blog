@@ -22,14 +22,16 @@ export const useNoteStore = defineStore('note', () => {
       const { items, total } = await noteApi.getPage(params)
       notes.value = items
       listTotal.value = total
-    } catch (e) {
+    } catch {
       error.value = '加载失败'
     } finally {
       loading.value = false
     }
   }
 
-  async function create(data: Omit<Note, 'id'>) {
+  async function create(
+    data: Pick<Note, 'title' | 'content' | 'category' | 'tags' | 'color' | 'pinned'>,
+  ) {
     const now = dayjs().format('YYYY-MM-DD')
     const note = await noteApi.create({ ...data, createdAt: now, updatedAt: now })
     notes.value.unshift(note)

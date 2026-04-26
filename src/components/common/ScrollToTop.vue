@@ -46,13 +46,13 @@ onUnmounted(() => {
   border-radius: 50%;
   background: linear-gradient(
     135deg,
-    rgba(91, 138, 240, 0.92) 0%,
+    color-mix(in srgb, var(--color-primary) 92%, transparent) 0%,
     rgba(139, 111, 240, 0.92) 100%
   );
   border: 1px solid rgba(255, 255, 255, 0.22);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 8px 28px rgba(91, 138, 240, 0.28);
+  box-shadow: 0 8px 28px color-mix(in srgb, var(--color-primary) 28%, transparent);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -65,7 +65,7 @@ onUnmounted(() => {
 
 .scroll-to-top:hover {
   transform: translateY(-3px);
-  box-shadow: 0 12px 40px rgba(91, 138, 240, 0.38);
+  box-shadow: 0 12px 40px color-mix(in srgb, var(--color-primary) 38%, transparent);
 }
 
 .scroll-to-top:active {

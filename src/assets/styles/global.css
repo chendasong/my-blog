@@ -20,10 +20,11 @@ body {
   line-height: 1.6;
   min-height: 100vh;
   background-image:
-    radial-gradient(ellipse at 20% 20%, rgba(91, 138, 240, 0.07) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 80%, rgba(139, 111, 240, 0.07) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 50%, rgba(240, 160, 91, 0.04) 0%, transparent 70%);
+    radial-gradient(ellipse at 20% 20%, var(--body-grad-1) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, var(--body-grad-2) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, var(--body-grad-3) 0%, transparent 70%);
   background-attachment: fixed;
+  transition: background-color 0.3s ease, color 0.2s ease;
 }
 
 #app {
@@ -62,7 +63,7 @@ select:not([size]):not([multiple]) {
   appearance: none !important;
   padding-right: 2.875rem !important;
   padding-inline-end: 2.875rem !important;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%236b7288' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") !important;
   background-repeat: no-repeat !important;
   background-position: right 0.75rem center !important;
   background-size: 1rem 1rem !important;
@@ -187,7 +188,7 @@ select:not([size]):not([multiple]) {
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
-  background: rgba(91, 138, 240, 0.10);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   color: var(--color-primary);
   border-radius: var(--radius-full);
   font-size: var(--text-xs);
@@ -195,7 +196,7 @@ select:not([size]):not([multiple]) {
   transition: background var(--transition-fast);
 }
 .tag:hover {
-  background: rgba(91, 138, 240, 0.18);
+  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
 /* ===== Prose ===== */
@@ -213,15 +214,15 @@ select:not([size]):not([multiple]) {
 .prose p { margin-bottom: 1.2em; }
 .prose code {
   font-family: var(--font-mono);
-  background: rgba(91,138,240,0.08);
+  background: var(--prose-code-bg);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.88em;
   color: var(--color-primary-dark);
 }
 .prose pre {
-  background: #1A1D2E;
-  color: #E2E8FF;
+  background: var(--prose-pre-bg);
+  color: var(--prose-pre-fg);
   padding: 20px 24px;
   border-radius: var(--radius-lg);
   overflow-x: auto;

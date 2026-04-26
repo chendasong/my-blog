@@ -57,19 +57,19 @@ const props = withDefaults(defineProps<Props>(), {
 .btn--primary {
   background: var(--gradient-primary);
   color: white;
-  box-shadow: 0 4px 16px rgba(91,138,240,0.35);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--color-primary) 35%, transparent);
 }
 .btn--secondary {
-  background: rgba(91,138,240,0.10);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   color: var(--color-primary);
   border: 1px solid var(--color-border-strong);
 }
-.btn--secondary:hover { background: rgba(91,138,240,0.16); }
+.btn--secondary:hover { background: color-mix(in srgb, var(--color-primary) 16%, transparent); }
 .btn--ghost {
   background: transparent;
   color: var(--color-text-secondary);
 }
-.btn--ghost:hover { background: rgba(91,138,240,0.06); color: var(--color-primary); }
+.btn--ghost:hover { background: color-mix(in srgb, var(--color-primary) 6%, transparent); color: var(--color-primary); }
 .btn--warm {
   background: var(--gradient-warm);
   color: white;

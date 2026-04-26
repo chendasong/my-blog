@@ -12,8 +12,8 @@
   --color-bg-glass: rgba(255, 255, 255, 0.52);
   --color-bg-overlay: rgba(244, 246, 251, 0.85);
   --color-surface: #FFFFFF;
-  --color-border: rgba(91, 138, 240, 0.12);
-  --color-border-strong: rgba(91, 138, 240, 0.24);
+  --color-border: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  --color-border-strong: color-mix(in srgb, var(--color-primary) 24%, transparent);
 
   /* ===== Text ===== */
   --color-text-primary: #1A1D2E;
@@ -35,12 +35,12 @@
   --gradient-card: linear-gradient(145deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.6) 100%);
 
   /* ===== Shadows ===== */
-  --shadow-xs: 0 1px 3px rgba(91, 138, 240, 0.08);
-  --shadow-sm: 0 2px 8px rgba(91, 138, 240, 0.10);
-  --shadow-md: 0 4px 20px rgba(91, 138, 240, 0.12);
-  --shadow-lg: 0 8px 40px rgba(91, 138, 240, 0.16);
-  --shadow-xl: 0 16px 64px rgba(91, 138, 240, 0.20);
-  --shadow-glow: 0 0 24px rgba(91, 138, 240, 0.30);
+  --shadow-xs: 0 1px 3px color-mix(in srgb, var(--color-primary) 8%, transparent);
+  --shadow-sm: 0 2px 8px color-mix(in srgb, var(--color-primary) 10%, transparent);
+  --shadow-md: 0 4px 20px color-mix(in srgb, var(--color-primary) 12%, transparent);
+  --shadow-lg: 0 8px 40px color-mix(in srgb, var(--color-primary) 16%, transparent);
+  --shadow-xl: 0 16px 64px color-mix(in srgb, var(--color-primary) 20%, transparent);
+  --shadow-glow: 0 0 24px color-mix(in srgb, var(--color-primary) 30%, transparent);
 
   /* ===== Spacing ===== */
   --space-1: 4px;
@@ -92,4 +92,104 @@
   --blur-md: blur(16px);
   --blur-lg: blur(24px);
   --blur-xl: blur(40px);
+
+  /* 进度条/渐变副色、页面背景光斑 */
+  --color-ui-gradient-mid: #8b6ff0;
+  --body-grad-1: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  --body-grad-2: color-mix(in srgb, var(--color-ui-gradient-mid) 10%, transparent);
+  --body-grad-3: color-mix(in srgb, var(--color-secondary) 6%, transparent);
+  --color-avatar-surface: #ffffff;
+  --prose-code-bg: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  --prose-pre-bg: #1a1d2e;
+  --prose-pre-fg: #e2e8ff;
+  color-scheme: light;
+}
+
+/* ===== 粉色主题 ===== */
+html[data-theme="pink"] {
+  --color-primary: #e86b9a;
+  --color-primary-light: #f2a0bc;
+  --color-primary-dark: #d4527a;
+  --color-secondary: #f0a86e;
+  --color-accent: #d4527a;
+
+  --color-bg: #fdf2f6;
+  --color-bg-card: rgba(255, 255, 255, 0.76);
+  --color-bg-glass: rgba(255, 252, 254, 0.55);
+  --color-bg-overlay: rgba(252, 244, 248, 0.9);
+  --color-surface: #fffafc;
+  --color-border: rgba(232, 107, 154, 0.16);
+  --color-border-strong: rgba(232, 107, 154, 0.28);
+
+  --color-text-primary: #1f1a1e;
+  --color-text-secondary: #5c4a55;
+  --color-text-muted: #9a7a88;
+  --color-text-inverse: #ffffff;
+
+  --color-info: #e86b9a;
+
+  --color-ui-gradient-mid: #c26fd5;
+  --body-grad-1: color-mix(in srgb, var(--color-primary) 9%, transparent);
+  --body-grad-2: color-mix(in srgb, var(--color-ui-gradient-mid) 8%, transparent);
+  --body-grad-3: color-mix(in srgb, var(--color-secondary) 7%, transparent);
+
+  --gradient-primary: linear-gradient(135deg, #e86b9a 0%, #c26fd5 100%);
+  --gradient-cool: linear-gradient(135deg, #5bc8f0 0%, #e86b9a 100%);
+  --gradient-hero: linear-gradient(135deg, #fff0f5 0%, #fdf2ff 50%, #f7f4ff 100%);
+
+  --shadow-xs: 0 1px 3px rgba(232, 107, 154, 0.1);
+  --shadow-sm: 0 2px 8px rgba(232, 107, 154, 0.12);
+  --shadow-md: 0 4px 20px rgba(232, 107, 154, 0.16);
+  --shadow-lg: 0 8px 40px rgba(232, 107, 154, 0.2);
+  --shadow-xl: 0 16px 64px rgba(232, 107, 154, 0.24);
+  --shadow-glow: 0 0 24px rgba(232, 107, 154, 0.32);
+
+  color-scheme: light;
+}
+
+/* ===== 深色主题 ===== */
+html[data-theme="dark"] {
+  --color-primary: #6e96ff;
+  --color-primary-light: #8aadf8;
+  --color-primary-dark: #4d7dee;
+  --color-secondary: #e8a85c;
+  --color-accent: #f28ba8;
+
+  --color-bg: #0c0e14;
+  --color-bg-card: rgba(26, 30, 44, 0.86);
+  --color-bg-glass: rgba(18, 22, 34, 0.7);
+  --color-bg-overlay: rgba(10, 12, 20, 0.92);
+  --color-surface: #131722;
+  --color-border: rgba(110, 150, 255, 0.12);
+  --color-border-strong: rgba(110, 150, 255, 0.26);
+
+  --color-text-primary: #e8ebf4;
+  --color-text-secondary: #9ba4c0;
+  --color-text-muted: #6d758e;
+  --color-text-inverse: #0c0e14;
+
+  --color-info: #6e96ff;
+
+  --color-ui-gradient-mid: #9b7dff;
+  --body-grad-1: color-mix(in srgb, var(--color-primary) 14%, transparent);
+  --body-grad-2: color-mix(in srgb, var(--color-ui-gradient-mid) 12%, transparent);
+  --body-grad-3: color-mix(in srgb, var(--color-secondary) 5%, transparent);
+
+  --gradient-primary: linear-gradient(135deg, #6e96ff 0%, #9b7dff 100%);
+  --gradient-hero: linear-gradient(135deg, #1a1f2e 0%, #1e1830 50%, #1a1a28 100%);
+  --gradient-card: linear-gradient(145deg, rgba(36, 40, 56, 0.95) 0%, rgba(24, 28, 40, 0.75) 100%);
+
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.45);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.55);
+  --shadow-xl: 0 16px 64px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 24px color-mix(in srgb, var(--color-primary) 35%, transparent);
+
+  --color-avatar-surface: #0c0e14;
+  --prose-code-bg: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  --prose-pre-bg: #0e1018;
+  --prose-pre-fg: #dce2f0;
+
+  color-scheme: dark;
 }

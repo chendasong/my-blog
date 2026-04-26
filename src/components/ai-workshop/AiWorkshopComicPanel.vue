@@ -444,7 +444,7 @@ function clearComicOutput() {
   background: linear-gradient(
     105deg,
     transparent 35%,
-    rgba(91, 138, 240, 0.08) 50%,
+    color-mix(in srgb, var(--color-primary) 8%, transparent) 50%,
     transparent 65%
   );
   background-size: 200% 100%;
@@ -470,7 +470,7 @@ function clearComicOutput() {
   bottom: 10px;
 }
 .tag--primary {
-  border-color: rgba(91, 138, 240, 0.45);
+  border-color: color-mix(in srgb, var(--color-primary) 45%, transparent);
   color: var(--color-primary);
   font-weight: 600;
 }

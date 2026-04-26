@@ -24,7 +24,7 @@ const props = withDefaults(defineProps<Props>(), {
   padding: 3px 10px;
   border-radius: var(--radius-full);
   font-weight: 500;
-  background: rgba(91,138,240,0.10);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   color: var(--color-primary);
   white-space: nowrap;
 }

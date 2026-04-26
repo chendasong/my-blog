@@ -74,8 +74,8 @@ const icons: Record<string, string> = {
   color: #F59E0B;
 }
 .toast--info {
-  background: rgba(91, 138, 240, 0.15);
-  border-color: rgba(91, 138, 240, 0.3);
+  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+  border-color: color-mix(in srgb, var(--color-primary) 30%, transparent);
   color: var(--color-primary);
 }
 .toast__icon {
@@ -92,7 +92,7 @@ const icons: Record<string, string> = {
 .toast--success .toast__icon { background: rgba(34,197,110,0.2); }
 .toast--error .toast__icon { background: rgba(232,96,122,0.2); }
 .toast--warning .toast__icon { background: rgba(245,158,11,0.2); }
-.toast--info .toast__icon { background: rgba(91,138,240,0.2); }
+.toast--info .toast__icon { background: color-mix(in srgb, var(--color-primary) 20%, transparent); }
 .toast__msg { color: var(--color-text-primary); }
 
 /* Transition */

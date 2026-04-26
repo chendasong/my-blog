@@ -28,25 +28,8 @@ const sortedSections = computed(() => {
   return resume.value.sections.slice().sort((a, b) => a.order - b.order)
 })
 
-const basicSection = computed(() => {
-  return resume.value.sections.find((s) => s.type === "basic")
-})
-
 const handleSectionSelect = (sectionId: string) => {
   selectedSectionId.value = sectionId
-}
-
-const handleAvatarUpload = (e: Event) => {
-  const file = (e.target as HTMLInputElement).files?.[0]
-  if (file) {
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      if (basicSection.value) {
-        basicSection.value.content.avatar = event.target?.result as string
-      }
-    }
-    reader.readAsDataURL(file)
-  }
 }
 
 const handleToggleSection = (sectionId: string, visible: boolean) => {
@@ -179,7 +162,7 @@ const handleBack = () => {
 }
 .avatar-display:hover {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(91, 138, 240, 0.1);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 .avatar-file-input {
   position: absolute;

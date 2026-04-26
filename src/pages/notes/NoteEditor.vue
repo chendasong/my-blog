@@ -5,7 +5,7 @@ import { useToast } from '@/composables/useToast'
 import { useNoteStore } from '@/stores/note'
 import { noteApi } from '@/api/notes'
 import AppButton from '@/components/common/AppButton.vue'
-import type { NoteCategory } from '@/types'
+import type { Note, NoteCategory } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -59,15 +59,19 @@ async function handleSubmit() {
   }
   saving.value = true
   try {
-    const data = {
-      ...form.value,
+    const data: Pick<Note, 'title' | 'content' | 'category' | 'tags' | 'color' | 'pinned'> = {
+      title: form.value.title,
+      content: form.value.content,
+      category: form.value.category,
       tags: form.value.tags.split(',').map(t => t.trim()).filter(Boolean),
+      color: form.value.color,
+      pinned: form.value.pinned,
     }
     if (isEdit) {
       await store.update(route.params.id as string, data)
       toast.success('笔记已更新')
     } else {
-      await store.create(data as any)
+      await store.create(data)
       toast.success('笔记已创建')
     }
     router.push('/notes')
@@ -169,7 +173,7 @@ async function handleSubmit() {
 .title-input:focus { border-color: var(--color-primary); }
 .title-input::placeholder { color: var(--color-text-muted); font-weight: 400; }
 .content-textarea { width: 100%; padding: 16px; background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); font-size: var(--text-sm); color: var(--color-text-primary); font-family: var(--font-mono); line-height: 1.8; resize: vertical; outline: none; transition: border-color var(--transition-fast); }
-.content-textarea:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(91,138,240,0.10); }
+.content-textarea:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 10%, transparent); }
 .content-textarea::placeholder { color: var(--color-text-muted); }
 .sidebar-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius-xl); padding: 20px; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 80px; }
 .sidebar-card__title { font-size: var(--text-base); font-weight: 600; color: var(--color-text-primary); margin-bottom: 4px; }

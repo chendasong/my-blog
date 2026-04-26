@@ -170,14 +170,14 @@ const handleDrop = (e: DragEvent, sections: ResumeSection[]) => {
 }
 
 .module-item--selected {
-  background: rgba(91, 138, 240, 0.1);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(91, 138, 240, 0.1);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 
 .module-item--dragging {
   opacity: 0.5;
-  background: rgba(91, 138, 240, 0.05);
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
 }
 
 .module-item--drag-over {

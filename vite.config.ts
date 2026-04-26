@@ -1,7 +1,6 @@
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
-import viteCompression from 'vite-plugin-compression'
 import { localVercelApiPlugin } from './vite/localVercelApiPlugin'
 
 /**
@@ -59,26 +58,12 @@ export default defineConfig(({ mode, command }) => {
   ])
   const apiBase = pickEnv(env, ['VITE_API_BASE', 'API_BASE'])
 
-  const buildPlugins =
-    command === 'build'
-      ? [
-          viteCompression({
-            algorithm: 'gzip',
-            ext: '.gz',
-            threshold: 1024,
-            deleteOriginFile: false,
-          }),
-          viteCompression({
-            algorithm: 'brotliCompress',
-            ext: '.br',
-            threshold: 1024,
-            deleteOriginFile: false,
-          }),
-        ]
-      : []
-
   return {
-    plugins: [localVercelApiPlugin(__dirname), vue(), ...buildPlugins],
+    /**
+     * 不在 dist 里生成 .gz / .br：避免「同一份 JS 占三份磁盘」；Vercel/CDN 会对传输内容动态压缩。
+     * 若自建 Nginx 且需 gzip_static，可再接入 vite-plugin-compression（通常只保留 gzip 即可）。
+     */
+    plugins: [localVercelApiPlugin(__dirname), vue()],
     /**
      * JS：生产用 **Terser** 做最终压缩（Vite 仅支持 esbuild | terser，不能接 uglify-js；
      * Terser 为 Uglify 系继任者，对 ES 模块/现代语法完整支持，体积通常小于纯 esbuild）。
@@ -92,21 +77,21 @@ export default defineConfig(({ mode, command }) => {
       chunkSizeWarningLimit: 900,
       terserOptions: isBuild
         ? {
-            compress: {
-              drop_console: isProd,
-              drop_debugger: true,
-              passes: 2,
-              ecma: 2020,
-              module: true,
-            },
-            mangle: {
-              safari10: true,
-            },
-            format: {
-              comments: false,
-              ecma: 2020,
-            },
-          }
+          compress: {
+            drop_console: isProd,
+            drop_debugger: true,
+            passes: 2,
+            ecma: 2020,
+            module: true,
+          },
+          mangle: {
+            safari10: true,
+          },
+          format: {
+            comments: false,
+            ecma: 2020,
+          },
+        }
         : undefined,
       rollupOptions: {
         output: {
