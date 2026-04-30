@@ -85,13 +85,8 @@ const handleVolumeChange = (e: Event) => {
 
 <template>
   <div v-if="hasMusic" class="music-player" :class="{ 'music-player--expanded': isExpanded }">
-    <audio
-      ref="audioRef"
-      :src="musicUrl"
-      @timeupdate="handleTimeUpdate"
-      @loadedmetadata="handleLoadedMetadata"
-      @ended="handleEnded"
-    />
+    <audio ref="audioRef" :src="musicUrl" @timeupdate="handleTimeUpdate" @loadedmetadata="handleLoadedMetadata"
+      @ended="handleEnded" />
 
     <div class="music-player__button" @click="isExpanded = !isExpanded">
       <div class="music-player__icon">
@@ -121,15 +116,8 @@ const handleVolumeChange = (e: Event) => {
 
         <div class="music-player__volume">
           <span class="music-player__volume-icon">🔊</span>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.1"
-            :value="volume"
-            class="music-player__volume-slider"
-            @change="handleVolumeChange"
-          />
+          <input type="range" min="0" max="1" step="0.1" :value="volume" class="music-player__volume-slider"
+            @change="handleVolumeChange" />
         </div>
       </div>
     </transition>
@@ -174,9 +162,12 @@ const handleVolumeChange = (e: Event) => {
 }
 
 @keyframes bounce-music {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(1);
   }
+
   50% {
     transform: scale(1.2);
   }

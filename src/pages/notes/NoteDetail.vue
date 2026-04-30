@@ -54,9 +54,44 @@ async function handleTogglePin() {
 
 <template>
   <div class="note-detail-page">
-    <div v-if="loading" class="loading-state">
-      <div class="loading-dots"><span/><span/><span/></div>
-      <p>加载中...</p>
+    <div v-if="loading" class="container">
+      <div class="skeleton-hero glass-card">
+        <div class="detail-topbar">
+          <div class="skeleton skeleton-text skeleton-text--sm" style="width: 132px" />
+          <div class="detail-ops">
+            <div class="skeleton skeleton-pill" style="width: 86px" />
+            <div class="skeleton skeleton-pill" style="width: 78px" />
+            <div class="skeleton skeleton-pill" style="width: 78px" />
+          </div>
+        </div>
+
+        <header class="note-header">
+          <div class="note-header__meta">
+            <div class="skeleton skeleton-pill" style="width: 92px" />
+            <div class="skeleton skeleton-pill" style="width: 72px" />
+            <div class="skeleton skeleton-text skeleton-text--sm" style="width: 132px" />
+          </div>
+          <div class="skeleton skeleton-text skeleton-text--title" style="width: 72%" />
+          <div class="note-header__tags">
+            <div class="skeleton skeleton-pill" style="width: 78px" />
+            <div class="skeleton skeleton-pill" style="width: 66px" />
+            <div class="skeleton skeleton-pill" style="width: 90px" />
+          </div>
+        </header>
+      </div>
+
+      <main class="note-body glass-card">
+        <div class="skeleton skeleton-text" style="width: 100%" />
+        <div class="skeleton skeleton-text" style="width: 94%" />
+        <div class="skeleton skeleton-text" style="width: 98%" />
+        <div class="skeleton skeleton-text" style="width: 86%" />
+        <div class="skeleton skeleton-text" style="width: 92%" />
+        <div class="skeleton skeleton-text" style="width: 80%" />
+      </main>
+
+      <div class="note-footer">
+        <div class="skeleton skeleton-pill" style="width: 132px" />
+      </div>
     </div>
     <div v-else-if="note" class="container">
       <div class="detail-topbar">
@@ -115,12 +150,14 @@ async function handleTogglePin() {
 .note-header__tags { display: flex; flex-wrap: wrap; gap: 8px; }
 .note-body { padding: 40px 48px; margin-bottom: 32px; border-left: 4px solid var(--color-primary); }
 .note-footer { display: flex; align-items: center; gap: 16px; }
-.loading-state { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 120px 24px; color: var(--color-text-muted); }
-.loading-dots { display: flex; gap: 6px; }
-.loading-dots span { width: 10px; height: 10px; border-radius: 50%; background: var(--color-primary); animation: bounce 1.2s ease-in-out infinite; }
-.loading-dots span:nth-child(2) { animation-delay: 0.2s; }
-.loading-dots span:nth-child(3) { animation-delay: 0.4s; }
-@keyframes bounce { 0%,80%,100%{transform:scale(0.8);opacity:0.5}40%{transform:scale(1.2);opacity:1} }
+.skeleton-hero { padding: 24px; margin-bottom: 24px; }
+.skeleton { position: relative; overflow: hidden; background: color-mix(in srgb, var(--color-text-muted) 12%, var(--color-bg-card)); border-radius: var(--radius-md); }
+.skeleton::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent); animation: skeleton-shimmer 1.4s ease-in-out infinite; }
+.skeleton-text { height: 14px; margin-bottom: 12px; }
+.skeleton-text--sm { height: 12px; }
+.skeleton-text--title { height: 40px; margin-bottom: 18px; }
+.skeleton-pill { height: 34px; border-radius: var(--radius-full); }
+@keyframes skeleton-shimmer { 0%,100%{transform:translateX(-100%)} 50%{transform:translateX(100%)} }
 .not-found { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 20px; font-size: 1.5rem; color: var(--color-text-muted); }
 @media (max-width: 640px) { .note-body { padding: 24px 20px; } }
 </style>

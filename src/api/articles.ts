@@ -42,11 +42,13 @@ function toArticle(row: Record<string, unknown>): Article {
   }
 }
 
-function applyArticleFilters(query: {
-  order: (c: string, o: { ascending: boolean }) => typeof query
-  eq: (c: string, v: string | boolean) => typeof query
-  or: (f: string) => typeof query
-}, params?: ArticleQuery) {
+type ArticleFilterQuery<T> = {
+  order: (c: string, o: { ascending: boolean }) => T
+  eq: (c: string, v: string | boolean) => T
+  or: (f: string) => T
+}
+
+function applyArticleFilters<T extends ArticleFilterQuery<T>>(query: T, params?: ArticleQuery): T {
   let q = query.order('published_at', { ascending: false })
   if (params?.category) q = q.eq('category', params.category)
   if (params?.featured) q = q.eq('featured', true)
@@ -152,6 +154,6 @@ export const articleApi = {
   },
 
   async like(id: string, currentLikes: number): Promise<Article> {
-    return this.update(id, { likes: currentLikes + 1 })
+    return this.update(id, { likes: currentLikes })
   },
 }

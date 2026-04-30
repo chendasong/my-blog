@@ -9,6 +9,7 @@ export const useArticleStore = defineStore('article', () => {
   const listTotal = ref(0)
   const loading = ref(false)
   const error = ref<string | null>(null)
+  const likingIds = ref<Set<string>>(new Set())
 
   async function fetchList(params: {
     category?: string
@@ -41,5 +42,11 @@ export const useArticleStore = defineStore('article', () => {
     if (idx !== -1) articles.value[idx] = updated
   }
 
-  return { articles, listTotal, loading, error, fetchList, remove, like }
+  function addLikingId(id: string) {
+    likingIds.value.add(id)
+  }
+  function removeLikingId(id: string) {
+    likingIds.value.delete(id)
+  }
+  return { articles, listTotal, loading, error, fetchList, remove, like, likingIds, addLikingId, removeLikingId }
 })

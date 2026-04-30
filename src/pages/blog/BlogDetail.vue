@@ -8,17 +8,20 @@ import type { Article } from "@/types";
 import { pickRelatedArticles } from "@/lib/recommendArticles";
 import AppBadge from "@/components/common/AppBadge.vue";
 import AppButton from "@/components/common/AppButton.vue";
-
+import { useArticleStore } from "@/stores/article";
 import { marked } from "marked";
 
 const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
+const articleStore = useArticleStore();
 
 const article = ref<Article | null>(null);
 const recommended = ref<Article[]>([]);
 const loading = ref(true);
 const notFound = ref(false);
+
+const likeLoading = ref(false);
 
 const categoryColors: Record<string, string> = {
   技术: "#6C8EBF",
@@ -26,6 +29,7 @@ const categoryColors: Record<string, string> = {
   设计: "#B85450",
   思考: "#9673A6",
 };
+
 
 async function loadArticle() {
   const id = route.params.id as string;
@@ -57,9 +61,24 @@ function renderMarkdown(content: string) {
   return marked(content) as string;
 }
 
+const isLiked = computed(() => {
+  return !!article.value && articleStore.likingIds.has(article.value.id);
+});
+
 async function handleLike() {
-  if (!article.value) return;
-  article.value = await articleApi.like(article.value.id, article.value.likes);
+  if (!article.value || likeLoading.value || articleStore.likingIds.has(article.value.id)) return;
+  article.value.likes = article.value.likes + 1;
+  likeLoading.value = true;
+  const currentId = article.value.id;
+  articleStore.addLikingId(currentId);
+  try {
+    article.value = await articleApi.like(currentId, article.value.likes);
+  } catch {
+    article.value.likes--;
+    articleStore.removeLikingId(currentId);
+  } finally {
+    likeLoading.value = false;
+  }
 }
 
 const displayDate = computed(() => {
@@ -74,9 +93,65 @@ const displayDate = computed(() => {
 
 <template>
   <div class="blog-detail">
-    <div v-if="loading" class="loading-state">
-      <div class="loading-dots"><span /><span /><span /></div>
-      <p>加载中...</p>
+    <div v-if="loading" class="container">
+      <div class="detail-layout detail-layout--skeleton">
+        <div class="detail-main">
+          <div class="skeleton-hero glass-card">
+            <div class="detail-topbar">
+              <div class="skeleton skeleton-text skeleton-text--sm" style="width: 132px" />
+              <div class="skeleton skeleton-pill" style="width: 72px" />
+            </div>
+            <header class="article-header">
+              <div class="article-header__meta">
+                <div class="skeleton skeleton-pill" style="width: 64px" />
+                <div class="skeleton skeleton-text skeleton-text--sm" style="width: 140px" />
+                <div class="skeleton skeleton-text skeleton-text--sm" style="width: 92px" />
+              </div>
+              <div class="skeleton skeleton-text skeleton-text--title" style="width: 68%" />
+              <div class="skeleton skeleton-text skeleton-text--lg" style="width: 92%" />
+              <div class="skeleton skeleton-text skeleton-text--lg" style="width: 78%" />
+              <div class="skeleton skeleton-media" />
+              <div class="article-header__tags">
+                <div class="skeleton skeleton-pill" style="width: 78px" />
+                <div class="skeleton skeleton-pill" style="width: 64px" />
+                <div class="skeleton skeleton-pill" style="width: 88px" />
+              </div>
+            </header>
+          </div>
+
+          <main class="article-body glass-card">
+            <div class="skeleton skeleton-text" style="width: 100%" />
+            <div class="skeleton skeleton-text" style="width: 96%" />
+            <div class="skeleton skeleton-text" style="width: 98%" />
+            <div class="skeleton skeleton-text" style="width: 90%" />
+            <div class="skeleton skeleton-text" style="width: 94%" />
+            <div class="skeleton skeleton-text" style="width: 82%" />
+          </main>
+
+          <div class="article-footer">
+            <div class="skeleton skeleton-pill" style="width: 112px" />
+            <div class="skeleton skeleton-pill" style="width: 132px" />
+          </div>
+        </div>
+
+        <aside class="detail-sidebar" aria-hidden="true">
+          <div class="sidebar-card glass-card">
+            <div class="skeleton skeleton-text skeleton-text--lg" style="width: 84px" />
+            <div class="skeleton skeleton-text skeleton-text--sm" style="width: 100%; margin-top: 12px" />
+            <div class="skeleton skeleton-text skeleton-text--sm" style="width: 88%" />
+            <div class="rec-list">
+              <div v-for="i in 3" :key="i" class="rec-item__link">
+                <div class="skeleton skeleton-thumb" />
+                <div class="rec-item__body">
+                  <div class="skeleton skeleton-text skeleton-text--xs" style="width: 56px" />
+                  <div class="skeleton skeleton-text skeleton-text--sm" style="width: 100%; margin-top: 6px" />
+                  <div class="skeleton skeleton-text skeleton-text--sm" style="width: 82%" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </aside>
+      </div>
     </div>
     <div v-else-if="article" class="container">
       <div class="detail-layout">
@@ -86,10 +161,7 @@ const displayDate = computed(() => {
               ← 返回文章列表
             </button>
             <div v-if="authStore.isLoggedIn" class="detail-ops">
-              <button
-                class="op-btn"
-                @click="router.push(`/blog/${article.id}/edit`)"
-              >
+              <button class="op-btn" @click="router.push(`/blog/${article.id}/edit`)">
                 ✏️ 编辑
               </button>
             </div>
@@ -99,11 +171,7 @@ const displayDate = computed(() => {
               <AppBadge :color="categoryColors[article.category]">{{
                 article.category
               }}</AppBadge>
-              <span
-                class="meta-text"
-                :title="article.publishedAt || article.updatedAt"
-                >📅 {{ displayDate }}</span
-              >
+              <span class="meta-text" :title="article.publishedAt || article.updatedAt">📅 {{ displayDate }}</span>
               <span class="meta-text">👁 {{ article.views }} 次阅读</span>
             </div>
             <h1 class="article-header__title">{{ article.title }}</h1>
@@ -112,9 +180,7 @@ const displayDate = computed(() => {
               <img :src="article.cover" :alt="article.title" />
             </div>
             <div class="article-header__tags">
-              <span v-for="tag in article.tags" :key="tag" class="tag"
-                ># {{ tag }}</span
-              >
+              <span v-for="tag in article.tags" :key="tag" class="tag"># {{ tag }}</span>
             </div>
           </header>
 
@@ -123,20 +189,15 @@ const displayDate = computed(() => {
           </main>
 
           <div class="article-footer animate-fade-in-up delay-300">
-            <button class="like-btn" @click="handleLike">
-              ❤️ {{ article.likes }} 点赞
+            <button class="like-btn" :class="{ 'like-btn--liked': isLiked }" :disabled="isLiked || likeLoading"
+              @click="handleLike">
+              {{ isLiked ? "💖 已点赞" : "❤️ 点赞" }} {{ article.likes }}
             </button>
-            <AppButton variant="secondary" @click="router.push('/blog')"
-              >← 返回文章列表</AppButton
-            >
+            <AppButton variant="secondary" @click="router.push('/blog')">← 返回文章列表</AppButton>
           </div>
         </div>
 
-        <aside
-          v-if="recommended.length"
-          class="detail-sidebar"
-          aria-label="推荐阅读"
-        >
+        <aside v-if="recommended.length" class="detail-sidebar" aria-label="推荐阅读">
           <div class="sidebar-card glass-card animate-fade-in">
             <h2 class="sidebar-card__title">推荐阅读</h2>
             <p class="sidebar-card__hint">
@@ -144,43 +205,25 @@ const displayDate = computed(() => {
             </p>
             <ul class="rec-list">
               <li v-for="item in recommended" :key="item.id" class="rec-item">
-                <router-link
-                  :to="`/blog/${item.id}`"
-                  class="rec-item__link"
-                >
-                  <div
-                    v-if="item.cover"
-                    class="rec-item__thumb"
-                  >
-                    <img
-                      :src="item.cover"
-                      :alt="item.title"
-                      loading="lazy"
-                      @error="($event.target as HTMLImageElement).style.display = 'none'"
-                    />
+                <router-link :to="`/blog/${item.id}`" class="rec-item__link">
+                  <div v-if="item.cover" class="rec-item__thumb">
+                    <img :src="item.cover" :alt="item.title" loading="lazy"
+                      @error="($event.target as HTMLImageElement).style.display = 'none'" />
                   </div>
                   <div class="rec-item__body">
-                    <span
-                      class="rec-item__cat"
-                      :style="{
-                        color: categoryColors[item.category] || 'var(--color-primary)',
-                      }"
-                      >{{ item.category }}</span
-                    >
+                    <span class="rec-item__cat" :style="{
+                      color: categoryColors[item.category] || 'var(--color-primary)',
+                    }">{{ item.category }}</span>
                     <h3 class="rec-item__title">{{ item.title }}</h3>
                     <div class="rec-item__meta">
                       <span>👁 {{ item.views }}</span>
-                      <span v-if="item.tags?.length"
-                        >· {{ item.tags.slice(0, 2).join(' · ') }}</span
-                      >
+                      <span v-if="item.tags?.length">· {{ item.tags.slice(0, 2).join(' · ') }}</span>
                     </div>
                   </div>
                 </router-link>
               </li>
             </ul>
-            <router-link to="/blog" class="sidebar-card__more"
-              >更多文章 →</router-link
-            >
+            <router-link to="/blog" class="sidebar-card__more">更多文章 →</router-link>
           </div>
         </aside>
       </div>
@@ -198,23 +241,28 @@ const displayDate = computed(() => {
   margin: 0 auto;
   padding: 40px 24px 80px;
 }
+
 .detail-layout {
   display: flex;
   align-items: flex-start;
   gap: 36px;
 }
+
 .detail-main {
   flex: 1;
   min-width: 0;
 }
+
 .detail-sidebar {
   width: 300px;
   flex-shrink: 0;
 }
+
 .sidebar-card {
   padding: 20px 18px;
   border-radius: var(--radius-lg);
 }
+
 .sidebar-card__title {
   margin: 0 0 6px;
   font-size: var(--text-lg);
@@ -222,12 +270,14 @@ const displayDate = computed(() => {
   color: var(--color-text-primary);
   letter-spacing: -0.02em;
 }
+
 .sidebar-card__hint {
   margin: 0 0 16px;
   font-size: var(--text-xs);
   color: var(--color-text-muted);
   line-height: 1.45;
 }
+
 .rec-list {
   list-style: none;
   margin: 0;
@@ -236,6 +286,7 @@ const displayDate = computed(() => {
   flex-direction: column;
   gap: 12px;
 }
+
 .rec-item__link {
   display: flex;
   gap: 12px;
@@ -249,9 +300,11 @@ const displayDate = computed(() => {
     background 0.2s ease,
     transform 0.2s ease;
 }
+
 .rec-item__link:hover {
   background: color-mix(in srgb, var(--color-primary) 8%, transparent);
 }
+
 .rec-item__thumb {
   width: 72px;
   height: 52px;
@@ -260,15 +313,18 @@ const displayDate = computed(() => {
   overflow: hidden;
   background: var(--gradient-hero);
 }
+
 .rec-item__thumb img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
+
 .rec-item__body {
   min-width: 0;
   flex: 1;
 }
+
 .rec-item__cat {
   display: block;
   font-size: 11px;
@@ -276,6 +332,7 @@ const displayDate = computed(() => {
   margin-bottom: 4px;
   letter-spacing: 0.02em;
 }
+
 .rec-item__title {
   margin: 0 0 6px;
   font-size: var(--text-sm);
@@ -287,6 +344,7 @@ const displayDate = computed(() => {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
 .rec-item__meta {
   font-size: 11px;
   color: var(--color-text-muted);
@@ -295,6 +353,7 @@ const displayDate = computed(() => {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
 .sidebar-card__more {
   display: block;
   margin-top: 16px;
@@ -307,18 +366,22 @@ const displayDate = computed(() => {
   text-align: center;
   transition: opacity 0.2s ease;
 }
+
 .sidebar-card__more:hover {
   opacity: 0.85;
 }
+
 /* 侧栏与主栏等高（stretch），sticky 才能在整页滚动时相对视口吸附；勿在侧栏父级使用 transform 动画 */
 @media (min-width: 961px) {
   .detail-layout {
     align-items: stretch;
   }
+
   .detail-sidebar {
     display: flex;
     flex-direction: column;
   }
+
   .sidebar-card {
     position: sticky;
     top: 80px;
@@ -328,25 +391,30 @@ const displayDate = computed(() => {
     overflow-y: auto;
   }
 }
+
 @media (max-width: 960px) {
   .detail-layout {
     flex-direction: column;
   }
+
   .detail-sidebar {
     width: 100%;
   }
+
   .sidebar-card {
     position: static;
     max-height: none;
     overflow-y: visible;
   }
 }
+
 .detail-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 32px;
 }
+
 .back-btn {
   color: var(--color-text-muted);
   font-size: var(--text-sm);
@@ -355,13 +423,16 @@ const displayDate = computed(() => {
   background: none;
   border: none;
 }
+
 .back-btn:hover {
   color: var(--color-primary);
 }
+
 .detail-ops {
   display: flex;
   gap: 8px;
 }
+
 .op-btn {
   padding: 6px 14px;
   border-radius: var(--radius-full);
@@ -371,13 +442,16 @@ const displayDate = computed(() => {
   cursor: pointer;
   transition: all var(--transition-fast);
 }
+
 .op-btn:hover {
   border-color: var(--color-primary);
   color: var(--color-primary);
 }
+
 .article-header {
   margin-bottom: 32px;
 }
+
 .article-header__cover {
   border-radius: var(--radius-xl);
   overflow: hidden;
@@ -386,11 +460,13 @@ const displayDate = computed(() => {
   margin-bottom: 20px;
   background: var(--gradient-hero);
 }
+
 .article-header__cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
+
 .article-header__meta {
   display: flex;
   flex-wrap: wrap;
@@ -398,10 +474,12 @@ const displayDate = computed(() => {
   gap: 12px;
   margin-bottom: 16px;
 }
+
 .meta-text {
   font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
+
 .article-header__title {
   font-size: clamp(1.8rem, 4vw, 2.8rem);
   font-weight: 700;
@@ -410,6 +488,7 @@ const displayDate = computed(() => {
   letter-spacing: -0.02em;
   margin-bottom: 16px;
 }
+
 .article-header__summary {
   font-size: var(--text-lg);
   color: var(--color-text-secondary);
@@ -417,21 +496,25 @@ const displayDate = computed(() => {
   line-height: 1.7;
   margin-bottom: 20px;
 }
+
 .article-header__tags {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 4px;
 }
+
 .article-body {
   padding: 40px 48px;
   margin-bottom: 32px;
 }
+
 .article-footer {
   display: flex;
   align-items: center;
   gap: 16px;
 }
+
 .like-btn {
   display: flex;
   align-items: center;
@@ -444,48 +527,103 @@ const displayDate = computed(() => {
   cursor: pointer;
   transition: all var(--transition-fast);
 }
+
 .like-btn:hover {
   border-color: #e8607a;
   color: #e8607a;
   transform: scale(1.05);
 }
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  padding: 120px 24px;
-  color: var(--color-text-muted);
+
+.like-btn--liked {
+  border-color: #e8607a;
+  color: #e8607a;
+  background: color-mix(in srgb, #e8607a 12%, transparent);
 }
-.loading-dots {
-  display: flex;
-  gap: 6px;
+
+.like-btn:disabled {
+  cursor: not-allowed;
+  transform: none;
 }
-.loading-dots span {
-  width: 10px;
+
+.detail-layout--skeleton {
+  align-items: flex-start;
+}
+
+.skeleton-hero {
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--color-text-muted) 12%, var(--color-bg-card));
+  border-radius: var(--radius-md);
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-text {
+  height: 14px;
+  margin-bottom: 12px;
+}
+
+.skeleton-text--xs {
   height: 10px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  animation: bounce 1.2s ease-in-out infinite;
+  margin-bottom: 8px;
 }
-.loading-dots span:nth-child(2) {
-  animation-delay: 0.2s;
+
+.skeleton-text--sm {
+  height: 12px;
 }
-.loading-dots span:nth-child(3) {
-  animation-delay: 0.4s;
+
+.skeleton-text--lg {
+  height: 18px;
 }
-@keyframes bounce {
+
+.skeleton-text--title {
+  height: 40px;
+  margin-bottom: 18px;
+}
+
+.skeleton-pill {
+  height: 34px;
+  border-radius: var(--radius-full);
+}
+
+.skeleton-media {
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: var(--radius-xl);
+  margin: 8px 0 20px;
+}
+
+.skeleton-thumb {
+  width: 72px;
+  height: 52px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+@keyframes skeleton-shimmer {
+
   0%,
-  80%,
   100% {
-    transform: scale(0.8);
-    opacity: 0.5;
+    transform: translateX(-100%);
   }
-  40% {
-    transform: scale(1.2);
-    opacity: 1;
+
+  50% {
+    transform: translateX(100%);
   }
 }
+
 .not-found {
   display: flex;
   flex-direction: column;
@@ -496,6 +634,7 @@ const displayDate = computed(() => {
   font-size: 1.5rem;
   color: var(--color-text-muted);
 }
+
 @media (max-width: 640px) {
   .article-body {
     padding: 24px 20px;
