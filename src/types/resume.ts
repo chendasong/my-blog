@@ -26,6 +26,26 @@ export interface Resume {
   updatedAt: string
 }
 
+/** 单份针对不同公司/场景的简历内容 */
+export interface ResumeTemplate {
+  id: string
+  name: string
+  sections: ResumeSection[]
+  theme: 'light' | 'dark'
+}
+
+/** 持久化整包：多模板 + 当前选中 + 不可删除的默认模板 id */
+export interface ResumeDocument {
+  id: string
+  userId: string
+  createdAt: string
+  updatedAt: string
+  /** 与某个 ResumeTemplate.id 对应，该条不允许删除（可与「默认模板」重命名共存） */
+  defaultTemplateId: string
+  activeTemplateId: string
+  templates: ResumeTemplate[]
+}
+
 export interface BasicInfo {
   name: string
   title: string
@@ -152,3 +172,13 @@ export type ResumeSection =
   | LanguagesSection
   | CertificationsSection
   | IntroductionSection
+
+/** Supabase 表 resumes 一行（字段：id, user_id, name, content, created_at, updated_at） */
+export interface ResumeRow {
+  id: string
+  user_id: string
+  name: string
+  content: { sections: ResumeSection[]; theme: 'light' | 'dark' }
+  created_at: string
+  updated_at: string
+}

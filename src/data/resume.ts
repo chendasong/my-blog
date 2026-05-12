@@ -1,4 +1,5 @@
-import type { Resume } from '@/types/resume'
+import type { Resume, ResumeDocument } from '@/types/resume'
+import { wrapResumeAsDocument } from '@/lib/resumeDocument'
 
 export function generateDefaultResume(): Resume {
   return {
@@ -151,4 +152,8 @@ export function generateDefaultResume(): Resume {
       },
     ],
   }
+}
+
+export function generateDefaultResumeDocument(): ResumeDocument {
+  return wrapResumeAsDocument(generateDefaultResume())
 }
