@@ -6,8 +6,7 @@
     "useDefineForClassFields": true,
     // 类型检查时假定可用的内置库：ES2020 API + 浏览器 DOM + 可迭代 DOM 集合
     "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    // 自动并入的全局类型包；不写则默认包含 node_modules/@types 下全部，这里收窄为 Vite 与 Vue
-    "types": ["vite/client", "vue"],
+    // Vite 全局类型见 src/vite-env.d.ts（/// <reference types="vite/client" />）。不要在 types 里写 "vue"（那会去找 @types/vue，Vue 3 类型在 vue 包内）。
     // 模块语法采用最新 ES 模块，具体打包由构建工具处理
     "module": "ESNext",
     // 跳过对 .d.ts 声明文件的类型检查，加快编译、避免第三方声明冲突
@@ -34,7 +33,7 @@
     "noFallthroughCasesInSwitch": true,
     // 解析非相对路径模块时的根目录（配合 paths 使用）
     "baseUrl": ".",
-    // 路径别名：@/ 映射到 src/
+    // 路径别名：须与 vite resolve.alias 一致，`@/foo` 对应 `paths` 的 `@/*` → `src/*`
     "paths": {
       "@/*": ["src/*"]
     }

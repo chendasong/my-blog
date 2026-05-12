@@ -8,10 +8,7 @@ import { localVercelApiPlugin } from './vite/localVercelApiPlugin'
  * 七牛在 .env 里常与 API 共用 `QINIU_PUBLIC_BASE` / `QINIU_ADMIN_SECRET`（无 VITE_ 前缀），
  * 这里合并进前端可读变量，避免「只配了 QINIU_* 导致前端认为未配置七牛」。
  */
-function pickEnv(
-  env: Record<string, string>,
-  keys: string[],
-): string {
+function pickEnv(env: Record<string, string>, keys: string[]): string {
   for (const k of keys) {
     const v = env[k] ?? process.env[k]
     if (v !== undefined && String(v).trim() !== '') return String(v).trim()
@@ -51,7 +48,11 @@ export default defineConfig(({ mode, command }) => {
   /** Vercel 上若漏配 VITE_*，打包会静默嵌入 supabase.ts 里的占位 URL，线上表现为 ERR_CONNECTION_CLOSED */
   if (isBuild && isProd && process.env.VERCEL === '1') {
     const supabaseUrl = (env.VITE_SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? '').trim()
-    const supabaseAnon = (env.VITE_SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? '').trim()
+    const supabaseAnon = (
+      env.VITE_SUPABASE_ANON_KEY ??
+      process.env.VITE_SUPABASE_ANON_KEY ??
+      ''
+    ).trim()
     if (!supabaseUrl || !supabaseAnon) {
       throw new Error(
         '[Vite] Vercel 生产构建缺少 VITE_SUPABASE_URL 或 VITE_SUPABASE_ANON_KEY。请在 Vercel → Project → Settings → Environment Variables 为 Production 添加这两项（与本地 .env 同名），保存后 Redeploy。Vite 在编译期注入这些变量，不会读取你本机的 .env。',
@@ -59,14 +60,11 @@ export default defineConfig(({ mode, command }) => {
     }
   }
 
-  const qiniuPublic = pickEnv(env, [
-    'VITE_QINIU_PUBLIC_BASE',
-    'QINIU_PUBLIC_BASE',
-  ]).replace(/\/$/, '')
-  const qiniuAdminSecret = pickEnv(env, [
-    'VITE_QINIU_ADMIN_SECRET',
-    'QINIU_ADMIN_SECRET',
-  ])
+  const qiniuPublic = pickEnv(env, ['VITE_QINIU_PUBLIC_BASE', 'QINIU_PUBLIC_BASE']).replace(
+    /\/$/,
+    '',
+  )
+  const qiniuAdminSecret = pickEnv(env, ['VITE_QINIU_ADMIN_SECRET', 'QINIU_ADMIN_SECRET'])
   const apiBase = pickEnv(env, ['VITE_API_BASE', 'API_BASE'])
 
   return {
@@ -88,21 +86,21 @@ export default defineConfig(({ mode, command }) => {
       chunkSizeWarningLimit: 900,
       terserOptions: isBuild
         ? {
-          compress: {
-            drop_console: isProd,
-            drop_debugger: true,
-            passes: 2,
-            ecma: 2020,
-            module: true,
-          },
-          mangle: {
-            safari10: true,
-          },
-          format: {
-            comments: false,
-            ecma: 2020,
-          },
-        }
+            compress: {
+              drop_console: isProd,
+              drop_debugger: true,
+              passes: 2,
+              ecma: 2020,
+              module: true,
+            },
+            mangle: {
+              safari10: true,
+            },
+            format: {
+              comments: false,
+              ecma: 2020,
+            },
+          }
         : undefined,
       rollupOptions: {
         output: {
