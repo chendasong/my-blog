@@ -5,6 +5,7 @@
     "Vue.volar"
   ],
   "unwantedRecommendations": [
-    "rvest.vs-code-prettier-eslint"
+    "rvest.vs-code-prettier-eslint",
+    "octref.vetur"
   ]
 }

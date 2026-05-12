@@ -10,6 +10,8 @@ import AppBadge from "@/components/common/AppBadge.vue";
 import AppButton from "@/components/common/AppButton.vue";
 import { useArticleStore } from "@/stores/article";
 import { marked } from "marked";
+import DOMPurify from "dompurify";
+import { isStoredArticleHtml } from "@/lib/articleContent";
 
 const route = useRoute();
 const router = useRouter();
@@ -57,7 +59,10 @@ async function loadArticle() {
 
 watch(() => route.params.id, loadArticle, { immediate: true });
 
-function renderMarkdown(content: string) {
+function renderArticleBody(content: string) {
+  if (isStoredArticleHtml(content)) {
+    return DOMPurify.sanitize(content, { USE_PROFILES: { html: true } });
+  }
   return marked(content) as string;
 }
 
@@ -185,7 +190,7 @@ const displayDate = computed(() => {
           </header>
 
           <main class="article-body glass-card animate-fade-in-up delay-200">
-            <div class="prose" v-html="renderMarkdown(article.content)" />
+            <div class="prose" v-html="renderArticleBody(article.content)" />
           </main>
 
           <div class="article-footer animate-fade-in-up delay-300">

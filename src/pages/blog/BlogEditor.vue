@@ -7,6 +7,8 @@ import { mirrorRemoteImageToHostingIfNeeded } from '@/lib/qiniuClient'
 import { generateImages } from '@/api/siliconflow'
 import { categories, AI_IMAGE_STYLES, DEFAULT_AI_IMAGE_STYLE_ID, getAiImageStyleById, buildCoverImagePrompt } from '@/data'
 import AppButton from '@/components/common/AppButton.vue'
+import DocumentBodyEditor from '@/components/editor/DocumentBodyEditor.vue'
+import { isRichTextEmpty } from '@/lib/articleContent'
 import dayjs from 'dayjs'
 
 const route = useRoute()
@@ -104,7 +106,7 @@ function getActiveCover(): string {
 }
 
 async function handleSubmit() {
-  if (!form.value.title.trim() || !form.value.content.trim()) {
+  if (!form.value.title.trim() || isRichTextEmpty(form.value.content)) {
     toast.error('标题和内容不能为空')
     return
   }
@@ -169,9 +171,8 @@ async function handleSubmit() {
           <textarea v-model="form.summary" class="form-textarea" rows="2" placeholder="输入文章摘要..." />
         </div>
         <div class="form-group">
-          <label class="form-label">正文内容 * <span class="form-hint">（支持 Markdown）</span></label>
-          <textarea v-model="form.content" class="content-textarea" rows="24"
-            placeholder="开始写文章...&#10;&#10;支持 Markdown 格式：&#10;## 标题&#10;- 列表项&#10;- [ ] 待办事项&#10;**加粗** *斜体* `代码`&#10;&#10;&gt; 引用文本" />
+          <label class="form-label">正文内容 * <span class="form-hint">（文档式编辑，所见即所得）</span></label>
+          <DocumentBodyEditor v-model="form.content" placeholder="在此输入正文，可用上方工具栏设置标题、列表、引用等" />
         </div>
       </div>
       <aside class="editor-sidebar">
@@ -385,26 +386,6 @@ async function handleSubmit() {
 .form-textarea {
   resize: vertical;
   line-height: 1.6;
-}
-
-.content-textarea:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 10%, transparent);
-}
-
-.content-textarea {
-  width: 100%;
-  padding: 16px;
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  font-size: var(--text-sm);
-  color: var(--color-text-primary);
-  font-family: var(--font-mono);
-  line-height: 1.8;
-  resize: vertical;
-  outline: none;
-  transition: border-color var(--transition-fast);
 }
 
 .form-label-check {
