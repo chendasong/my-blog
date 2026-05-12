@@ -48,6 +48,17 @@ export default defineConfig(({ mode, command }) => {
   const isProd = mode === 'production'
   const isBuild = command === 'build'
 
+  /** Vercel 上若漏配 VITE_*，打包会静默嵌入 supabase.ts 里的占位 URL，线上表现为 ERR_CONNECTION_CLOSED */
+  if (isBuild && isProd && process.env.VERCEL === '1') {
+    const supabaseUrl = (env.VITE_SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? '').trim()
+    const supabaseAnon = (env.VITE_SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY ?? '').trim()
+    if (!supabaseUrl || !supabaseAnon) {
+      throw new Error(
+        '[Vite] Vercel 生产构建缺少 VITE_SUPABASE_URL 或 VITE_SUPABASE_ANON_KEY。请在 Vercel → Project → Settings → Environment Variables 为 Production 添加这两项（与本地 .env 同名），保存后 Redeploy。Vite 在编译期注入这些变量，不会读取你本机的 .env。',
+      )
+    }
+  }
+
   const qiniuPublic = pickEnv(env, [
     'VITE_QINIU_PUBLIC_BASE',
     'QINIU_PUBLIC_BASE',

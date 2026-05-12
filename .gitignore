@@ -49,3 +49,5 @@ coverage/
 *.local
 
 docs
+
+settings.json
