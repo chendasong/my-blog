@@ -5,6 +5,9 @@ import { useToast } from '@/composables/useToast'
 import { useNoteStore } from '@/stores/note'
 import { noteApi } from '@/api/notes'
 import AppButton from '@/components/common/AppButton.vue'
+import DocumentBodyEditor from '@/components/editor/DocumentBodyEditor.vue'
+import { isRichTextEmpty } from '@/lib/articleContent'
+import { noteContentToEditorHtml } from '@/lib/noteHtml'
 import type { Note, NoteCategory } from '@/types'
 
 const route = useRoute()
@@ -37,7 +40,7 @@ onMounted(async () => {
       const note = await noteApi.getById(route.params.id as string)
       form.value = {
         title: note.title,
-        content: note.content,
+        content: noteContentToEditorHtml(note.content),
         category: note.category,
         tags: note.tags.join(', '),
         color: note.color,
@@ -55,6 +58,10 @@ onMounted(async () => {
 async function handleSubmit() {
   if (!form.value.title.trim()) {
     toast.error('标题不能为空')
+    return
+  }
+  if (isRichTextEmpty(form.value.content)) {
+    toast.error('正文不能为空')
     return
   }
   saving.value = true
@@ -101,12 +108,11 @@ async function handleSubmit() {
           />
         </div>
         <div class="form-group">
-          <label class="form-label">正文内容 <span class="form-hint">（支持 Markdown）</span></label>
-          <textarea
+          <label class="form-label">正文内容</label>
+          <DocumentBodyEditor
             v-model="form.content"
-            class="content-textarea"
-            rows="24"
-            placeholder="开始写笔记...&#10;&#10;支持 Markdown 格式：&#10;## 标题&#10;- 列表项&#10;- [ ] 待办事项&#10;**加粗** `代码`"
+            enable-task-list
+            placeholder="用工具栏设置标题、列表、待办勾选等，无需记格式…"
           />
         </div>
       </div>
@@ -172,9 +178,6 @@ async function handleSubmit() {
 .title-input { width: 100%; padding: 14px 0; background: transparent; border: none; border-bottom: 2px solid var(--color-border); font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 700; color: var(--color-text-primary); outline: none; font-family: var(--font-sans); transition: border-color var(--transition-fast); }
 .title-input:focus { border-color: var(--color-primary); }
 .title-input::placeholder { color: var(--color-text-muted); font-weight: 400; }
-.content-textarea { width: 100%; padding: 16px; background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); font-size: var(--text-sm); color: var(--color-text-primary); font-family: var(--font-mono); line-height: 1.8; resize: vertical; outline: none; transition: border-color var(--transition-fast); }
-.content-textarea:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 10%, transparent); }
-.content-textarea::placeholder { color: var(--color-text-muted); }
 .sidebar-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: var(--radius-xl); padding: 20px; display: flex; flex-direction: column; gap: 16px; position: sticky; top: 80px; }
 .sidebar-card__title { font-size: var(--text-base); font-weight: 600; color: var(--color-text-primary); margin-bottom: 4px; }
 .form-input, .form-select { padding: 9px 13px; border: 1px solid var(--color-border); border-radius: var(--radius-md); font-size: var(--text-sm); color: var(--color-text-primary); outline: none; width: 100%; font-family: var(--font-sans); transition: border-color var(--transition-fast); }

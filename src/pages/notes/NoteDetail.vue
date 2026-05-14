@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { noteApi } from '@/api/notes'
 import { useToast } from '@/composables/useToast'
-import { marked } from 'marked'
+import { noteContentToSafeHtmlForView } from '@/lib/noteHtml'
 import type { Note } from '@/types'
 import AppButton from '@/components/common/AppButton.vue'
 
@@ -35,7 +35,7 @@ onMounted(async () => {
 })
 
 function renderContent(content: string) {
-  return marked(content) as string
+  return noteContentToSafeHtmlForView(content)
 }
 
 async function handleDelete() {
@@ -118,7 +118,7 @@ async function handleTogglePin() {
       </header>
 
       <main class="note-body glass-card animate-fade-in-up delay-200" :style="{ borderLeftColor: note.color }">
-        <div class="prose" v-html="renderContent(note.content)" />
+        <div class="prose note-body__prose" v-html="renderContent(note.content)" />
       </main>
 
       <div class="note-footer animate-fade-in-up delay-300">
@@ -160,4 +160,44 @@ async function handleTogglePin() {
 @keyframes skeleton-shimmer { 0%,100%{transform:translateX(-100%)} 50%{transform:translateX(100%)} }
 .not-found { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; gap: 20px; font-size: 1.5rem; color: var(--color-text-muted); }
 @media (max-width: 640px) { .note-body { padding: 24px 20px; } }
+
+/* 详情只读：任务列表不可切换（label 包裹 checkbox 时，仅禁 input 的指针仍会被 label 点击触发） */
+.note-body__prose :deep(ul[data-type='taskList'] li label) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
+  pointer-events: none;
+  cursor: default;
+}
+
+.note-body__prose :deep(ul[data-type='taskList'] input[type='checkbox']) {
+  pointer-events: none;
+  cursor: default;
+}
+
+.note-body__prose :deep(ul[data-type='taskList']) {
+  list-style: none;
+  padding-left: 0;
+  margin: 1em 0;
+}
+
+.note-body__prose :deep(ul[data-type='taskList'] li) {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.35em 0;
+}
+
+.note-body__prose :deep(ul[data-type='taskList'] li > div) {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.note-body__prose :deep(ul[data-type='taskList'] li > div > p) {
+  margin: 0;
+}
 </style>

@@ -1,30 +1,49 @@
 <script setup lang="ts">
+import type { Extensions } from '@tiptap/core'
 import { onBeforeUnmount, watch } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
+import TaskItem from '@tiptap/extension-task-item'
+import TaskList from '@tiptap/extension-task-list'
 import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
 import Placeholder from '@tiptap/extension-placeholder'
 
-const props = defineProps<{
-  modelValue: string
-  placeholder?: string
-}>()
+const props = withDefaults(
+  defineProps<{
+    modelValue: string
+    placeholder?: string
+    /** 为 true 时启用可勾选任务列表（笔记等）；博客保持默认 false */
+    enableTaskList?: boolean
+  }>(),
+  { enableTaskList: false },
+)
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
 
-const editor = useEditor({
-  content: props.modelValue || '',
-  extensions: [
+function buildExtensions(): Extensions {
+  const exts: Extensions = [
     StarterKit.configure({
       heading: { levels: [1, 2, 3] },
       bulletList: { keepMarks: true, keepAttributes: false },
       orderedList: { keepMarks: true, keepAttributes: false },
-      /** 输出带 class 的段落，便于无 scoped 样式精确命中（旧 HTML 仍为纯 <p>，下方样式双写） */
       paragraph: { HTMLAttributes: { class: 'doc-p' } },
     }),
+  ]
+  if (props.enableTaskList) {
+    exts.push(
+      TaskList.configure({
+        HTMLAttributes: { class: 'doc-task-list' },
+      }),
+      TaskItem.configure({
+        nested: true,
+        HTMLAttributes: { class: 'doc-task-item' },
+      }),
+    )
+  }
+  exts.push(
     Underline,
     Link.configure({
       openOnClick: false,
@@ -33,7 +52,13 @@ const editor = useEditor({
     Placeholder.configure({
       placeholder: props.placeholder ?? '输入正文，支持标题、列表、引用、加粗等…',
     }),
-  ],
+  )
+  return exts
+}
+
+const editor = useEditor({
+  content: props.modelValue || '',
+  extensions: buildExtensions(),
   editorProps: {
     attributes: {
       class: 'document-body-editor__pm',
@@ -74,7 +99,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="document-body-editor">
+  <div class="document-body-editor" :class="{ 'document-body-editor--tasks': enableTaskList }">
     <div v-if="editor" class="document-body-editor__toolbar" role="toolbar" aria-label="正文格式">
       <div class="document-body-editor__toolbar-group">
         <button
@@ -181,6 +206,16 @@ onBeforeUnmount(() => {
           @click="editor.chain().focus().toggleOrderedList().run()"
         >
           1. 列表
+        </button>
+        <button
+          v-if="enableTaskList"
+          type="button"
+          class="document-body-editor__btn"
+          :class="{ 'document-body-editor__btn--on': editor.isActive('taskList') }"
+          title="待办勾选列表"
+          @click="editor.chain().focus().toggleTaskList().run()"
+        >
+          待办
         </button>
         <button
           type="button"
@@ -303,8 +338,6 @@ onBeforeUnmount(() => {
 }
 
 .document-body-editor__content {
-  max-width: 720px;
-  margin: 0 auto;
   padding: 28px 32px 48px;
 }
 </style>
@@ -375,6 +408,54 @@ onBeforeUnmount(() => {
 .document-body-editor .document-body-editor__pm ol {
   padding-left: 1.35em;
   margin: var(--doc-block-margin-y) 0;
+}
+
+.document-body-editor .document-body-editor__pm ul[data-type='taskList'] {
+  list-style: none;
+  padding-left: 0;
+  margin: var(--doc-block-margin-y) 0;
+}
+
+.document-body-editor .document-body-editor__pm ul[data-type='taskList'] li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.35em 0;
+}
+
+.document-body-editor .document-body-editor__pm ul[data-type='taskList'] li label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.document-body-editor .document-body-editor__pm ul[data-type='taskList'] li label input[type='checkbox'] {
+  width: 1.05em;
+  height: 1.05em;
+  margin: 0;
+  vertical-align: middle;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.document-body-editor .document-body-editor__pm ul[data-type='taskList'] li > div {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.document-body-editor .document-body-editor__pm ul[data-type='taskList'] li > div > p {
+  margin: 0;
+}
+
+.document-body-editor .document-body-editor__pm ul[data-type='taskList'] li[data-checked='true'] > div {
+  opacity: 0.75;
+  text-decoration: line-through;
 }
 
 .document-body-editor .document-body-editor__pm blockquote {

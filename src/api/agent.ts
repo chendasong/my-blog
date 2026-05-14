@@ -1,6 +1,7 @@
 import { jsonrepair } from 'jsonrepair'
 import { getVolcanoChatModel, getVolcanoKey, VOLCANO_ARK_API } from '@/api/volcano'
 import { categories } from '@/data/articles'
+import { ensureArticleBodyHtml } from '@/lib/articleContent'
 import type { AgentArticleDraft, AgentNoteDraft, NoteCategory } from '@/types'
 
 /** AI Agent：火山方舟文本对话（与博客「AI 生成封面」同密钥，模型见 VITE_VOLCANO_CHAT_MODEL） */
@@ -418,7 +419,7 @@ export async function generateAgentWritingPrompt(
   )
 }
 
-/** 第二步：生成文章结构化字段（Markdown 正文） */
+/** 第二步：生成文章结构化字段（富文本 HTML 正文，与博客编辑器 TipTap 一致） */
 export async function generateAgentArticleDraft(
   userDescription: string,
   writingPrompt: string,
@@ -428,13 +429,14 @@ export async function generateAgentArticleDraft(
 {
   "title": "标题",
   "summary": "1-2句摘要，120字内",
-  "content": "Markdown 正文，800-2500 字，层次清晰",
+  "content": "<p>以块级标签开头的语义化 HTML 正文片段（约 800–2500 字当量）</p>",
   "category": "必须从以下选一：${CATEGORY_NAMES}",
   "tags": ["标签1","标签2"],
   "coverPrompt": "封面主题描述（只写画面内容与主体元素，不要写 16:9、横图、风格词；这些会由系统统一加）",
   "featured": false
 }
-重要：字符串里若出现英文双引号 "，必须写成 \\"；更推荐用中文引号「」或不用引号。禁止 markdown 代码围栏、禁止 JSON 外任何字符。`
+对 content 的硬性要求：输出**富文本 HTML**，禁止 Markdown（不要用 # 标题、**粗体**、- 列表、\`\`\` 代码围栏等）。整段正文必须以块级标签开头，例如 <p>、<h2>、<h3>、<ul>、<ol>、<blockquote>、<pre>、<hr>。常用内联：<strong> <em> <u> <a href=\\"URL\\"> <code>；列表用 <ul><li> / <ol><li>；代码块用 <pre><code>。段落一律用 <p>…</p>。
+重要：JSON 字符串里若出现英文双引号 "，必须写成 \\"；更推荐用中文引号「」或不用引号。禁止 markdown 代码围栏包裹整个 JSON、禁止 JSON 外任何字符。`
 
   const raw = await volcanoChatComplete(
     [
@@ -458,7 +460,7 @@ export async function generateAgentArticleDraft(
   return {
     title: asString(obj.title, '未命名文章'),
     summary: asString(obj.summary, ''),
-    content: asString(obj.content, ''),
+    content: ensureArticleBodyHtml(asString(obj.content, '')),
     category: normalizeArticleCategory(obj.category),
     tags: asStringArray(obj.tags).slice(0, 8),
     coverPrompt: normalizeCoverPrompt(obj.coverPrompt, userDescription.slice(0, 200)),

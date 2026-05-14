@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Note } from '@/types'
+import { notePlainTextPreview } from '@/lib/noteHtml'
 
 const props = defineProps<{ note: Note; active?: boolean }>()
 defineEmits<{ select: [note: Note] }>()
@@ -24,7 +25,7 @@ const categoryLabels: Record<string, string> = {
       <span v-if="props.note.pinned" class="note-card__pin">📌</span>
     </div>
     <h4 class="note-card__title">{{ props.note.title }}</h4>
-    <p class="note-card__preview">{{ props.note.content.replace(/[#*`\[\]]/g, '').slice(0, 80) }}...</p>
+    <p class="note-card__preview">{{ notePlainTextPreview(props.note.content, 80) || '…' }}</p>
     <div class="note-card__footer">
       <span class="note-card__date">{{ props.note.updatedAt }}</span>
       <div class="note-card__tags">

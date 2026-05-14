@@ -5,6 +5,7 @@ import { useToast } from "@/composables/useToast";
 import { useNoteStore } from "@/stores/note";
 import { useAuthStore } from "@/stores/auth";
 import AppButton from "@/components/common/AppButton.vue";
+import { notePlainTextPreview } from "@/lib/noteHtml";
 import type { Note, NoteCategory } from "@/types";
 
 const PAGE_SIZE = 9;
@@ -108,7 +109,7 @@ async function handleTogglePin(note: Note) {
             >
           </div>
           <h3 class="note-card__title">{{ note.title }}</h3>
-          <p class="note-card__preview">{{ note.content.slice(0, 80) }}...</p>
+          <p class="note-card__preview">{{ notePlainTextPreview(note.content, 80) || "…" }}</p>
           <div class="note-card__footer">
             <span class="note-card__date">{{ note.updatedAt }}</span>
             <div
