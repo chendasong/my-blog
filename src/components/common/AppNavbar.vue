@@ -16,6 +16,7 @@ const navItems = [
   { label: '首页', path: '/', icon: '🏠' },
   { label: '文章', path: '/blog', icon: '📝' },
   { label: '笔记', path: '/notes', icon: '📔' },
+  { label: 'AI 知识库', path: '/ai-knowledge', icon: '📚' },
   { label: 'AI 工坊', path: '/ai', icon: '✨' },
   { label: '写作 Agent', path: '/ai/agent', icon: '🤖' },
   { label: '我的简历', path: '/resume', icon: '📄' },
@@ -34,6 +35,7 @@ const themeOptions: { id: AppTheme; label: string }[] = [
 const isActive = (path: string) => {
   if (path === '/') return route.path === '/'
   if (path === '/ai') return route.path === '/ai' || route.path === '/ai/'
+  if (path === '/ai-knowledge') return route.path.startsWith('/ai-knowledge')
   return route.path.startsWith(path)
 }
 

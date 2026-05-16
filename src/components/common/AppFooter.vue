@@ -30,6 +30,7 @@ onMounted(async () => {
             <RouterLink class="footer__link" to="/">首页</RouterLink>
             <RouterLink class="footer__link" to="/blog">文章</RouterLink>
             <RouterLink class="footer__link" to="/notes">笔记</RouterLink>
+            <RouterLink class="footer__link" to="/ai-knowledge">AI 知识库</RouterLink>
             <!-- <RouterLink class="footer__link" to="/blog/new">写文章</RouterLink>
             <RouterLink class="footer__link" to="/notes/new">写笔记</RouterLink> -->
           </div>

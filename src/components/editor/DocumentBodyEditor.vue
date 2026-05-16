@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Extensions } from '@tiptap/core'
-import { onBeforeUnmount, watch } from 'vue'
+import { ref, onBeforeUnmount, watch } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import TaskItem from '@tiptap/extension-task-item'
@@ -8,6 +8,9 @@ import TaskList from '@tiptap/extension-task-list'
 import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
 import Placeholder from '@tiptap/extension-placeholder'
+import Image from '@tiptap/extension-image'
+import { uploadImage } from '@/api'
+import { useToast } from '@/composables/useToast'
 
 const props = withDefaults(
   defineProps<{
@@ -15,13 +18,22 @@ const props = withDefaults(
     placeholder?: string
     /** 为 true 时启用可勾选任务列表（笔记等）；博客保持默认 false */
     enableTaskList?: boolean
+    /** 图片上传路径前缀 */
+    imageUploadPrefix?: string
   }>(),
-  { enableTaskList: false },
+  { 
+    enableTaskList: false,
+    imageUploadPrefix: 'editor',
+  },
 )
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
 }>()
+
+const toast = useToast()
+const uploadingImage = ref(false)
+const imageInputRef = ref<HTMLInputElement | null>(null)
 
 function buildExtensions(): Extensions {
   const exts: Extensions = [
@@ -48,6 +60,12 @@ function buildExtensions(): Extensions {
     Link.configure({
       openOnClick: false,
       HTMLAttributes: { rel: 'noopener noreferrer', target: '_blank' },
+    }),
+    Image.configure({
+      allowBase64: false,
+      HTMLAttributes: {
+        class: 'editor-image',
+      },
     }),
     Placeholder.configure({
       placeholder: props.placeholder ?? '输入正文，支持标题、列表、引用、加粗等…',
@@ -93,6 +111,48 @@ function setLink() {
   ed.chain().focus().extendMarkRange('link').setLink({ href: url.trim() }).run()
 }
 
+function triggerImageUpload() {
+  imageInputRef.value?.click()
+}
+
+async function handleImageUpload(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  
+  // 验证文件类型
+  if (!file.type.startsWith('image/')) {
+    toast.error('请选择图片文件')
+    return
+  }
+  
+  // 验证文件大小 (最大 5MB)
+  if (file.size > 5 * 1024 * 1024) {
+    toast.error('图片大小不能超过 5MB')
+    return
+  }
+  
+  uploadingImage.value = true
+  try {
+    const imageUrl = await uploadImage(file, props.imageUploadPrefix)
+    insertImage(imageUrl)
+    toast.success('图片插入成功')
+  } catch (error) {
+    toast.error(error instanceof Error ? error.message : '图片上传失败')
+  } finally {
+    uploadingImage.value = false
+    // 清空 input 以便可以再次选择同一文件
+    if (imageInputRef.value) {
+      imageInputRef.value.value = ''
+    }
+  }
+}
+
+function insertImage(url: string) {
+  const ed = editor.value
+  if (!ed) return
+  ed.chain().focus().setImage({ src: url }).run()
+}
+
 onBeforeUnmount(() => {
   editor.value?.destroy()
 })
@@ -100,6 +160,15 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="document-body-editor" :class="{ 'document-body-editor--tasks': enableTaskList }">
+    <!-- 隐藏的图片上传 input -->
+    <input
+      ref="imageInputRef"
+      type="file"
+      accept="image/*"
+      style="display: none"
+      @change="handleImageUpload"
+    />
+    
     <div v-if="editor" class="document-body-editor__toolbar" role="toolbar" aria-label="正文格式">
       <div class="document-body-editor__toolbar-group">
         <button
@@ -238,6 +307,18 @@ onBeforeUnmount(() => {
       </div>
       <span class="document-body-editor__sep" aria-hidden="true" />
       <div class="document-body-editor__toolbar-group">
+        <button 
+          type="button" 
+          class="document-body-editor__btn" 
+          :class="{ 'document-body-editor__btn--on': editor.isActive('image') }"
+          :disabled="uploadingImage"
+          title="插入图片"
+          @click="triggerImageUpload"
+        >
+          <span v-if="uploadingImage">⏳</span>
+          <span v-else>🖼️</span>
+          图片
+        </button>
         <button type="button" class="document-body-editor__btn" title="分隔线" @click="editor.chain().focus().setHorizontalRule().run()">
           ─
         </button>
@@ -315,7 +396,7 @@ onBeforeUnmount(() => {
   font-family: var(--font-sans);
 }
 
-.document-body-editor__btn:hover {
+.document-body-editor__btn:hover:not(:disabled) {
   background: color-mix(in srgb, var(--color-primary) 8%, transparent);
   color: var(--color-text-primary);
 }
@@ -324,6 +405,11 @@ onBeforeUnmount(() => {
   background: color-mix(in srgb, var(--color-primary) 14%, transparent);
   color: var(--color-primary);
   border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
+}
+
+.document-body-editor__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .document-body-editor__u {
@@ -406,102 +492,103 @@ onBeforeUnmount(() => {
 
 .document-body-editor .document-body-editor__pm ul,
 .document-body-editor .document-body-editor__pm ol {
-  padding-left: 1.35em;
   margin: var(--doc-block-margin-y) 0;
+  padding-left: 1.75em;
 }
 
-.document-body-editor .document-body-editor__pm ul[data-type='taskList'] {
+.document-body-editor .document-body-editor__pm ul.doc-task-list {
   list-style: none;
-  padding-left: 0;
-  margin: var(--doc-block-margin-y) 0;
+  padding-left: 0.25em;
 }
 
-.document-body-editor .document-body-editor__pm ul[data-type='taskList'] li {
+.document-body-editor .document-body-editor__pm ul.doc-task-list li.doc-task-item {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 0.35em 0;
+  align-items: flex-start;
+  gap: 0.5em;
 }
 
-.document-body-editor .document-body-editor__pm ul[data-type='taskList'] li label {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.document-body-editor .document-body-editor__pm ul.doc-task-list li.doc-task-item > label {
   flex-shrink: 0;
-  line-height: 1;
-  cursor: pointer;
-  user-select: none;
+  margin-top: 0.35em;
 }
 
-.document-body-editor .document-body-editor__pm ul[data-type='taskList'] li label input[type='checkbox'] {
-  width: 1.05em;
-  height: 1.05em;
-  margin: 0;
-  vertical-align: middle;
-  cursor: pointer;
-  accent-color: var(--color-primary);
-}
-
-.document-body-editor .document-body-editor__pm ul[data-type='taskList'] li > div {
+.document-body-editor .document-body-editor__pm ul.doc-task-list li.doc-task-item > div {
   flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-}
-
-.document-body-editor .document-body-editor__pm ul[data-type='taskList'] li > div > p {
-  margin: 0;
-}
-
-.document-body-editor .document-body-editor__pm ul[data-type='taskList'] li[data-checked='true'] > div {
-  opacity: 0.75;
-  text-decoration: line-through;
 }
 
 .document-body-editor .document-body-editor__pm blockquote {
   margin: var(--doc-block-margin-y) 0;
-  padding: 0.35em 0 0.35em 1em;
-  border-left: 3px solid color-mix(in srgb, var(--color-primary) 55%, var(--color-border));
-  color: var(--color-text-secondary);
-}
-
-.document-body-editor .document-body-editor__pm blockquote > p:last-child {
-  margin-bottom: 0;
+  padding: 0.75em 1em;
+  border-left: 4px solid var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 .document-body-editor .document-body-editor__pm pre {
   margin: var(--doc-block-margin-y) 0;
-  padding: 14px 16px;
+  padding: 1em;
+  background: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
   border-radius: var(--radius-md);
-  background: var(--prose-pre-bg);
-  color: var(--prose-pre-fg);
-  font-family: var(--font-mono);
-  font-size: 0.88em;
   overflow-x: auto;
 }
 
-.document-body-editor .document-body-editor__pm code {
+.document-body-editor .document-body-editor__pm pre code {
+  background: transparent;
+  padding: 0;
   font-family: var(--font-mono);
-  background: var(--prose-code-bg);
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 0.9em;
+  font-size: 0.95em;
 }
 
-.document-body-editor .document-body-editor__pm pre code {
-  background: none;
-  padding: 0;
+.document-body-editor .document-body-editor__pm code {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
 }
 
 .document-body-editor .document-body-editor__pm a {
   color: var(--color-primary);
   text-decoration: underline;
-  cursor: pointer;
+  text-underline-offset: 2px;
 }
 
 .document-body-editor .document-body-editor__pm hr {
-  margin: calc(var(--doc-block-margin-y) * 1.5) 0;
+  margin: var(--doc-block-margin-y) 0;
   border: none;
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-border-strong);
+}
+
+.document-body-editor .document-body-editor__pm strong {
+  font-weight: 700;
+}
+
+.document-body-editor .document-body-editor__pm em {
+  font-style: italic;
+}
+
+.document-body-editor .document-body-editor__pm s,
+.document-body-editor .document-body-editor__pm del {
+  text-decoration: line-through;
+}
+
+.document-body-editor .document-body-editor__pm u {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* 图片样式 */
+.document-body-editor .document-body-editor__pm .editor-image {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: var(--doc-block-margin-y) 0;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.document-body-editor .document-body-editor__pm .editor-image.ProseMirror-selectednode {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 </style>

@@ -38,6 +38,28 @@ const router = createRouter({
         { path: 'notes/new', name: 'notes-new', component: () => import('@/pages/notes/NoteEditor.vue') },
         { path: 'notes/:id', name: 'notes-detail', component: () => import('@/pages/notes/NoteDetail.vue') },
         { path: 'notes/:id/edit', name: 'notes-edit', component: () => import('@/pages/notes/NoteEditor.vue'), meta: { requiresAuth: true } },
+        {
+          path: 'ai-knowledge/new',
+          name: 'ai-knowledge-new',
+          component: () => import('@/pages/ai-knowledge/AiKnowledgeEdit.vue'),
+          meta: { requiresAuth: true },
+        },
+        {
+          path: 'ai-knowledge/:articleId/edit',
+          name: 'ai-knowledge-edit',
+          component: () => import('@/pages/ai-knowledge/AiKnowledgeEdit.vue'),
+          meta: { requiresAuth: true },
+        },
+        {
+          path: 'ai-knowledge/:articleId',
+          name: 'ai-knowledge-article',
+          component: () => import('@/pages/ai-knowledge/AiKnowledgePage.vue'),
+        },
+        {
+          path: 'ai-knowledge',
+          name: 'ai-knowledge-index',
+          component: () => import('@/pages/ai-knowledge/AiKnowledgePage.vue'),
+        },
         { path: 'ai', name: 'ai', component: () => import('@/pages/ai/AIPage.vue') },
         {
           path: 'ai/agent',
