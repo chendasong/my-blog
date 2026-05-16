@@ -1,19 +1,20 @@
-/** AI 知识库（静态 / 后续可接 Supabase） */
+/** AI 知识库（Supabase：knowledge_catalog 目录+标题，knowledge_article_contents 正文） */
 
 export interface KnowledgeArticle {
   id: string
   folderId: string
   title: string
-  /** Markdown 正文 */
+  /** 正文；进入页时为空，按 id 拉取后填充 */
   content: string
   updatedAt: string
 }
 
+/** 目录节点；articleIds 为其下文章标题（树子节点）顺序 */
 export interface KnowledgeFolder {
   id: string
   title: string
-  /** 展示用 emoji 或短符号 */
   icon?: string
-  /** 该目录下文章 id 顺序（与 Supabase sort_order 一致） */
   articleIds: string[]
 }
+
+export type ArticleContentStatus = 'idle' | 'loading' | 'loaded' | 'error'

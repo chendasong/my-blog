@@ -182,8 +182,9 @@ const articleContent = `<p align="center">
 
 async function getFirstFolder() {
   const { data, error } = await supabase
-    .from('knowledge_folders')
+    .from('knowledge_catalog')
     .select('*')
+    .eq('kind', 'folder')
     .order('sort_order', { ascending: true })
     .limit(1)
     .single()
@@ -197,8 +198,9 @@ async function getFirstFolder() {
 
 async function getMaxArticleSort(folderId) {
   const { data } = await supabase
-    .from('knowledge_articles')
+    .from('knowledge_catalog')
     .select('sort_order')
+    .eq('kind', 'article')
     .eq('folder_id', folderId)
     .order('sort_order', { ascending: false })
     .limit(1)
@@ -211,18 +213,23 @@ async function insertArticle(folderId, title, content) {
   const now = new Date().toISOString()
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
 
-  const { error } = await supabase.from('knowledge_articles').insert({
+  const { error: catalogError } = await supabase.from('knowledge_catalog').insert({
     id,
+    kind: 'article',
     folder_id: folderId,
     title,
-    content,
+    icon: '📁',
     sort_order,
     updated_at: now,
   })
+  if (catalogError) throw new Error(`插入目录项失败: ${catalogError.message}`)
 
-  if (error) {
-    throw new Error(`插入文章失败: ${error.message}`)
-  }
+  const { error: contentError } = await supabase.from('knowledge_article_contents').insert({
+    article_id: id,
+    content,
+    updated_at: now,
+  })
+  if (contentError) throw new Error(`插入正文失败: ${contentError.message}`)
 
   return id
 }

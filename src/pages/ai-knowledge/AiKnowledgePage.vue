@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAiKnowledgeStore } from '@/stores/aiKnowledge'
 import AppButton from '@/components/common/AppButton.vue'
@@ -10,6 +10,8 @@ import AiKnowledgeArticlePanel from '@/pages/ai-knowledge/AiKnowledgeArticlePane
 import AiKnowledgeArticleSkeleton from '@/pages/ai-knowledge/AiKnowledgeArticleSkeleton.vue'
 
 defineOptions({ name: 'AiKnowledgePage' })
+
+const SIDEBAR_COLLAPSED_KEY = 'ak-sidebar-collapsed'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,11 +27,27 @@ const currentArticle = computed(() => {
 
 const shellThree = computed(() => !!currentArticle.value)
 
-const articleSuspenseKey = computed(() => articleIdParam.value || '__idx__')
+const sidebarCollapsed = ref(
+  typeof localStorage !== 'undefined' && localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1',
+)
+
+function toggleSidebar() {
+  sidebarCollapsed.value = !sidebarCollapsed.value
+  localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed.value ? '1' : '0')
+}
+
+function redirectFromIndexToFirstArticle() {
+  if (!store.libraryHydrated || store.loading) return
+  if (route.name !== 'ai-knowledge-index') return
+  if (articleIdParam.value) return
+  const first = store.firstArticleId()
+  if (first) router.replace({ name: 'ai-knowledge-article', params: { articleId: first }, replace: true })
+}
 
 watch(currentArticle, (a) => {
   if (route.name !== 'ai-knowledge-article') return
   if (!articleIdParam.value) return
+  if (!store.libraryHydrated || store.loading) return
   if (a) return
   const nextId = store.firstArticleId()
   if (nextId) router.replace({ name: 'ai-knowledge-article', params: { articleId: nextId } })
@@ -37,18 +55,34 @@ watch(currentArticle, (a) => {
 })
 
 watch(
-  () => [store.loading, route.name, articleIdParam.value, store.folders.length, store.allArticleList.length] as const,
-  () => {
-    if (store.loading) return
-    if (route.name !== 'ai-knowledge-index') return
-    if (articleIdParam.value) return
-    const first = store.firstArticleId()
-    if (first) {
-      router.replace({ name: 'ai-knowledge-article', params: { articleId: first }, replace: true })
-    }
-  },
-  { flush: 'post' },
+  () =>
+    [
+      store.libraryHydrated,
+      store.loading,
+      route.name,
+      articleIdParam.value,
+      store.folders.length,
+      store.allArticleList.length,
+    ] as const,
+  redirectFromIndexToFirstArticle,
+  { flush: 'post', immediate: true },
 )
+
+/** 目录树就绪后再拉正文，避免竞态误报「文章不存在」 */
+watch(
+  () => [articleIdParam.value, store.libraryHydrated] as const,
+  ([id, hydrated]) => {
+    if (!id || !hydrated) return
+    void store.ensureArticleContent(id)
+  },
+  { immediate: true },
+)
+
+onMounted(() => {
+  void nextTick().then(() => {
+    redirectFromIndexToFirstArticle()
+  })
+})
 
 const folderModal = ref<'add' | 'rename' | null>(null)
 const folderModalTargetId = ref<string | null>(null)
@@ -127,22 +161,48 @@ async function tryDeleteArticle(article: KnowledgeArticle) {
 
 <template>
   <div class="ak-page">
-    <div class="ak-shell" :class="{ 'ak-shell--three': shellThree }">
-      <aside class="ak-sidebar">
-        <Suspense>
-          <AiKnowledgeSidebarPanel
+    <div
+      class="ak-shell"
+      :class="{
+        'ak-shell--three': shellThree,
+        'ak-shell--sidebar-collapsed': sidebarCollapsed,
+      }"
+    >
+      <div class="ak-sidebar-rail" :class="{ 'ak-sidebar-rail--collapsed': sidebarCollapsed }">
+        <aside v-show="!sidebarCollapsed" class="ak-sidebar">
+          <Suspense>
+            <AiKnowledgeSidebarPanel
             @add-folder="openAddFolder"
             @rename-folder="openRenameFolder"
             @confirm-delete-folder="confirmDeleteFolder"
             @delete-article="tryDeleteArticle"
-          />
-          <template #fallback>
-            <AiKnowledgeSidebarSkeleton />
-          </template>
-        </Suspense>
-      </aside>
+            />
+            <template #fallback>
+              <AiKnowledgeSidebarSkeleton />
+            </template>
+          </Suspense>
+        </aside>
+        <button
+          type="button"
+          class="ak-sidebar-rail-toggle"
+          :aria-label="sidebarCollapsed ? '展开目录' : '收起目录'"
+          :title="sidebarCollapsed ? '展开目录' : '收起目录'"
+          :aria-expanded="!sidebarCollapsed"
+          @click="toggleSidebar"
+        >
+          <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path
+              d="M10 4L6 8l4 4"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
 
-      <Suspense :key="articleSuspenseKey">
+      <Suspense>
         <AiKnowledgeArticlePanel :article-id="articleIdParam" @add-folder="openAddFolder" />
         <template #fallback>
           <AiKnowledgeArticleSkeleton />

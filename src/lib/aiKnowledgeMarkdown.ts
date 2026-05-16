@@ -72,7 +72,41 @@ export function buildTocFromArticleBody(content: string): KnowledgeTocItem[] {
   return buildTocFromMarkdown(content)
 }
 
-/** 将 TOC 中的 id 按顺序赋给容器内 h1–h3（与 marked 输出顺序一致） */
+/** 顶栏 sticky 高度 + 留白，与大纲点击滚动、IntersectionObserver 对齐 */
+export const KNOWLEDGE_HEADING_SCROLL_OFFSET = 80
+
+function assignHeadingIds(container: HTMLElement): KnowledgeTocItem[] {
+  const headings = container.querySelectorAll<HTMLElement>('h1, h2, h3')
+  const used = new Set<string>()
+  const out: KnowledgeTocItem[] = []
+
+  headings.forEach((el) => {
+    const tag = el.tagName.toLowerCase()
+    const level = tag === 'h1' ? 1 : tag === 'h2' ? 2 : 3
+    const text = el.textContent?.trim() || ''
+    let base = slugBase(text)
+    let id = base
+    let n = 1
+    while (used.has(id)) {
+      id = `${base}-${n++}`
+    }
+    used.add(id)
+    el.id = id
+    out.push({ level, text, id })
+  })
+
+  return out
+}
+
+/**
+ * 从已渲染正文同步大纲（唯一数据源，避免 Markdown 解析与 marked/DOMPurify 输出不一致）
+ */
+export function syncTocWithRenderedHeadings(container: HTMLElement | null): KnowledgeTocItem[] {
+  if (!container) return []
+  return assignHeadingIds(container)
+}
+
+/** @deprecated 使用 syncTocWithRenderedHeadings */
 export function applyHeadingIdsFromToc(container: HTMLElement | null, toc: KnowledgeTocItem[]) {
   if (!container) return
   const headings = container.querySelectorAll<HTMLElement>('h1, h2, h3')

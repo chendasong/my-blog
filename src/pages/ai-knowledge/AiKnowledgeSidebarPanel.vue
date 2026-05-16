@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useAiKnowledgeStore } from '@/stores/aiKnowledge'
@@ -36,10 +36,23 @@ function articlesInFolder(folder: KnowledgeFolder): KnowledgeArticle[] {
 
 function goArticle(id: string) {
   searchQuery.value = ''
+  store.expandFolderForArticle(id)
   router.push({ name: 'ai-knowledge-article', params: { articleId: id } })
 }
 
+function onFolderHeadClick(folderId: string) {
+  store.toggleFolder(folderId)
+}
+
 const articleIdParam = computed(() => (route.params.articleId as string) || '')
+
+watch(
+  articleIdParam,
+  (id) => {
+    if (id) store.expandFolderForArticle(id)
+  },
+  { immediate: true },
+)
 </script>
 
 <template>
@@ -68,8 +81,15 @@ const articleIdParam = computed(() => (route.params.articleId as string) || '')
           autocomplete="off"
         />
       </div>
-      <div v-if="authStore.isLoggedIn" class="ak-sidebar-tools">
-        <AppButton size="sm" variant="secondary" @click="emit('addFolder')">新建目录</AppButton>
+      <div class="ak-sidebar-tools">
+        <div class="ak-sidebar-tools__expand">
+          <button type="button" class="ak-tree-ctrl" @click="store.expandAllFolders()">全部展开</button>
+          <span class="ak-tree-ctrl-sep" aria-hidden="true">·</span>
+          <button type="button" class="ak-tree-ctrl" @click="store.collapseAllFolders()">全部收起</button>
+        </div>
+        <AppButton v-if="authStore.isLoggedIn" size="sm" variant="secondary" @click="emit('addFolder')">
+          新建目录
+        </AppButton>
       </div>
 
       <div v-if="isSearchMode" class="ak-tree ak-tree--search">
@@ -88,7 +108,15 @@ const articleIdParam = computed(() => (route.params.articleId as string) || '')
 
       <nav v-else class="ak-tree" aria-label="知识库目录">
         <div v-for="folder in folderList" :key="folder.id" class="ak-folder">
-          <div class="ak-folder__head" @click="store.toggleFolder(folder.id)">
+          <div
+            class="ak-folder__head"
+            role="button"
+            tabindex="0"
+            :aria-expanded="store.isFolderExpanded(folder.id)"
+            @click="onFolderHeadClick(folder.id)"
+            @keydown.enter.prevent="onFolderHeadClick(folder.id)"
+            @keydown.space.prevent="onFolderHeadClick(folder.id)"
+          >
             <span
               class="ak-folder__chevron"
               :class="{ 'ak-folder__chevron--open': store.isFolderExpanded(folder.id) }"

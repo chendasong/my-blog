@@ -6,9 +6,10 @@ import DOMPurify from 'dompurify'
 import { useAuthStore } from '@/stores/auth'
 import { useAiKnowledgeStore } from '@/stores/aiKnowledge'
 import AppButton from '@/components/common/AppButton.vue'
+import AiKnowledgeArticleSkeleton from '@/pages/ai-knowledge/AiKnowledgeArticleSkeleton.vue'
 import {
-  buildTocFromArticleBody,
-  applyHeadingIdsFromToc,
+  KNOWLEDGE_HEADING_SCROLL_OFFSET,
+  syncTocWithRenderedHeadings,
   type KnowledgeTocItem,
 } from '@/lib/aiKnowledgeMarkdown'
 import { isStoredArticleHtml } from '@/lib/articleContent'
@@ -20,22 +21,56 @@ const router = useRouter()
 const authStore = useAuthStore()
 const store = useAiKnowledgeStore()
 
-await store.ensureLibraryLoaded()
 await nextTick()
-await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
 
 const bodyRef = ref<HTMLElement | null>(null)
+const tocItems = ref<KnowledgeTocItem[]>([])
 const activeTocId = ref<string | null>(null)
+let tocScrollLockUntil = 0
 
-const currentArticle = computed(() => {
+const articleSummary = computed(() => {
   const id = props.articleId
   if (!id) return null
   return store.getArticle(id) ?? null
 })
 
+/** 目录树未就绪：有 articleId 但元数据尚未入 store，应显示骨架而非「不存在」 */
+const articleMetaLoading = computed(() => {
+  if (!props.articleId) return false
+  return !store.libraryHydrated || store.loading
+})
+
+/** 目录树已加载且确认无此文 */
+const articleNotFound = computed(() => {
+  if (!props.articleId) return false
+  if (articleMetaLoading.value) return false
+  return !articleSummary.value
+})
+
+const contentReady = computed(() => {
+  const id = props.articleId
+  if (!id) return false
+  return store.isArticleContentLoaded(id)
+})
+
+const contentLoading = computed(() => {
+  const id = props.articleId
+  if (!id) return false
+  if (!store.libraryHydrated) return true
+  const status = store.contentStatus[id]
+  if (status === 'idle' || status === 'loading') return true
+  return store.isArticleContentLoading(id)
+})
+
+const contentError = computed(() => {
+  const id = props.articleId
+  if (!id) return null
+  return store.getArticleContentError(id)
+})
+
 const htmlBody = computed(() => {
-  const a = currentArticle.value
-  if (!a) return ''
+  const a = articleSummary.value
+  if (!a || !contentReady.value) return ''
   if (isStoredArticleHtml(a.content)) {
     return DOMPurify.sanitize(a.content, { USE_PROFILES: { html: true } })
   }
@@ -43,73 +78,152 @@ const htmlBody = computed(() => {
   return DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } })
 })
 
-const toc = computed(() => {
-  const a = currentArticle.value
-  if (!a) return [] as KnowledgeTocItem[]
-  return buildTocFromArticleBody(a.content)
-})
+const showRefetchOverlay = computed(
+  () => store.loading && store.libraryHydrated && !!articleSummary.value && contentReady.value,
+)
 
-const showRefetchOverlay = computed(() => store.loading && store.libraryHydrated && !!currentArticle.value)
+/** 滚动高亮：已越过顶栏参考线的最后一个标题（比 IO 稳定，不会来回跳） */
+const TOC_ACTIVE_LINE = KNOWLEDGE_HEADING_SCROLL_OFFSET + 12
+let tocHeadingEls: { id: string; el: HTMLElement }[] = []
+let tocScrollRaf = 0
 
-let io: IntersectionObserver | null = null
+function findHeadingInBody(id: string): HTMLElement | null {
+  if (!bodyRef.value) return null
+  return bodyRef.value.querySelector<HTMLElement>(`#${CSS.escape(id)}`)
+}
 
-function setupTocObserver() {
-  io?.disconnect()
-  io = null
-  if (!bodyRef.value || toc.value.length === 0) {
+function rebuildTocHeadingCache() {
+  tocHeadingEls = tocItems.value
+    .map((item) => {
+      const el = findHeadingInBody(item.id)
+      return el ? { id: item.id, el } : null
+    })
+    .filter((x): x is { id: string; el: HTMLElement } => x != null)
+}
+
+function updateActiveTocFromScroll() {
+  if (performance.now() < tocScrollLockUntil) return
+  if (tocHeadingEls.length === 0) return
+
+  let nextId = tocHeadingEls[0].id
+  for (const { id, el } of tocHeadingEls) {
+    if (el.getBoundingClientRect().top <= TOC_ACTIVE_LINE) nextId = id
+    else break
+  }
+  if (activeTocId.value !== nextId) activeTocId.value = nextId
+}
+
+function onTocScroll() {
+  if (tocScrollRaf) return
+  tocScrollRaf = requestAnimationFrame(() => {
+    tocScrollRaf = 0
+    updateActiveTocFromScroll()
+  })
+}
+
+function setupTocScrollSpy() {
+  teardownTocScrollSpy()
+  const items = tocItems.value
+  if (!bodyRef.value || items.length === 0) {
     activeTocId.value = null
     return
   }
-  const rootMargin = '-15% 0px -60% 0px'
-  io = new IntersectionObserver(
-    (entries) => {
-      const visible = entries.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
-      if (visible[0]?.target?.id) activeTocId.value = visible[0].target.id
-    },
-    { root: null, rootMargin, threshold: [0, 0.25, 0.5, 1] },
-  )
-  for (const item of toc.value) {
-    const el = document.getElementById(item.id)
-    if (el) io.observe(el)
+  rebuildTocHeadingCache()
+  if (!activeTocId.value && items[0]) activeTocId.value = items[0].id
+  updateActiveTocFromScroll()
+  window.addEventListener('scroll', onTocScroll, { passive: true })
+  window.addEventListener('resize', onTocScroll, { passive: true })
+}
+
+function teardownTocScrollSpy() {
+  window.removeEventListener('scroll', onTocScroll)
+  window.removeEventListener('resize', onTocScroll)
+  if (tocScrollRaf) {
+    cancelAnimationFrame(tocScrollRaf)
+    tocScrollRaf = 0
   }
-  if (!activeTocId.value && toc.value[0]) activeTocId.value = toc.value[0].id
+  tocHeadingEls = []
 }
 
 async function refreshBodyAndToc() {
+  const id = props.articleId
+  if (!id || !contentReady.value) {
+    tocItems.value = []
+    activeTocId.value = null
+    teardownTocScrollSpy()
+    return
+  }
+
   await nextTick()
-  applyHeadingIdsFromToc(bodyRef.value, toc.value)
-  setupTocObserver()
+  for (let i = 0; i < 8 && !bodyRef.value; i += 1) {
+    await nextTick()
+  }
+  await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
+  if (!bodyRef.value) return
+
+  tocItems.value = syncTocWithRenderedHeadings(bodyRef.value)
+  if (tocItems.value[0]) activeTocId.value = tocItems.value[0].id
+  setupTocScrollSpy()
 }
 
 watch(
   () => props.articleId,
-  async (id, prev) => {
-    if (!id) return
-    if (id !== prev) {
-      await nextTick()
-      await new Promise<void>((r) => requestAnimationFrame(() => r()))
-    }
-    await refreshBodyAndToc()
+  () => {
+    activeTocId.value = null
+    tocScrollLockUntil = 0
+    tocItems.value = []
+    teardownTocScrollSpy()
+    void refreshBodyAndToc()
   },
-  { immediate: true },
 )
 
-watch([htmlBody, toc], refreshBodyAndToc, { flush: 'post' })
+watch(
+  () => [props.articleId, contentReady.value, htmlBody.value] as const,
+  () => {
+    void refreshBodyAndToc()
+  },
+  { flush: 'post', immediate: true },
+)
+
+watch(bodyRef, (el) => {
+  if (el && props.articleId && contentReady.value) void refreshBodyAndToc()
+})
 
 function scrollToHeading(id: string) {
-  const el = document.getElementById(id)
-  el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const el = findHeadingInBody(id)
+  if (!el) return
+  activeTocId.value = id
+  tocScrollLockUntil = performance.now() + 900
+  const top = Math.max(
+    0,
+    el.getBoundingClientRect().top + window.scrollY - KNOWLEDGE_HEADING_SCROLL_OFFSET,
+  )
+  const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+  window.scrollTo({ top, behavior })
+}
+
+function retryContent() {
+  const id = props.articleId
+  if (!id) return
+  void store.ensureArticleContent(id, { force: true })
 }
 
 onUnmounted(() => {
-  io?.disconnect()
-  io = null
+  teardownTocScrollSpy()
 })
 </script>
 
 <template>
-  <div class="ak-article-grid-host">
-    <main class="ak-main" :class="{ 'ak-main--empty': !props.articleId || !currentArticle, 'ak-main--rel': !!currentArticle }">
+  <AiKnowledgeArticleSkeleton v-if="articleMetaLoading" />
+
+  <div v-else class="ak-article-grid-host">
+    <main
+      class="ak-main"
+      :class="{
+        'ak-main--empty': !props.articleId || articleNotFound,
+        'ak-main--rel': !!articleSummary,
+      }"
+    >
       <div v-if="showRefetchOverlay" class="ak-local-loading ak-local-loading--article" aria-hidden="true">
         <div class="ak-skeleton-line ak-skeleton-line--lg" style="max-width: 55%" />
         <div class="ak-skeleton-line" />
@@ -125,7 +239,7 @@ onUnmounted(() => {
             <AppButton v-if="authStore.isLoggedIn" variant="primary" @click="emit('addFolder')">新建目录</AppButton>
           </div>
         </template>
-        <template v-else-if="!currentArticle">
+        <template v-else-if="articleNotFound">
           <div class="ak-empty-centered">
             <div class="ak-empty-visual" aria-hidden="true">📄</div>
             <p class="ak-empty-title">文章不存在</p>
@@ -136,12 +250,23 @@ onUnmounted(() => {
         <template v-else>
           <div class="ak-article-reading">
             <header class="ak-main__header">
-              <h1 class="ak-main__title">{{ currentArticle.title }}</h1>
+              <h1 class="ak-main__title">{{ articleSummary.title }}</h1>
               <div class="ak-main__meta">
-                <span>更新于 {{ currentArticle.updatedAt }}</span>
+                <span>更新于 {{ articleSummary.updatedAt }}</span>
               </div>
             </header>
-            <div ref="bodyRef" class="ak-body">
+
+            <div v-if="contentError" class="ak-body ak-body--status">
+              <p class="ak-muted">正文加载失败：{{ contentError }}</p>
+              <AppButton variant="secondary" size="sm" @click="retryContent">重试</AppButton>
+            </div>
+            <div v-else-if="contentLoading" class="ak-body ak-skeleton">
+              <div class="ak-skeleton-line ak-skeleton-line--lg" />
+              <div class="ak-skeleton-line" />
+              <div class="ak-skeleton-line" />
+              <div class="ak-skeleton-line ak-skeleton-line--short" />
+            </div>
+            <div v-else ref="bodyRef" class="ak-body">
               <div class="prose" v-html="htmlBody" />
             </div>
           </div>
@@ -149,11 +274,11 @@ onUnmounted(() => {
       </div>
     </main>
 
-    <aside v-if="currentArticle" class="ak-outline" aria-label="大纲">
+    <aside v-if="articleSummary && contentReady" class="ak-outline" aria-label="大纲">
       <div class="ak-outline__title">大纲</div>
-      <p v-if="!toc.length" class="ak-muted ak-outline__empty">本文暂无标题大纲</p>
+      <p v-if="!tocItems.length" class="ak-muted ak-outline__empty">本文暂无标题大纲</p>
       <ul v-else class="ak-outline__list">
-        <li v-for="item in toc" :key="item.id">
+        <li v-for="item in tocItems" :key="item.id">
           <button
             type="button"
             class="ak-outline__link"
@@ -176,6 +301,10 @@ onUnmounted(() => {
   position: relative;
   z-index: 0;
   width: 100%;
-  height: 100%;
+}
+
+.ak-body--status {
+  text-align: center;
+  padding: var(--space-8) var(--space-4);
 }
 </style>

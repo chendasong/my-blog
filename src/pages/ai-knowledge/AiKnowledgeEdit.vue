@@ -37,21 +37,24 @@ function goBack() {
   else router.push({ name: 'ai-knowledge-index' })
 }
 
-const currentEditArticle = computed(() => {
-  if (isNew.value) return null
-  return store.getArticle(articleId.value) ?? null
-})
-
 watch(
-  () => [isNew.value, articleId.value, route.query.folderId, currentEditArticle.value, store.folders.length] as const,
-  () => {
+  () => [isNew.value, articleId.value, route.query.folderId, store.folders.length] as const,
+  async () => {
+    await store.ensureLibraryLoaded()
     if (isNew.value) {
       folderId.value = pickDefaultFolder()
       title.value = ''
       content.value = ''
       return
     }
-    const a = currentEditArticle.value
+    const id = articleId.value
+    if (!id) return
+    try {
+      await store.ensureArticleContent(id)
+    } catch {
+      return
+    }
+    const a = store.getArticle(id)
     if (a) {
       title.value = a.title
       content.value = noteContentToEditorHtml(a.content)
@@ -62,7 +65,7 @@ watch(
 )
 
 onMounted(() => {
-  void store.fetchLibrary()
+  void store.ensureLibraryLoaded()
 })
 
 async function handleSubmit() {
