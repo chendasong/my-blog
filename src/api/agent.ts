@@ -1,11 +1,16 @@
 import { jsonrepair } from 'jsonrepair'
-import { getVolcanoChatModel, getVolcanoKey, VOLCANO_ARK_API } from '@/api/volcano'
+import {
+  assertAiModelReady,
+  getVolcanoArkApi,
+  getVolcanoChatModel,
+  getVolcanoKey,
+  MODEL_CONFIG_HINT,
+} from '@/api/volcano'
 import { categories } from '@/data/articles'
 import { ensureArticleBodyHtml } from '@/lib/articleContent'
 import type { AgentArticleDraft, AgentNoteDraft, NoteCategory } from '@/types'
 
-/** AI Agent：火山方舟文本对话（与博客「AI 生成封面」同密钥，模型见 VITE_VOLCANO_CHAT_MODEL） */
-const VOLC_CHAT_URL = `${VOLCANO_ARK_API}/chat/completions`
+/** AI Agent / 工坊文本：用户「模型配置」中的文本模型 */
 
 const CATEGORY_NAMES = categories.map((c) => c.name).join('、')
 const NOTE_CATEGORIES: NoteCategory[] = ['work', 'life', 'study', 'idea', 'todo']
@@ -32,13 +37,8 @@ export async function volcanoChatComplete(
   messages: VolcanoChatMessage[],
   options?: VolcanoChatOptions
 ): Promise<string> {
+  assertAiModelReady('text')
   const model = getVolcanoChatModel().trim()
-  if (!model) {
-    throw new Error('未配置 VITE_VOLCANO_CHAT_MODEL')
-  }
-  if (!getVolcanoKey().trim()) {
-    throw new Error('未配置 VITE_VOLCANO_KEY')
-  }
   const payload: Record<string, unknown> = {
     model,
     messages,
@@ -49,7 +49,7 @@ export async function volcanoChatComplete(
     payload.top_p = options.topP
   }
 
-  const resp = await fetch(VOLC_CHAT_URL, {
+  const resp = await fetch(`${getVolcanoArkApi()}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -127,15 +127,13 @@ export interface VolcanoChatStreamOptions {
 export async function volcanoChatStream(
   options: VolcanoChatStreamOptions,
 ): Promise<void> {
+  try {
+    assertAiModelReady('text')
+  } catch {
+    options.onError(MODEL_CONFIG_HINT)
+    return
+  }
   const model = getVolcanoChatModel().trim()
-  if (!model) {
-    options.onError('未配置 VITE_VOLCANO_CHAT_MODEL')
-    return
-  }
-  if (!getVolcanoKey().trim()) {
-    options.onError('未配置 VITE_VOLCANO_KEY')
-    return
-  }
 
   const {
     messages,
@@ -161,7 +159,7 @@ export async function volcanoChatStream(
   }
 
   try {
-    const resp = await fetch(VOLC_CHAT_URL, {
+    const resp = await fetch(`${getVolcanoArkApi()}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

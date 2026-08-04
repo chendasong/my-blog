@@ -66,7 +66,17 @@ const router = createRouter({
           name: 'ai-agent',
           component: () => import('@/pages/ai/AgentPage.vue'),
         },
-        { path: 'resume', name: 'resume', component: () => import('@/pages/resume/ResumeView.vue') },
+        {
+          path: 'model-config',
+          name: 'model-config',
+          component: () => import('@/pages/ModelConfigPage.vue'),
+        },
+        {
+          path: 'resume',
+          name: 'resume',
+          component: () => import('@/pages/resume/ResumeView.vue'),
+          meta: { requiresAuth: true },
+        },
         {
           path: 'resume/edit',
           name: 'resume-edit',

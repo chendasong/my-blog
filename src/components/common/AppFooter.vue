@@ -39,7 +39,7 @@ onMounted(async () => {
           <div class="footer__nav-row">
             <RouterLink class="footer__link" to="/ai">AI 工坊</RouterLink>
             <RouterLink class="footer__link" to="/ai/agent">写作 Agent</RouterLink>
-            <RouterLink class="footer__link" to="/resume">我的简历</RouterLink>
+            <RouterLink v-if="authStore.isLoggedIn" class="footer__link" to="/resume">我的简历</RouterLink>
             <RouterLink class="footer__link" to="/couple">情侣空间</RouterLink>
           </div>
         </div>

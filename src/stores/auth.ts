@@ -28,10 +28,16 @@ export const useAuthStore = defineStore('auth', () => {
       const result = await authApi.login(username, password)
       user.value = result
       localStorage.setItem(STORAGE_KEY, JSON.stringify(result))
+      // 模型配置加载失败不得影响登录态
+      void import('@/stores/modelConfig')
+        .then(({ useModelConfigStore }) => useModelConfigStore().load())
+        .catch((e) => console.error('登录后加载模型配置失败', e))
       return result
     } catch (error: unknown) {
+      user.value = null
+      localStorage.removeItem(STORAGE_KEY)
       console.error('登录失败:', error instanceof Error ? error.message : String(error))
-      return null
+      throw error instanceof Error ? error : new Error(String(error))
     } finally {
       loading.value = false
     }
@@ -40,6 +46,13 @@ export const useAuthStore = defineStore('auth', () => {
   function logout() {
     user.value = null
     localStorage.removeItem(STORAGE_KEY)
+    void import('@/stores/modelConfig')
+      .then(({ useModelConfigStore }) => {
+        useModelConfigStore().resetForGuest()
+      })
+      .catch(() => {
+        /* ignore */
+      })
   }
 
   async function updateProfile(data: Partial<AdminUser> & { avatar_file?: File }) {

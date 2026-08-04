@@ -68,7 +68,7 @@ npm run preview  # 本地预览生产构建
 - **Supabase**：`VITE_SUPABASE_URL`、`VITE_SUPABASE_ANON_KEY`
 - **七牛**：`QINIU_*`（密钥勿使用 `VITE_` 暴露到浏览器）、`QINIU_ADMIN_SECRET`、`VITE_QINIU_PUBLIC_BASE` 等
 - **API 根路径**：`VITE_API_BASE`（前后端不同源时）
-- **火山方舟**：`VITE_VOLCANO_*` 等（见 `.env.example` 注释）
+- **AI 模型**：在站点「模型配置」页填写火山方舟 Base URL / API Key / 文本·图片·视频模型 ID（不再使用 `VITE_VOLCANO_*`）
 
 七牛相关 **Secret 仅放在服务端**；前端通过本站 `/api/*` 换上传凭证、删除与转存。
 

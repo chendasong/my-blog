@@ -1,6 +1,8 @@
 import bcrypt from 'bcryptjs'
 import { supabase } from '@/lib/supabase'
+import { normalizeAiModelConfig } from '@/lib/modelConfig'
 import { uploadImageSmart, deleteRemoteStorageFile, isHostedStorageAssetUrl } from '@/lib/qiniuClient'
+import type { AiModelConfig } from '@/types/modelConfig'
 
 export interface AdminUser {
   id: string
@@ -51,13 +53,16 @@ async function loadCouplePasswordFromDb(): Promise<string> {
 
 export const authApi = {
   async login(username: string, password: string): Promise<AdminUser> {
+    // 用 * 兼容历史表结构；返回值不包含 password_hash / ai_model_config
     const { data, error } = await supabase
       .from('admin_users')
       .select('*')
       .eq('username', username)
       .single()
     if (error || !data) throw new Error('账号不存在')
-    const valid = await verifyPassword(password, data.password_hash)
+    const hash = typeof data.password_hash === 'string' ? data.password_hash : ''
+    if (!hash) throw new Error('账号数据异常，请联系管理员')
+    const valid = await verifyPassword(password, hash)
     if (!valid) throw new Error('密码错误')
     return {
       id: data.id,
@@ -83,7 +88,7 @@ export const authApi = {
         bio: data.bio,
       })
       .eq('id', id)
-      .select()
+      .select('id, username, nickname, avatar, email, bio')
       .single()
     if (error) throw error
     return {
@@ -110,6 +115,28 @@ export const authApi = {
   async verifyCouplePassword(candidate: string): Promise<boolean> {
     const expected = await loadCouplePasswordFromDb()
     return candidate.trim() === expected
+  },
+
+  async getAiModelConfig(userId: string): Promise<AiModelConfig> {
+    const { data, error } = await supabase
+      .from('admin_users')
+      .select('ai_model_config')
+      .eq('id', userId)
+      .maybeSingle()
+    if (error) throw error
+    return normalizeAiModelConfig(
+      (data?.ai_model_config as Partial<AiModelConfig> | null) ?? null,
+    )
+  },
+
+  async updateAiModelConfig(userId: string, config: AiModelConfig): Promise<AiModelConfig> {
+    const normalized = normalizeAiModelConfig(config)
+    const { error } = await supabase
+      .from('admin_users')
+      .update({ ai_model_config: normalized })
+      .eq('id', userId)
+    if (error) throw error
+    return normalized
   },
 
   async updateSiteSettings(settings: Partial<SiteSettings> & { avatar_file?: File; background_file?: File }): Promise<SiteSettings> {

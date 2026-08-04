@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
@@ -12,16 +12,20 @@ const appStore = useAppStore()
 const authStore = useAuthStore()
 
 const scrolled = ref(false)
-const navItems = [
+const allNavItems = [
   { label: '首页', path: '/', icon: '🏠' },
   { label: '文章', path: '/blog', icon: '📝' },
   { label: '笔记', path: '/notes', icon: '📔' },
   { label: 'AI 知识库', path: '/ai-knowledge', icon: '📚' },
   { label: 'AI 工坊', path: '/ai', icon: '✨' },
   { label: '写作 Agent', path: '/ai/agent', icon: '🤖' },
-  { label: '我的简历', path: '/resume', icon: '📄' },
+  { label: '我的简历', path: '/resume', icon: '📄', requiresAuth: true },
   { label: '情侣空间', path: '/couple', icon: '💑' },
 ]
+
+const navItems = computed(() =>
+  allNavItems.filter((item) => !item.requiresAuth || authStore.isLoggedIn),
+)
 
 const showAdminMenu = ref(false)
 const showThemeMenu = ref(false)
@@ -139,6 +143,7 @@ function handleLogout() {
                 </div>
               </Transition>
             </div>
+            <button class="dropdown-item" @click="navigate('/model-config')">🧠 模型配置</button>
             <template v-if="authStore.isLoggedIn">
               <button class="dropdown-item" @click="navigate('/admin/profile')">⚙️ 配置中心</button>
               <!-- <button class="dropdown-item" @click="navigate('/blog/new')">✏️ 写文章</button> -->
@@ -167,6 +172,7 @@ function handleLogout() {
           <span>{{ item.icon }}</span><span>{{ item.label }}</span>
         </button>
         <div class="mobile-drawer__divider" />
+        <button class="mobile-nav-item" @click="navigate('/model-config')">🧠 模型配置</button>
         <button v-if="authStore.isLoggedIn" class="mobile-nav-item" @click="navigate('/admin/profile')">⚙️ 管理设置</button>
         <button v-if="authStore.isLoggedIn" class="mobile-nav-item mobile-nav-item--danger" @click="handleLogout">🔒
           退出登录</button>

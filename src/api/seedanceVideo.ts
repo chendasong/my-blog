@@ -3,10 +3,11 @@ import {
   type VolcanoChatContentPart,
 } from '@/api/agent'
 import {
+  assertAiModelReady,
+  getVolcanoArkApi,
   getVolcanoChatModel,
   getVolcanoKey,
   getVolcanoVideoModel,
-  VOLCANO_ARK_API,
 } from '@/api/volcano'
 
 export type SeedanceRatio = '21:9' | '16:9' | '4:3' | '1:1' | '3:4' | '9:16' | 'adaptive'
@@ -101,16 +102,12 @@ function doubaoAudioPreferenceLine(generateAudio: boolean): string {
     : '【本次设置】将生成无声视频：提示词只写画面与氛围，不要写对白、旁白或具体音效描写。'
 }
 
-function assertVolcanoKey() {
-  const k = getVolcanoKey()
-  if (!k) throw new Error('未配置 VITE_VOLCANO_KEY，无法调用视频生成')
-  return k
-}
-
-function assertVolcanoVideoModel(): string {
-  const m = getVolcanoVideoModel()
-  if (!m) throw new Error('未配置 VITE_VOLCANO_VIDEO_MODEL，无法调用视频生成')
-  return m
+function assertVolcanoVideoReady() {
+  assertAiModelReady('video')
+  return {
+    key: getVolcanoKey(),
+    model: getVolcanoVideoModel(),
+  }
 }
 
 const SEEDANCE_VIDEO_PROMPT_SYSTEM = `你是电影工业级分镜与 AI 视频提示词专家，把用户的简短想法改写成适合文生视频模型（如 Seedance）的高质量中文画面描述。
@@ -141,7 +138,7 @@ function sanitizeExpandedVideoPrompt(raw: string, fallback: string): string {
 }
 
 /**
- * 用火山方舟对话模型（VITE_VOLCANO_CHAT_MODEL，需支持多模态时传 referenceImageUrls）扩写视频提示词。
+ * 用用户配置的文本模型扩写视频提示词（需支持多模态时传 referenceImageUrls）。
  * 有参考图时会把图一并传入，按场景生成；失败时退回原文；仅中止信号抛出 AbortError。
  */
 export async function expandVideoPromptWithDoubao(
@@ -229,8 +226,7 @@ export async function createSeedanceVideoTask(
   prompt: string,
   options: SeedanceVideoOptions,
 ): Promise<string> {
-  const key = assertVolcanoKey()
-  const model = assertVolcanoVideoModel()
+  const { key, model } = assertVolcanoVideoReady()
   const text = prompt.trim()
   const content: Array<Record<string, unknown>> = [{ type: 'text', text }]
   const raw = options.referenceFrames?.filter((f) => f.url?.trim()) ?? []
@@ -258,7 +254,7 @@ export async function createSeedanceVideoTask(
     seed: options.seed,
     watermark: false,
   }
-  const r = await fetch(`${VOLCANO_ARK_API}/contents/generations/tasks`, {
+  const r = await fetch(`${getVolcanoArkApi()}/contents/generations/tasks`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -285,8 +281,8 @@ export async function getSeedanceVideoTask(taskId: string): Promise<{
   videoUrl?: string
   errorMessage?: string
 }> {
-  const key = assertVolcanoKey()
-  const r = await fetch(`${VOLCANO_ARK_API}/contents/generations/tasks/${encodeURIComponent(taskId)}`, {
+  const { key } = assertVolcanoVideoReady()
+  const r = await fetch(`${getVolcanoArkApi()}/contents/generations/tasks/${encodeURIComponent(taskId)}`, {
     headers: { Authorization: `Bearer ${key}` },
   })
   const data = (await r.json().catch(() => ({}))) as {

@@ -259,7 +259,11 @@ onMounted(async () => {
 
     <section class="section section--entry-banners section--alt">
       <div class="container entry-banners">
-        <div class="resume-entry-banner" @click="router.push('/resume')">
+        <div
+          v-if="authStore.isLoggedIn"
+          class="resume-entry-banner"
+          @click="router.push('/resume')"
+        >
           <div class="resume-entry-banner__content">
             <div class="resume-entry-banner__emoji">📄</div>
             <div>

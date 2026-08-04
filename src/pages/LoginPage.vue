@@ -20,9 +20,13 @@ async function handleLogin() {
   }
   loading.value = true
   try {
-    await authStore.login(username.value.trim(), password.value)
+    const result = await authStore.login(username.value.trim(), password.value)
+    if (!result) {
+      toast.error('登录失败，请检查账号密码')
+      return
+    }
     const redirect = (router.currentRoute.value.query.redirect as string) || '/'
-    router.push(redirect)
+    await router.push(redirect)
     toast.success('登录成功，欢迎回来！')
   } catch (e: unknown) {
     toast.error(e instanceof Error ? e.message : '登录失败，请重试')

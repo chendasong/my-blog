@@ -68,7 +68,7 @@ const filteredFeatures = computed(() => {
 
 const videoModelDisplay = computed(() => {
   const m = getVolcanoVideoModel()
-  return m || '未配置 VITE_VOLCANO_VIDEO_MODEL'
+  return m || '未配置视频模型'
 })
 
 const workspaceSubtitle = computed(() => {
@@ -78,7 +78,7 @@ const workspaceSubtitle = computed(() => {
     return `${f.description} 接入模型 ${videoModelDisplay.value}；可选首帧、尾帧参考图（适合 Seedance 1.5 Pro 等）；生成链接约 24h 有效，请及时下载。`
   }
   if (f.id === '13') {
-    return `${f.description} 分镜与工坊对话均走火山方舟文本模型（VITE_VOLCANO_CHAT_MODEL）；成图走 VITE_VOLCANO_IMAGE_MODEL，可按比例指定尺寸。第 2 格起会传上一格作参考；不支持参考图时需换模型。`
+    return `${f.description} 分镜走「模型配置」中的文本模型；成图走图片模型，可按比例指定尺寸。第 2 格起会传上一格作参考；不支持参考图时需换模型。`
   }
   return f.description
 })

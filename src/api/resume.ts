@@ -19,22 +19,17 @@ async function listResumesForUserOrSeedDefault(userId: string): Promise<ResumeRo
 
 export const resumeApi = {
   /**
-   * 已登录：从 `resumes` 拉取该用户所有行（created_at 升序）并组装为 ResumeDocument。
-   * 未登录：全表 `resumes` 按 created_at 升序第一条（对外浏览页）。
+   * 仅已登录可用：从 `resumes` 拉取该用户所有行并组装为 ResumeDocument。
    */
   async getResume(): Promise<ResumeDocument> {
     try {
       const authStore = useAuthStore();
-      if (authStore.isLoggedIn && authStore.user?.id) {
-        const uid = authStore.user.id;
-        const rows = await listResumesForUserOrSeedDefault(uid);
-        return resumeRowsToDocument(rows);
+      if (!authStore.isLoggedIn || !authStore.user?.id) {
+        return generateDefaultResumeDocument();
       }
-      const first = await resumeDb.getPublicFirstResumeRow();
-      if (first) {
-        return resumeRowsToDocument([first]);
-      }
-      return generateDefaultResumeDocument();
+      const uid = authStore.user.id;
+      const rows = await listResumesForUserOrSeedDefault(uid);
+      return resumeRowsToDocument(rows);
     } catch {
       return generateDefaultResumeDocument();
     }

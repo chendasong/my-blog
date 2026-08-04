@@ -2,9 +2,14 @@ import {
   volcanoChatComplete,
   volcanoChatStream,
 } from '@/api/agent'
-import { getVolcanoImageModel, getVolcanoKey, VOLCANO_ARK_API } from '@/api/volcano'
+import {
+  assertAiModelReady,
+  getVolcanoArkApi,
+  getVolcanoImageModel,
+  getVolcanoKey,
+} from '@/api/volcano'
 
-/** AI 工坊各功能 system 提示；文本走火山方舟 VITE_VOLCANO_CHAT_MODEL（见 volcanoChatComplete） */
+/** AI 工坊各功能 system 提示；文本走用户配置的文本模型（见 volcanoChatComplete） */
 const SYSTEM_PROMPTS: Record<string, string> = {
   '1': `请用中文写作。
 你是文案创作师。严格按三部分输出，并用小标题或序号标清：
@@ -153,6 +158,7 @@ export async function generateImages(
   n = 1,
   options?: GenerateImagesOptions,
 ): Promise<string[]> {
+  assertAiModelReady('image')
   const count = Math.min(Math.max(1, n), 4)
   const sizeOpt = options?.size?.trim()
   const body: Record<string, unknown> = {
@@ -167,7 +173,7 @@ export async function generateImages(
   if (ref) {
     body.image = ref
   }
-  const resp = await fetch(`${VOLCANO_ARK_API}/images/generations`, {
+  const resp = await fetch(`${getVolcanoArkApi()}/images/generations`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
