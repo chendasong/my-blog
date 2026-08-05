@@ -1,4 +1,10 @@
 <script setup lang="ts">
+/**
+ * 简历编辑页主体：三栏布局（模块列表 / 表单编辑 / 实时预览）。
+ * 核心模型是 ResumeDocument：多模板并存，activeTemplateId 表示当前编辑哪套；
+ * defaultTemplateId 为不可删的「主模板」（库表 created_at 最早一行）。
+ * 已登录走 Supabase 持久化；未登录仅在内存/local 改 templates，保存行为由 resumeApi 分支处理。
+ */
 import { ref, computed } from "vue"
 import { useRouter } from "vue-router"
 import { resumeApi } from "@/api"
@@ -20,14 +26,16 @@ const toast = useToast()
 const router = useRouter()
 const authStore = useAuthStore()
 const saving = ref(false)
+/** 切换模板时从服务端拉最新文档，避免并发/多标签页导致本地 templates 过期 */
 const templateSwitching = ref(false)
 const saveAsOpen = ref(false)
 const saveAsName = ref("")
 const saveAsSubmitting = ref(false)
+/** 左侧模块列表当前选中的 section，驱动中间 SectionEditor 显示哪一块表单 */
 const selectedSectionId = ref<string | null>(null)
 
-/** 首屏：Suspense 会等到该 Promise 完成再替换 #fallback */
 const resumeDocument = ref(await resumeApi.getResume())
+/** 当前正在编辑的那套模板（sections + theme），所有增删改都作用在其上 */
 const activeTemplate = computed(() => getActiveTemplate(resumeDocument.value))
 
 if (activeTemplate.value.sections.length) {
@@ -42,6 +50,7 @@ const sortedSections = computed(() => {
   return activeTemplate.value.sections.slice().sort((a, b) => a.order - b.order)
 })
 
+/** 切换模板或删模块后，自动选中第一个 section，避免中间编辑区悬空 */
 function pickFirstSectionForActive() {
   const secs = activeTemplate.value.sections
   selectedSectionId.value = secs.length ? secs[0]!.id : null
@@ -51,6 +60,7 @@ const handleSectionSelect = (sectionId: string) => {
   selectedSectionId.value = sectionId
 }
 
+/** 控制模块是否在预览/打印中展示，不删数据，便于临时隐藏某段经历 */
 const handleToggleSection = (sectionId: string, visible: boolean) => {
   const section = activeTemplate.value.sections.find((s) => s.id === sectionId)
   if (section) {
@@ -58,6 +68,7 @@ const handleToggleSection = (sectionId: string, visible: boolean) => {
   }
 }
 
+/** 拖拽排序后写回 order 字段，决定 ResumeContent 渲染顺序 */
 const handleReorderSections = (newOrder: ResumeSection[]) => {
   const sections = activeTemplate.value.sections
   newOrder.forEach((section, index) => {
@@ -76,6 +87,7 @@ const handleSectionUpdate = (updatedSection: ResumeSection) => {
   }
 }
 
+/** 整文档提交：含所有 templates 与 activeTemplateId；成功后用服务端返回值覆盖，对齐 id/时间戳 */
 const handleSave = async () => {
   try {
     saving.value = true
@@ -98,6 +110,11 @@ function handleTemplateSelect(id: string) {
   void handleTemplateSelectAsync(id)
 }
 
+/**
+ * 切换当前编辑模板。
+ * 登录用户先拉库再改 activeTemplateId，防止本地缓存与库表 templates 不一致；
+ * 访客仅改内存中的 activeTemplateId。
+ */
 async function handleTemplateSelectAsync(id: string) {
   if (id === resumeDocument.value.activeTemplateId) return
   if (authStore.isLoggedIn) {
@@ -126,6 +143,7 @@ async function handleTemplateSelectAsync(id: string) {
   }
 }
 
+/** 新建/复制模板时自动命名，避免与已有 templates[].name 冲突 */
 function nextTemplateName(): string {
   const base = "新模板"
   const names = new Set(resumeDocument.value.templates.map((t) => t.name))
@@ -135,6 +153,10 @@ function nextTemplateName(): string {
   return `${base} ${n}`
 }
 
+/**
+ * 基于当前模板克隆 sections/theme 新建一套（如「字节版」「腾讯版」）。
+ * 登录：insert 模板行后 getResume 刷新；未登录：push 到 templates 并切为 active。
+ */
 async function handleAddTemplate() {
   if (authStore.isLoggedIn) {
     const active = getActiveTemplate(resumeDocument.value)
@@ -166,6 +188,7 @@ async function handleAddTemplate() {
   pickFirstSectionForActive()
 }
 
+/** 删除非默认模板；删当前 active 时回退到相邻模板；defaultTemplateId 受库约束不可删 */
 async function handleDeleteTemplate(id: string) {
   if (id === resumeDocument.value.defaultTemplateId) {
     toast.error("默认模板不可删除")
@@ -193,6 +216,7 @@ async function handleDeleteTemplate(id: string) {
   }
 }
 
+/** 改模板展示名（Tab 标签）；登录时同步 updateTemplateName，未登录仅改本地 */
 async function handleRenameTemplate(id: string, name: string) {
   const t = resumeDocument.value.templates.find((x) => x.id === id)
   if (t) t.name = name
@@ -211,6 +235,10 @@ function closeSaveAs() {
   saveAsName.value = ""
 }
 
+/**
+ * 「另存为」：把当前 active 模板快照存为新 templates 条目，原模板不动。
+ * 典型场景：在通用版基础上改一版投递专用，又不想覆盖原稿。
+ */
 async function confirmSaveAs() {
   const name = saveAsName.value.trim()
   if (!name) {

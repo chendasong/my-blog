@@ -17,6 +17,7 @@ const note = ref<Note | null>(null)
 const loading = ref(true)
 const notFound = ref(false)
 
+/** 笔记分类枚举到中文标签 */
 const categoryLabels: Record<string, string> = {
   work: '工作', life: '生活', study: '学习', idea: '想法', todo: '待办',
 }
@@ -24,6 +25,7 @@ const categoryIcons: Record<string, string> = {
   work: '💼', life: '🌿', study: '📚', idea: '💡', todo: '✅',
 }
 
+/** 按路由 ID 加载单条笔记，失败进入未找到态 */
 onMounted(async () => {
   try {
     note.value = await noteApi.getById(route.params.id as string)
@@ -34,10 +36,12 @@ onMounted(async () => {
   }
 })
 
+/** 笔记正文转安全 HTML；详情页为只读，任务列表勾选在 CSS 层禁用交互 */
 function renderContent(content: string) {
   return noteContentToSafeHtmlForView(content)
 }
 
+/** 物理删除笔记，需二次确认后回列表 */
 async function handleDelete() {
   if (!note.value) return
   if (!confirm('确定删除这条笔记吗？')) return
@@ -46,6 +50,7 @@ async function handleDelete() {
   router.push('/notes')
 }
 
+/** 切换置顶状态，接口返回最新 note 覆盖本地 */
 async function handleTogglePin() {
   if (!note.value) return
   note.value = await noteApi.togglePin(note.value.id, note.value.pinned)

@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * AI 知识库主页面：左侧目录树 + 右侧正文阅读区。
+ * 负责路由与文章 ID 同步、目录/文章 CRUD 弹窗，以及删除后的导航兜底。
+ */
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAiKnowledgeStore } from '@/stores/aiKnowledge'
@@ -11,22 +15,27 @@ import AiKnowledgeArticleSkeleton from '@/pages/ai-knowledge/AiKnowledgeArticleS
 
 defineOptions({ name: 'AiKnowledgePage' })
 
+/** localStorage 键：记住用户是否收起左侧目录栏 */
 const SIDEBAR_COLLAPSED_KEY = 'ak-sidebar-collapsed'
 
 const route = useRoute()
 const router = useRouter()
 const store = useAiKnowledgeStore()
 
+/** 当前 URL 中的文章 ID，空字符串表示未选中任何文章 */
 const articleIdParam = computed(() => (route.params.articleId as string) || '')
 
+/** 根据路由 ID 从 store 取文章元数据（不含正文懒加载状态） */
 const currentArticle = computed(() => {
   const id = articleIdParam.value
   if (!id) return null
   return store.getArticle(id) ?? null
 })
 
+/** 有选中文章时启用三栏布局（目录 + 正文 + 大纲），否则仅显示空状态 */
 const shellThree = computed(() => !!currentArticle.value)
 
+/** 目录栏折叠状态，刷新后从 localStorage 恢复 */
 const sidebarCollapsed = ref(
   typeof localStorage !== 'undefined' && localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1',
 )
@@ -36,6 +45,7 @@ function toggleSidebar() {
   localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed.value ? '1' : '0')
 }
 
+/** 访问 /ai-knowledge 根路径时，自动跳转到第一篇可用文章，避免空白页 */
 function redirectFromIndexToFirstArticle() {
   if (!store.libraryHydrated || store.loading) return
   if (route.name !== 'ai-knowledge-index') return
@@ -44,6 +54,7 @@ function redirectFromIndexToFirstArticle() {
   if (first) router.replace({ name: 'ai-knowledge-article', params: { articleId: first }, replace: true })
 }
 
+/** 文章被删或链接失效时，重定向到下一篇或回到索引页 */
 watch(currentArticle, (a) => {
   if (route.name !== 'ai-knowledge-article') return
   if (!articleIdParam.value) return
@@ -84,7 +95,9 @@ onMounted(() => {
   })
 })
 
+/** 目录弹窗模式：新建 / 重命名，null 表示关闭 */
 const folderModal = ref<'add' | 'rename' | null>(null)
+/** 重命名时指向的目标目录 ID */
 const folderModalTargetId = ref<string | null>(null)
 const folderModalInput = ref('')
 
@@ -120,10 +133,12 @@ async function submitFolderModal() {
   closeFolderModal()
 }
 
+/** 待确认删除的目录 ID，非 null 时显示二次确认弹窗 */
 const deleteFolderConfirm = ref<string | null>(null)
 function confirmDeleteFolder(folderId: string) {
   deleteFolderConfirm.value = folderId
 }
+/** 删除目录及其下全部文章，若当前正在阅读被删文章则跳转 */
 async function doDeleteFolder() {
   const id = deleteFolderConfirm.value
   if (!id) return
@@ -142,6 +157,7 @@ async function doDeleteFolder() {
   }
 }
 
+/** 删除单篇文章，若删的是当前阅读篇则导航到下一篇 */
 async function tryDeleteArticle(article: KnowledgeArticle) {
   if (!window.confirm(`确定删除文章「${article.title}」？此操作不可恢复。`)) return
   const id = article.id
@@ -236,13 +252,25 @@ async function tryDeleteArticle(article: KnowledgeArticle) {
 
 <style scoped>
 .ak-page {
-  min-height: calc(100vh - 64px);
+  flex: 1;
+  min-height: 0;
+  height: 100%;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--color-bg);
-  padding-bottom: var(--space-12);
+}
+
+@media (max-width: 1100px) {
+  .ak-page {
+    height: auto;
+    min-height: calc(100vh - 64px);
+    overflow: visible;
+  }
 }
 
 .ak-overlay {

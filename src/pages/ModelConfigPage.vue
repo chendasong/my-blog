@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 火山方舟模型配置页：Base URL、API Key、文本/图片/视频模型 ID。
+ * 登录用户保存到云端账号；未登录仅 localStorage。全站 AI 功能依赖此处配置，不使用站长额度。
+ */
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import AppButton from '@/components/common/AppButton.vue'
@@ -15,6 +19,7 @@ const toast = useToast()
 const authStore = useAuthStore()
 const modelConfigStore = useModelConfigStore()
 
+/** 表单与 store 同步；保存时整表提交 */
 const form = ref<AiModelConfig>({
   baseUrl: DEFAULT_ARK_BASE_URL,
   apiKey: '',
@@ -29,6 +34,7 @@ onMounted(async () => {
   form.value = { ...modelConfigStore.config }
 })
 
+/** 校验 Base URL 后写入 store（内部决定云端或本地持久化） */
 async function handleSave() {
   if (!form.value.baseUrl.trim()) {
     toast.warning('请填写 Base URL')
@@ -133,7 +139,7 @@ async function handleSave() {
               placeholder="Chat / 对话接入点 ID"
               autocomplete="off"
             />
-            <p class="field-hint">用于 AI 工坊文本、写作 Agent、站内助手、视频提示词扩写等</p>
+            <p class="field-hint">用于 AI 工坊文本、写作 Agent、AI 应用生成、站内助手、视频提示词扩写等</p>
           </div>
 
           <div class="form-group">

@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 简历编辑页（路由壳）。
+ * 实际编辑逻辑在 ResumeEditorBody 中，此处仅用 Suspense 提供加载骨架。
+ */
 import ResumeEditorBody from "@/components/resume/ResumeEditorBody.vue"
 </script>
 

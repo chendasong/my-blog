@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 情侣空间主页：展示两人信息、在一起天数、记忆卡片列表。
+ * 记忆支持按类型筛选，卡片封面优先静态图，无图时用视频首帧兜底。
+ */
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { coupleInfo } from '@/data'
@@ -12,8 +16,10 @@ import { ensureHttpUrlForAssets } from '@/lib/qiniuClient'
 const router = useRouter()
 const authStore = useAuthStore()
 const store = useCoupleStore()
+/** 当前记忆类型筛选：all 或 photo/milestone/wish/diary */
 const activeFilter = ref('all')
 
+/** 两人展示信息：后台站点配置优先，无配置时回退到静态 coupleInfo */
 const person1 = computed(() => ({
   name: authStore.siteSettings?.person1_name || coupleInfo.person1.name,
   nickname: authStore.siteSettings?.person1_name || coupleInfo.person1.nickname,
@@ -31,16 +37,15 @@ const typeIcons: Record<string, string> = { all: '💝', photo: '📸', mileston
 const emotionColors: Record<string, string> = { happy: '#F0A05B', romantic: '#E8607A', sweet: '#8B6FF0', funny: '#4CAF82' }
 const emotionLabels: Record<string, string> = { happy: '快乐', romantic: '浪漫', sweet: '甜蜜', funny: '搞笑' }
 
-
-
-
 onMounted(async () => {
   if (!authStore.siteSettings) await authStore.fetchSiteSettings()
   store.fetchMemories()
 })
 
+/** 在一起的起始日期，用于 DayCounter 组件 */
 const startDate = computed(() => authStore.siteSettings?.couple_since || coupleInfo.startDate)
 
+/** 切换类型筛选并重新拉取对应记忆列表 */
 async function handleFilter(type: string) {
   activeFilter.value = type
   await store.fetchMemories(type)
@@ -75,7 +80,7 @@ function openEdit(m: CoupleMemory) {
   router.push(`/couple/memory/${m.id}/edit`)
 }
 
-
+/** 删除记忆前二次确认，成功后 store 会自动刷新列表 */
 async function handleDelete(id: string) {
   if (!confirm('确定删除这条记忆吗？')) return
   await store.remove(id)

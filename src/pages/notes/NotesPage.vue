@@ -9,12 +9,17 @@ import type { NoteCategory } from "@/types";
 const router = useRouter();
 const store = useNoteStore();
 
+/** 笔记分类筛选，all 表示全部分类 */
 const activeCategory = ref<NoteCategory | "all">("all");
+/** 搜索框草稿，提交前不触发列表刷新 */
 const searchQuery = ref("");
+/** 已生效搜索词，传给 NotesListResults */
 const appliedSearch = ref("");
 const currentPage = ref(1);
+/** 与 NotesListResults 分页一致 */
 const PAGE_SIZE = 9;
 
+/** 分类 key 到中文展示名 */
 const categoryLabels: Record<string, string> = {
   all: "全部",
   work: "工作",
@@ -32,6 +37,7 @@ const categoryIcons: Record<string, string> = {
   todo: "✅",
 };
 
+/** 根据 store 列表总数计算分页，与 BlogList 逻辑相同 */
 const totalPages = computed(() =>
   Math.max(1, Math.ceil(store.listTotal / PAGE_SIZE)),
 );
@@ -41,6 +47,7 @@ function doSearch() {
   currentPage.value = 1;
 }
 
+/** 切换分类后回到第一页，避免当前页超出新结果集 */
 function setCategory(cat: NoteCategory | "all") {
   activeCategory.value = cat;
   currentPage.value = 1;

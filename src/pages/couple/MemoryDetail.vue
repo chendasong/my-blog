@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 单条情侣记忆详情页：图文/视频轮播、全屏查看、键盘翻页。
+ * 媒体顺序固定为「先全部图片、再全部视频」，与编辑页保存顺序一致。
+ */
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCoupleStore } from '@/stores/couple'
@@ -12,6 +16,7 @@ const store = useCoupleStore()
 
 const loading = ref(true)
 const memory = ref<CoupleMemory | null>(null)
+/** 当前轮播索引，贯穿内联轮播与全屏模态 */
 const carouselIndex = ref(0)
 const showCarousel = ref(false)
 const mainStageVideoRef = ref<HTMLVideoElement | null>(null)
@@ -19,6 +24,7 @@ const mainStageVideoRef = ref<HTMLVideoElement | null>(null)
 type MediaKind = 'image' | 'video'
 type MediaItem = { kind: MediaKind; url: string }
 
+/** 图片列表：优先多图 images，兼容旧数据单图 image 字段 */
 const images = computed(() => {
   if (!memory.value) return []
   if (memory.value.images && memory.value.images.length > 0) return memory.value.images
@@ -43,6 +49,7 @@ const typeIcons: Record<string, string> = { photo: '📸', milestone: '🏆', wi
 const emotionColors: Record<string, string> = { happy: '#F0A05B', romantic: '#E8607A', sweet: '#8B6FF0', funny: '#4CAF82' }
 const emotionLabels: Record<string, string> = { happy: '快乐', romantic: '浪漫', sweet: '甜蜜', funny: '搞笑' }
 
+/** 从 store 按路由 ID 查找记忆，切换路由时重置轮播位置 */
 async function loadMemory() {
   const id = route.params.id as string
   await store.fetchMemories()
@@ -68,6 +75,7 @@ watch(
   },
 )
 
+/** 全屏/内联轮播共用：Esc 关闭全屏，左右键翻页 */
 function onCarouselKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape' && showCarousel.value) {
     e.preventDefault()
@@ -106,11 +114,13 @@ function videoThumbSrc(url: string) {
   return `${u}#t=0.001`
 }
 
+/** 点击主舞台（非视频控件区域）进入全屏轮播 */
 function onCarouselStageClick(e: MouseEvent) {
   if ((e.target as HTMLElement).closest('video')) return
   showCarousel.value = true
 }
 
+/** 点击缩略图切换主舞台；选中视频时自动播放 */
 function selectThumb(i: number, item: MediaItem) {
   carouselIndex.value = i
   if (item.kind === 'video') {

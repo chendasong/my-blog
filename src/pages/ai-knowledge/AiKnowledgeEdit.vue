@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 知识库文章编辑页：新建或编辑单篇文章。
+ * 正文使用与笔记相同的富文本编辑器，保存时统一转为 HTML 存储。
+ */
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAiKnowledgeStore } from '@/stores/aiKnowledge'
@@ -21,12 +25,14 @@ const content = ref('')
 const folderId = ref('')
 const saving = ref(false)
 
+/** 新建文章时默认目录：优先 URL query，否则取第一个目录 */
 function pickDefaultFolder() {
   const q = route.query.folderId as string | undefined
   if (q && store.folderById(q)) return q
   return store.folders[0]?.id ?? ''
 }
 
+/** 返回阅读页；新建模式无文章 ID 时退到第一篇或索引 */
 function goBack() {
   if (!isNew.value && articleId.value) {
     router.push({ name: 'ai-knowledge-article', params: { articleId: articleId.value } })
@@ -37,6 +43,7 @@ function goBack() {
   else router.push({ name: 'ai-knowledge-index' })
 }
 
+/** 路由/模式切换时同步表单：新建清空，编辑拉取正文并转为编辑器 HTML */
 watch(
   () => [isNew.value, articleId.value, route.query.folderId, store.folders.length] as const,
   async () => {
@@ -68,6 +75,7 @@ onMounted(() => {
   void store.ensureLibraryLoaded()
 })
 
+/** 校验后创建或更新文章，成功后跳转到阅读页 */
 async function handleSubmit() {
   if (!title.value.trim()) {
     toast.error('标题不能为空')

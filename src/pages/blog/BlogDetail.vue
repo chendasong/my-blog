@@ -18,13 +18,18 @@ const router = useRouter();
 const authStore = useAuthStore();
 const articleStore = useArticleStore();
 
+/** 当前路由对应的文章详情 */
 const article = ref<Article | null>(null);
+/** 侧栏推荐阅读：基于分类/标签相似度从全站文章中挑选 */
 const recommended = ref<Article[]>([]);
 const loading = ref(true);
+/** 文章 ID 无效或接口 404 时展示未找到页 */
 const notFound = ref(false);
 
+/** 点赞请求进行中，配合 store.likingIds 防止重复提交 */
 const likeLoading = ref(false);
 
+/** 分类徽章颜色，与列表页保持一致 */
 const categoryColors: Record<string, string> = {
   技术: "#6C8EBF",
   生活: "#82B366",
@@ -33,6 +38,7 @@ const categoryColors: Record<string, string> = {
 };
 
 
+/** 按路由 ID 加载文章；推荐列表失败不影响正文展示 */
 async function loadArticle() {
   const id = route.params.id as string;
   if (!id) return;
@@ -57,8 +63,10 @@ async function loadArticle() {
   }
 }
 
+// 同组件内切换文章（如从推荐链入）时重新加载
 watch(() => route.params.id, loadArticle, { immediate: true });
 
+/** 正文渲染：新稿存 HTML 直接消毒；历史 Markdown 仍走 marked 兼容 */
 function renderArticleBody(content: string) {
   if (isStoredArticleHtml(content)) {
     return DOMPurify.sanitize(content, { USE_PROFILES: { html: true } });
@@ -66,10 +74,12 @@ function renderArticleBody(content: string) {
   return marked(content) as string;
 }
 
+/** 本会话是否已点赞：用 store 集合记录，刷新前不可重复点 */
 const isLiked = computed(() => {
   return !!article.value && articleStore.likingIds.has(article.value.id);
 });
 
+/** 乐观更新点赞数；失败时回滚计数并移除 liking 标记 */
 async function handleLike() {
   if (!article.value || likeLoading.value || articleStore.likingIds.has(article.value.id)) return;
   article.value.likes = article.value.likes + 1;
@@ -86,6 +96,7 @@ async function handleLike() {
   }
 }
 
+/** 展示发布时间，无发布日则回退到最近更新时间 */
 const displayDate = computed(() => {
   const a = article.value;
   if (!a) return "";

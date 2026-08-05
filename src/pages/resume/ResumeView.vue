@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 简历公开阅读页（路由壳）。
+ * 实际数据加载与渲染在 ResumeViewBody 中，此处仅用 Suspense 提供加载骨架。
+ */
 import ResumeViewBody from "@/components/resume/ResumeViewBody.vue"
 import "@/assets/styles/resume-print.css"
 </script>

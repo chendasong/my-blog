@@ -19,6 +19,7 @@ const isEdit = !!route.params.id
 const loading = ref(false)
 const saving = ref(false)
 
+/** 列表卡片左边框可选色，与分类无关，纯视觉区分 */
 const colorOptions = ['#6C8EBF', '#82B366', '#D6B656', '#9673A6', '#B85450', '#4CAF82']
 const categoryLabels: Record<string, string> = {
   work: '工作', life: '生活', study: '学习', idea: '想法', todo: '待办',
@@ -33,6 +34,7 @@ const form = ref({
   pinned: false,
 })
 
+/** 编辑时拉取笔记并把存储格式转为编辑器可识别的 HTML */
 onMounted(async () => {
   if (isEdit) {
     loading.value = true
@@ -55,6 +57,7 @@ onMounted(async () => {
   }
 })
 
+/** 校验标题与富文本正文，经 store 统一走 create/update 后回列表 */
 async function handleSubmit() {
   if (!form.value.title.trim()) {
     toast.error('标题不能为空')

@@ -29,7 +29,7 @@ onMounted(async () => {
           <div class="footer__nav-row">
             <RouterLink class="footer__link" to="/">首页</RouterLink>
             <RouterLink class="footer__link" to="/blog">文章</RouterLink>
-            <RouterLink class="footer__link" to="/notes">笔记</RouterLink>
+            <!-- <RouterLink class="footer__link" to="/notes">笔记</RouterLink> -->
             <RouterLink class="footer__link" to="/ai-knowledge">AI 知识库</RouterLink>
             <!-- <RouterLink class="footer__link" to="/blog/new">写文章</RouterLink>
             <RouterLink class="footer__link" to="/notes/new">写笔记</RouterLink> -->
@@ -39,8 +39,9 @@ onMounted(async () => {
           <div class="footer__nav-row">
             <RouterLink class="footer__link" to="/ai">AI 工坊</RouterLink>
             <RouterLink class="footer__link" to="/ai/agent">写作 Agent</RouterLink>
+            <RouterLink class="footer__link" to="/ai/app-gen">AI 应用生成</RouterLink>
             <RouterLink v-if="authStore.isLoggedIn" class="footer__link" to="/resume">我的简历</RouterLink>
-            <RouterLink class="footer__link" to="/couple">情侣空间</RouterLink>
+            <RouterLink v-if="authStore.isLoggedIn" class="footer__link" to="/couple">情侣空间</RouterLink>
           </div>
         </div>
         <!-- <div class="footer__col">

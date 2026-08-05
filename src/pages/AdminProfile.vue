@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 管理后台设置页：个人资料、全站配置、情侣空间配置三块独立保存。
+ * 媒体文件（头像、背景、音乐、情侣头像）采用「选择 → 保存时上传」流程。
+ */
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useAuthStore } from "@/stores/auth";
@@ -14,10 +18,12 @@ const saving = ref(false);
 const savingSettings = ref(false);
 const savingCouple = ref(false);
 
+/** 管理员个人资料表单 */
 const profile = ref({ nickname: "", email: "", bio: "", avatar: "" });
 const avatarFile = ref<File | null>(null);
 const avatarPreview = ref("");
 
+/** 全站展示配置：名称、首页背景、背景音乐等 */
 const settings = ref({
   site_name: "",
   site_subtitle: "",
@@ -35,11 +41,14 @@ const ownerAvatarFile = ref<File | null>(null);
 const ownerAvatarPreview = ref("");
 const backgroundImageFile = ref<File | null>(null);
 const backgroundImagePreview = ref("");
+/** 待上传的新音乐文件（保存网站配置时一并上传） */
 const musicFiles = ref<File[]>([]);
 const musicFileNames = ref<string[]>([]);
+/** 用户从列表移除的已存音乐 URL，保存后从云存储删除 */
 const deletedMusicUrls = ref<string[]>([]);
 
 const showPassword = ref(false);
+/** 情侣空间独立配置：入口密码、纪念日、双人昵称与头像 */
 const coupleSettings = ref({
   couple_password: "",
   couple_since: "",
@@ -66,6 +75,7 @@ function handlePerson2Avatar(e: Event) {
   person2AvatarPreview.value = URL.createObjectURL(file);
 }
 
+/** 未登录则重定向登录页；已登录则从 store 回填三块表单 */
 onMounted(async () => {
   if (!authStore.isLoggedIn) {
     router.push("/login");
@@ -130,6 +140,7 @@ function removeMusicFile(index: number) {
   musicFileNames.value.splice(index, 1);
 }
 
+/** 从已保存音乐列表移除一项，记录 URL 待保存后删云文件 */
 function removeSavedMusic(index: number) {
   const urls = settings.value.music_urls.split('\n').filter(url => url.trim())
   const names = settings.value.music_names.split('\n').filter(name => name.trim())
@@ -146,6 +157,7 @@ function removeSavedMusic(index: number) {
   settings.value.music_names = names.join('\n')
 }
 
+/** 保存管理员昵称、邮箱、简介及头像 */
 async function saveProfile() {
   saving.value = true;
   try {
@@ -163,6 +175,7 @@ async function saveProfile() {
   }
 }
 
+/** 保存全站配置：先上传待传音乐/背景/头像，再更新 settings，最后清理已删音乐 */
 async function saveSettings() {
   savingSettings.value = true
   try {
@@ -243,6 +256,7 @@ async function saveSettings() {
   }
 }
 
+/** 保存情侣空间密码、纪念日、双人信息；头像有变更时先上传再写入 */
 async function saveCouple() {
   savingCouple.value = true;
   try {

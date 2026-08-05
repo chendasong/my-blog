@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * AI 工坊入口页：左侧分类筛选 + 功能卡片，右侧按功能 id 懒加载对应工作台面板。
+ * 支持通过 ?feature= 深链直达某功能；视频/漫画类功能在副标题中展示模型与使用提示。
+ */
 import { ref, computed, watch, defineAsyncComponent, type Component } from 'vue'
 import { useRoute } from 'vue-router'
 import { aiFeatures } from '@/data'
@@ -20,15 +24,19 @@ const AiWorkshopComicPanel = defineAsyncComponent(() =>
 )
 
 const route = useRoute()
+/** 当前选中的工坊功能，决定下方工作区加载哪个面板组件 */
 const selectedFeature = ref<AIFeature | null>(aiFeatures[0])
+/** 顶部分类筛选；选具体分类时只展示该类的功能卡片 */
 const activeCategory = ref<AICategory | 'all'>('all')
 
+/** 从路由 query 读取 feature id，兼容 string 与 string[] */
 function queryFeatureId(): string | null {
   const q = route.query.feature
   if (Array.isArray(q)) return (q[0] as string)?.trim() || null
   return typeof q === 'string' && q.trim() ? q.trim() : null
 }
 
+/** 外链或站内跳转带 ?feature= 时，自动选中对应功能并展开「全部」分类以便看到卡片高亮 */
 function applyFeatureFromRouteQuery() {
   const fid = queryFeatureId()
   if (!fid) return
@@ -45,6 +53,7 @@ watch(
   { immediate: true },
 )
 
+/** 分类 Tab 展示文案与图标（与 aiFeatures 的 category 字段对应） */
 const categoryLabels: Record<string, string> = {
   all: '全部',
   writing: '写作',
@@ -60,17 +69,22 @@ const categoryIcons: Record<string, string> = {
   creative: '🎨',
 }
 
+/** 当前分类下可见的功能列表（hidden 项永不展示） */
 const filteredFeatures = computed(() => {
   const visible = aiFeatures.filter((f) => !f.hidden)
   if (activeCategory.value === 'all') return visible
   return visible.filter((f) => f.category === activeCategory.value)
 })
 
+/** 视频生成功能需在副标题展示当前配置的视频模型，未配置时提示用户去模型配置页 */
 const videoModelDisplay = computed(() => {
   const m = getVolcanoVideoModel()
   return m || '未配置视频模型'
 })
 
+/**
+ * 工作区副标题：默认用功能描述；视频/漫画有额外业务说明（模型、参考图、链接有效期等）。
+ */
 const workspaceSubtitle = computed(() => {
   const f = selectedFeature.value
   if (!f) return ''
@@ -83,6 +97,9 @@ const workspaceSubtitle = computed(() => {
   return f.description
 })
 
+/**
+ * 按功能 id 映射到具体工作台：11 生图、12 视频、13 漫画，其余走通用对话面板。
+ */
 const workshopPanel = computed<Component>(() => {
   const id = selectedFeature.value?.id
   if (id === '11') return AiWorkshopImagePanel

@@ -9,14 +9,18 @@ import AppButton from "@/components/common/AppButton.vue";
 const router = useRouter();
 const store = useArticleStore();
 
+/** 当前选中的文章分类，all 表示不过滤 */
 const activeCategory = ref("all");
-/** 输入框草稿，不参与请求；点击「搜索」后写入 appliedSearchQuery */
+/** 搜索框输入值：仅作草稿，回车/点搜索后才生效，避免每键触发请求 */
 const searchDraft = ref("");
-/** 已生效的搜索关键词，传给列表接口 */
+/** 已提交给列表子组件的搜索词，驱动 BlogListResults 重新拉数 */
 const appliedSearchQuery = ref("");
+/** 当前页码，切换分类或搜索时重置为 1 */
 const currentPage = ref(1);
+/** 与 BlogListResults 内部分页保持一致，用于计算总页数 */
 const PAGE_SIZE = 8;
 
+/** 分类按钮激活态配色，与文章卡片分类色统一 */
 const categoryColors: Record<string, string> = {
   技术: "#6C8EBF",
   生活: "#82B366",
@@ -31,15 +35,18 @@ const categoryIcons: Record<string, string> = {
   思考: "💡",
 };
 
+/** 根据 store 中的列表总数推算页数，至少 1 页避免分页 UI 异常 */
 const totalPages = computed(() =>
   Math.max(1, Math.ceil(store.listTotal / PAGE_SIZE)),
 );
 
+/** 确认搜索：trim 后写入生效词并回到第一页 */
 function doSearch() {
   appliedSearchQuery.value = searchDraft.value.trim();
   currentPage.value = 1;
 }
 
+/** 切换分类时重置页码，子组件 watch 分类后会重新请求 */
 function handleCategoryChange(cat: string) {
   activeCategory.value = cat;
   currentPage.value = 1;

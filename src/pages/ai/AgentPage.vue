@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 写作 Agent：用户描述需求后，按流水线自动完成「提示词 → 正文 →（文章）封面 → 发布」。
+ * 支持文章/笔记两种模式；失败后可从当前步骤续跑一次；成功后手动跳转详情，不自动离开页面。
+ */
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import dayjs from 'dayjs'
@@ -29,14 +33,19 @@ const router = useRouter()
 const toast = useToast()
 const authStore = useAuthStore()
 
+/** 任务类型：文章多一步封面生成，笔记直接发布 */
 const taskMode = ref<TaskMode>('article')
+/** 用户原始需求描述，贯穿提示词与正文生成 */
 const userInput = ref('')
 const isRunning = ref(false)
+/** 第一步产出的结构化写作提示词，供第二步生成正文 */
 const writingPrompt = ref('')
 const articleDraft = ref<AgentArticleDraft | null>(null)
 const noteDraft = ref<AgentNoteDraft | null>(null)
+/** 失败时记录卡在哪一步，供续跑与 UI 高亮 */
 const failedStepId = ref<string | null>(null)
 const errorMessage = ref('')
+/** 用于停止按钮 abort 当前流水线中的网络请求 */
 const abortController = ref<AbortController | null>(null)
 
 /** 本轮「执行」仍可从失败步骤续跑 1 次；点击「继续」后耗尽 */
@@ -51,8 +60,10 @@ const createdKind = ref<'article' | 'note' | null>(null)
 const coverImageStyleId = ref(DEFAULT_AI_IMAGE_STYLE_ID)
 
 /** 当前进行到第几步（0-based），用于高亮进度条 */
+/** 当前进行到第几步（0-based），用于进度条「正在执行」高亮 */
 const activeIndex = ref(-1)
 
+/** 流水线失败后且本轮续跑机会未用尽时，展示「从当前步骤继续」 */
 const showResumeButton = computed(
   () =>
     !!errorMessage.value &&
@@ -61,8 +72,10 @@ const showResumeButton = computed(
     !isRunning.value
 )
 
+/** 全流程成功且已拿到新建内容 id 时，展示前往详情按钮 */
 const showGoDetailButton = computed(() => !!createdId.value && !!createdKind.value && !isRunning.value)
 
+/** 按任务类型动态组装步骤列表（笔记无封面步骤） */
 const steps = computed(() => {
   const base = [
     { id: 'prompt', label: '生成提示词', icon: '🧭' },
@@ -75,6 +88,7 @@ const steps = computed(() => {
   return base
 })
 
+/** 各步骤 UI 状态，与 steps 的 id 一一对应 */
 const stepStatuses = ref<Record<string, PipelineStepStatus>>({})
 
 function resetStepStatuses() {
@@ -89,6 +103,7 @@ watch(
   { immediate: true }
 )
 
+/** 更新单步状态；进入 active 清失败标记，进入 error 记录 failedStepId */
 function setStepStatus(id: string, status: PipelineStepStatus) {
   stepStatuses.value = { ...stepStatuses.value, [id]: status }
   if (status === 'active') failedStepId.value = null
@@ -106,6 +121,7 @@ function handleStop() {
   activeIndex.value = -1
 }
 
+/** 与 UI steps 顺序一致的步骤 id 列表，供 runPipelineInternal 顺序执行 */
 function stepOrderList(): PipelineStepId[] {
   const o: PipelineStepId[] = ['prompt', 'draft']
   if (taskMode.value === 'article') o.push('cover')
@@ -151,6 +167,7 @@ async function resumeFromFailedStep() {
   await runPipelineInternal(from)
 }
 
+/** 从 startFrom 起顺序执行各步；中间状态（writingPrompt、draft、封面 URL）在步骤间传递 */
 async function runPipelineInternal(startFrom: PipelineStepId) {
   isRunning.value = true
   const ac = new AbortController()
@@ -180,6 +197,7 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
       if (id === 'draft') {
         const wp = writingPrompt.value.trim()
         if (!wp) throw new Error('缺少写作提示词，请从头执行')
+        // 重新生成正文时清空旧封面，避免发布步骤误用上一轮的图
         pendingCoverUrl.value = ''
         setStepStatus('draft', 'active')
         activeIndex.value = stepIndex('draft')
@@ -229,6 +247,7 @@ async function runPipelineInternal(startFrom: PipelineStepId) {
           const d = articleDraft.value
           let coverUrl = pendingCoverUrl.value.trim()
           if (coverUrl) {
+            // 模型返回的往往是临时 URL，转存到自有图床以便文章长期可访问
             try {
               coverUrl = await mirrorRemoteImageToHostingIfNeeded(coverUrl)
               pendingCoverUrl.value = coverUrl

@@ -119,6 +119,17 @@ export default defineConfig(({ mode, command }) => {
     server: {
       port: 5173,
       open: false,
+      /** WebContainers 需要 SharedArrayBuffer；credentialless 比 require-corp 更不易打断站外资源 */
+      headers: {
+        'Cross-Origin-Opener-Policy': 'same-origin',
+        'Cross-Origin-Embedder-Policy': 'credentialless',
+      },
+    },
+    preview: {
+      headers: {
+        'Cross-Origin-Opener-Policy': 'same-origin',
+        'Cross-Origin-Embedder-Policy': 'credentialless',
+      },
     },
     define: {
       'import.meta.env.VITE_QINIU_PUBLIC_BASE': JSON.stringify(qiniuPublic),

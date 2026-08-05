@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 情侣记忆新建/编辑页：多图多视频上传、拖拽排序、封面选取。
+ * 新视频上传时自动截取首帧作为列表封面，减少列表页加载整段视频。
+ */
 import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from '@/composables/useToast'
@@ -12,6 +16,7 @@ const router = useRouter()
 const toast = useToast()
 const store = useCoupleStore()
 
+/** 有路由 id 为编辑模式，否则为新建 */
 const isEdit = !!route.params.id
 const loading = ref(false)
 const saving = ref(false)
@@ -19,8 +24,11 @@ const saving = ref(false)
 const MAX_IMAGES = 20
 const MAX_VIDEOS = 8
 const imagePreviews = ref<string[]>([])
+/** 当前选为封面的图片索引（对应 image 字段） */
 const selectedIndex = ref(0)
+/** 图片元数据：区分新上传（待提交）与已有远程 URL */
 const imageMetadata = ref<Array<{ isNew: boolean; url: string; file?: File }>>([])
+/** 编辑时删除的已有图片 URL，保存成功后从云存储清理 */
 const deletedImageUrls = ref<string[]>([])
 
 const videoPreviews = ref<string[]>([])
@@ -30,6 +38,7 @@ const videoMetadata = ref<
 const deletedVideoUrls = ref<string[]>([])
 const deletedVideoPosterUrls = ref<string[]>([])
 
+/** 视频全屏预览弹层状态 */
 const videoViewerOpen = ref(false)
 const videoViewerIndex = ref(0)
 const modalVideoRef = ref<HTMLVideoElement | null>(null)
@@ -134,6 +143,7 @@ function nudgeVideoFirstFrame(e: Event) {
   requestAnimationFrame(apply)
 }
 
+/** 编辑模式：拉取记忆并还原图片/视频预览与元数据 */
 onMounted(async () => {
   window.addEventListener('keydown', onVideoViewerKeydown)
   if (isEdit) {
@@ -173,6 +183,7 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onVideoViewerKeydown)
 })
 
+/** 上传新图片：生成 blob 预览，元数据标记 isNew 待提交时上传七牛 */
 function handleImageSelect(e: Event) {
   const files = Array.from((e.target as HTMLInputElement).files || [])
   if (!files.length) return
@@ -226,6 +237,7 @@ function removeVideo(idx: number) {
   }
 }
 
+/** 移除图片：已有远程图记入 deletedImageUrls，保存后统一删云文件 */
 function removeImage(idx: number) {
   const meta = imageMetadata.value[idx]
   // 如果是已存在的图片（不是新上传的），记录为删除
@@ -290,6 +302,7 @@ function onImageThumbClick(idx: number) {
   selectedIndex.value = idx
 }
 
+/** 拖拽排序图片，保持 selectedIndex 指向同一张（封面选中状态不丢） */
 function reorderMemoryImages(from: number, to: number) {
   const len = imagePreviews.value.length
   if (from < 0 || to < 0 || from >= len || to >= len || from === to) return
@@ -360,6 +373,10 @@ function reorderMemoryVideos(from: number, to: number) {
   if (videoViewerOpen.value && ni >= 0) videoViewerIndex.value = ni
 }
 
+/**
+ * 提交记忆：先上传新文件，新视频顺带生成封面图；
+ * 编辑模式下清理已删除的远程资源，再调用 store 持久化。
+ */
 async function handleSubmit() {
   if (!form.value.title?.trim()) { toast.error('标题不能为空'); return }
   saving.value = true

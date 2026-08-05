@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 知识库左侧目录面板：文件夹树、全文搜索、文章导航。
+ * 在 Suspense 内异步加载目录数据，加载完成前由父级骨架屏占位。
+ */
 import { ref, computed, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -18,6 +22,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 const store = useAiKnowledgeStore()
 
+/** 阻塞渲染直到目录树拉取完毕，配合 Suspense fallback */
 await store.ensureLibraryLoaded()
 await nextTick()
 await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())))
@@ -25,15 +30,19 @@ await new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame
 const searchQuery = ref('')
 
 const folderList = computed(() => [...store.folders])
+/** 关键词命中文章列表（含所属目录名），供搜索模式展示 */
 const searchResults = computed(() => store.search(searchQuery.value))
 const isSearchMode = computed(() => searchQuery.value.trim().length > 0)
 
+/** 后台静默刷新目录时显示半透明骨架，不阻断已有内容交互 */
 const showRefetchOverlay = computed(() => store.loading && store.libraryHydrated)
 
+/** 将目录的 articleIds 解析为完整文章对象，过滤已删除的脏 ID */
 function articlesInFolder(folder: KnowledgeFolder): KnowledgeArticle[] {
   return folder.articleIds.map((id) => store.articles[id]).filter(Boolean) as KnowledgeArticle[]
 }
 
+/** 选中文章：清空搜索、展开所在目录并跳转路由 */
 function goArticle(id: string) {
   searchQuery.value = ''
   store.expandFolderForArticle(id)
@@ -46,6 +55,7 @@ function onFolderHeadClick(folderId: string) {
 
 const articleIdParam = computed(() => (route.params.articleId as string) || '')
 
+/** 路由变化时自动展开当前文章所在目录，保持树与阅读位置一致 */
 watch(
   articleIdParam,
   (id) => {

@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import dayjs from 'dayjs'
 import { useAuthStore } from '@/stores/auth'
 import { articleApi } from '@/api'
 import { noteApi } from '@/api/notes'
-import dayjs from 'dayjs'
+import { getDailyEmotionalQuote, peekDailyQuoteCache } from '@/api/dailyQuote'
 import { aiFeatures } from '@/data'
 import type { Article } from '@/types'
 import ArticleCard from '@/components/blog/ArticleCard.vue'
@@ -14,59 +15,121 @@ import SectionTitle from '@/components/common/SectionTitle.vue'
 const router = useRouter()
 const authStore = useAuthStore()
 
+/** 首页「精选文章」区块：仅展示 featured 标记的文章，最多 4 篇 */
 const featuredArticles = ref<Article[]>([])
+/** 首页「最新动态」区块：按列表顺序取前 4 篇 */
 const recentArticles = ref<Article[]>([])
-const panelArticlesLoaded = ref(false)
+/** AI 工坊预览：静态配置里取标记为 new 且未隐藏的功能，最多 5 个入口 */
 const topAI = aiFeatures.filter((i) => i.isNew && !i.hidden).slice(0, 5)
+/** 首屏统计卡片：文章总数、笔记总数、全站阅读量汇总 */
 const stats = ref({ articles: 0, notes: 0, views: 0 })
+/** 左侧品牌/统计/最近更新：等站点配置与文章列表就绪后再展示，避免文案闪烁 */
+const heroLeftLoading = ref(true)
 
+/** 右侧每日语录正文，由 AI 生成或走本地兜底文案 */
+const quoteText = ref('')
+/** 语录卡片加载态：无当日缓存时需等待接口 */
+const quoteLoading = ref(true)
+/** 语录附带的城市天气，用于增强「今日感」 */
+const quoteWeather = ref<{ location: string; tempC: number; label: string; emoji: string } | null>(
+  null,
+)
+/** 语录卡片标题行：固定展示当天日期 */
+const quoteDateLabel = computed(() => dayjs().format('M月D日 · 每日语录'))
+/** 天气一行文案：有数据时拼地点 + 图标 + 描述 + 气温 */
+const weatherLine = computed(() => {
+  const w = quoteWeather.value
+  if (!w) return ''
+  const place = w.location ? `${w.location} · ` : ''
+  return `${place}${w.emoji} ${w.label} ${w.tempC}°C`
+})
+
+/** 站点主标题，后台可配，缺省为「个人博客」 */
 const siteName = computed(() => authStore.siteSettings?.site_name?.trim() || '个人博客')
+/** 副标题行：优先用站长昵称作问候语 */
 const heroAccentLine = computed(() => authStore.siteSettings?.owner_nickname?.trim() || '来访者您好')
+/** 站点简介，展示在标题下方 */
+const siteBio = computed(
+  () => authStore.siteSettings?.site_description?.trim() || '记录生活与技术的小角落',
+)
+/** 角标文案：有独立副标题且与简介不重复时用副标题，否则用固定导航关键词 */
 const heroBadgeText = computed(() => {
   const sub = authStore.siteSettings?.site_subtitle?.trim()
-  if (sub) return sub
-  return '博客 · 笔记 · 工具'
+  if (sub && sub !== siteBio.value) return sub
+  return '博客 · 笔记 · AI'
 })
-const panelCenterLine = computed(() => {
-  const s = authStore.siteSettings
-  const sub = s?.site_subtitle?.trim()
-  if (sub) return sub
-  const d = s?.site_description?.trim()
-  if (!d) return '写自己想写的内容。'
-  if (d.length <= 88) return d
-  return `${d.slice(0, 88).trimEnd()}…`
+/** 阅读量展示：超过 999 压缩为 K 单位，节省卡片宽度 */
+const viewsLabel = computed(() => {
+  const v = stats.value.views
+  return v > 999 ? `${(v / 1000).toFixed(1)}K` : String(v)
 })
 
-/** 侧栏：有精选则单篇焦点，否则最近几条标题，再无则摘要文案 */
-const panelSpotlightArticle = computed(() => featuredArticles.value[0] ?? null)
-const panelFeedArticles = computed(() => recentArticles.value.slice(0, 3))
+/** 首屏「最近更新」列表：从最新文章中再截取 3 条 */
+const spotlightArticles = computed(() => recentArticles.value.slice(0, 3))
 
-function formatPanelArticleDate(article: Article) {
-  const raw = article.publishedAt || article.updatedAt
-  if (!raw || typeof raw !== 'string') return ''
+/** 首屏日期简写：优先 publishedAt，无则 updatedAt */
+function formatShortDate(raw?: string) {
+  if (!raw) return ''
   const d = dayjs(raw)
-  return d.isValid() ? d.format('YYYY-MM-DD') : raw
+  return d.isValid() ? d.format('YYYY.M.D') : ''
 }
 
 onMounted(async () => {
+  // 当天已有语录缓存则同步填充，避免刷新后长时间骨架屏
+  const peek = peekDailyQuoteCache()
+  if (peek) {
+    quoteText.value = peek.text
+    quoteWeather.value = peek.weather ?? null
+    quoteLoading.value = false
+  }
+
+  // 站点文案依赖后台配置，失败时 computed 会走默认值
   try {
     await authStore.fetchSiteSettings()
-  } catch {}
+  } catch {
+    /* ignore */
+  }
+  // 语录与左侧数据并行拉取，不阻塞首屏左侧
+  void loadDailyQuote()
   try {
     const allArticles = await articleApi.getList()
-    featuredArticles.value = allArticles.filter(a => a.featured).slice(0, 4)
+    featuredArticles.value = allArticles.filter((a) => a.featured).slice(0, 4)
     recentArticles.value = allArticles.slice(0, 4)
     stats.value.articles = allArticles.length
     stats.value.views = allArticles.reduce((sum, a) => sum + (a.views || 0), 0)
   } catch {
+    /* ignore */
   } finally {
-    panelArticlesLoaded.value = true
+    heroLeftLoading.value = false
   }
+  // 笔记数单独请求，失败不影响文章区展示
   try {
     const allNotes = await noteApi.getList()
     stats.value.notes = allNotes.length
-  } catch {}
+  } catch {
+    /* ignore */
+  }
 })
+
+/** 拉取当日情感语录：按站长所在地查天气，接口失败时用固定兜底文案 */
+async function loadDailyQuote() {
+  const peek = peekDailyQuoteCache()
+  // 无缓存才显示加载态；有缓存时后台静默刷新
+  if (!peek) quoteLoading.value = true
+  try {
+    const place = authStore.siteSettings?.owner_location?.trim() || '南昌'
+    const res = await getDailyEmotionalQuote(place)
+    quoteText.value = res.text
+    quoteWeather.value = res.weather
+  } catch {
+    // 模型或天气服务不可用时仍保证右侧卡片有可读内容
+    quoteText.value =
+      '慢下来，并不是落后，而是把心安放回自己身上。窗外风声起伏，日子仍旧往前走；你只要把眼前这一杯水喝完，把这一口气呼匀。不必急着证明什么，温柔地对待未完成的事，也温柔地对待还在努力的自己。光会一点点亮起来，你也会。'
+    quoteWeather.value = null
+  } finally {
+    quoteLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -76,138 +139,97 @@ onMounted(async () => {
         <div class="hero__grid" />
         <div class="hero__orb hero__orb--primary" />
         <div class="hero__orb hero__orb--mid" />
+        <div class="hero__orb hero__orb--warm" />
         <div class="hero__noise" />
       </div>
 
       <div class="hero__shell">
         <div class="hero__columns">
           <div class="hero__content">
-            <div class="hero__badge">
-              <span class="hero__badge-dot" aria-hidden="true" />
-              <span>{{ heroBadgeText }}</span>
-            </div>
-
-            <h1 class="hero__title">
-              <span class="hero__title-line">{{ siteName }}</span>
-              <span class="hero__title-gradient text-gradient">{{ heroAccentLine }}</span>
-            </h1>
-
-            <p class="hero__bio">
-              {{ authStore.siteSettings?.site_description || '记录生活与技术的小角落' }}
-            </p>
-
-            <div class="hero__meta-row">
-              <span class="hero__meta-pill">
-                <span class="hero__meta-glow" aria-hidden="true" />
-                {{ authStore.siteSettings?.owner_nickname || '晨光' }}
-              </span>
-              <span class="hero__meta-sep" aria-hidden="true" />
-              <span class="hero__meta-muted">📍 {{ authStore.siteSettings?.owner_location || '深圳' }}</span>
-              <span class="hero__meta-sep" aria-hidden="true" />
-              <span class="hero__meta-status">在线</span>
-            </div>
-
-            <div class="hero__actions">
-              <AppButton size="lg" class="hero__btn-primary" @click="router.push('/blog')">探索文章</AppButton>
-              <AppButton variant="secondary" size="lg" class="hero__btn-secondary" @click="router.push('/notes')">浏览笔记</AppButton>
-            </div>
-
-            <div class="hero__stats-grid">
-              <div class="stat-card">
-                <div class="stat-card__num">{{ stats.articles }}</div>
-                <div class="stat-card__label">篇文章</div>
+            <template v-if="heroLeftLoading">
+              <div class="hero-skel" aria-busy="true" aria-label="内容加载中">
+                <div class="hero-skel__badge quote-skel" />
+                <div class="hero-skel__title quote-skel" />
+                <div class="hero-skel__title hero-skel__title--sub quote-skel" />
+                <div class="hero-skel__bio quote-skel" />
+                <div class="hero-skel__bio hero-skel__bio--short quote-skel" />
+                <div class="hero-skel__stats">
+                  <div v-for="n in 3" :key="n" class="hero-skel__stat">
+                    <div class="quote-skel hero-skel__stat-num" />
+                    <div class="quote-skel hero-skel__stat-label" />
+                  </div>
+                </div>
+                <div class="hero-skel__updates">
+                  <div class="quote-skel hero-skel__updates-label" />
+                  <div v-for="n in 3" :key="`u-${n}`" class="hero-skel__update-row">
+                    <div class="quote-skel hero-skel__update-title" />
+                    <div class="quote-skel hero-skel__update-date" />
+                  </div>
+                </div>
               </div>
-              <div class="stat-card">
-                <div class="stat-card__num">{{ stats.notes }}</div>
-                <div class="stat-card__label">条笔记</div>
+            </template>
+            <template v-else>
+              <div class="hero__badge">
+                <span class="hero__badge-dot" aria-hidden="true" />
+                <span>{{ heroBadgeText }}</span>
               </div>
-              <div class="stat-card">
-                <div class="stat-card__num">{{ stats.views > 999 ? (stats.views / 1000).toFixed(1) + 'K' : stats.views }}</div>
-                <div class="stat-card__label">次阅读</div>
+
+              <h1 class="hero__title">
+                <span class="hero__title-line">{{ siteName }}</span>
+                <span class="hero__title-gradient text-gradient">{{ heroAccentLine }}</span>
+              </h1>
+
+              <p class="hero__bio">{{ siteBio }}</p>
+
+              <div class="hero__stats-grid">
+                <div class="stat-card">
+                  <div class="stat-card__num">{{ stats.articles }}</div>
+                  <div class="stat-card__label">篇文章</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-card__num">{{ stats.notes }}</div>
+                  <div class="stat-card__label">条笔记</div>
+                </div>
+                <div class="stat-card">
+                  <div class="stat-card__num">{{ viewsLabel }}</div>
+                  <div class="stat-card__label">次阅读</div>
+                </div>
               </div>
-            </div>
+
+              <div v-if="spotlightArticles.length" class="hero__updates">
+                <p class="hero__updates-label">最近更新</p>
+                <ul class="hero__updates-list">
+                  <li v-for="article in spotlightArticles" :key="article.id">
+                    <RouterLink :to="`/blog/${article.id}`" class="hero__updates-link">
+                      <span class="hero__updates-title">{{ article.title }}</span>
+                      <span class="hero__updates-date">{{
+                        formatShortDate(article.publishedAt || article.updatedAt)
+                      }}</span>
+                    </RouterLink>
+                  </li>
+                </ul>
+              </div>
+            </template>
           </div>
 
-          <aside class="hero__panel" aria-label="站点概览">
-            <div class="hero__panel-top">
-              <span class="hero__panel-tag">快速入口</span>
-              <div class="hero__panel-chips">
-                <button type="button" class="hero__chip" @click="router.push('/blog')">
-                  <span class="hero__chip-dot hero__chip-dot--primary" aria-hidden="true" />文章
-                </button>
-                <button type="button" class="hero__chip" @click="router.push('/notes')">
-                  <span class="hero__chip-dot hero__chip-dot--secondary" aria-hidden="true" />笔记
-                </button>
-                <button type="button" class="hero__chip" @click="router.push('/ai')">
-                  <span class="hero__chip-dot hero__chip-dot--mid" aria-hidden="true" />AI
-                </button>
-              </div>
+          <aside class="quote-card" aria-label="每日情感语录">
+            <div class="quote-card__glow" aria-hidden="true" />
+            <div class="quote-card__top">
+              <h2 class="quote-card__title">💭 {{ quoteDateLabel }}</h2>
+              <span v-if="weatherLine" class="quote-card__weather">{{ weatherLine }}</span>
             </div>
-            <div class="hero__panel-stage">
-              <p class="hero__panel-stage-label">
-                {{
-                  !panelArticlesLoaded
-                    ? '加载中'
-                    : panelSpotlightArticle
-                      ? '推荐阅读'
-                      : panelFeedArticles.length
-                        ? '最近更新'
-                        : '站点摘要'
-                }}
-              </p>
-              <div
-                class="hero__panel-stage-inner"
-                :class="{
-                  'hero__panel-stage-inner--skeleton': !panelArticlesLoaded,
-                  'hero__panel-stage-inner--spotlight': panelArticlesLoaded && panelSpotlightArticle,
-                  'hero__panel-stage-inner--feed':
-                    panelArticlesLoaded && !panelSpotlightArticle && panelFeedArticles.length,
-                }"
-              >
-                <div class="hero__panel-pulse" />
-                <template v-if="!panelArticlesLoaded">
-                  <div class="hero__panel-skeleton" aria-busy="true" aria-live="polite">
-                    <span class="hero__sr-only">内容加载中</span>
-                    <div class="hero__sk-cover" />
-                    <div class="hero__sk-body">
-                      <div class="hero__sk-line hero__sk-line--title" />
-                      <div class="hero__sk-line hero__sk-line--meta" />
-                    </div>
-                  </div>
-                </template>
-                <template v-else-if="panelSpotlightArticle">
-                  <button
-                    type="button"
-                    class="hero__spotlight"
-                    @click="router.push(`/blog/${panelSpotlightArticle.id}`)"
-                  >
-                    <div class="hero__spotlight-cover">
-                      <img :src="panelSpotlightArticle.cover" alt="" />
-                    </div>
-                    <div class="hero__spotlight-body">
-                      <h3 class="hero__spotlight-title">{{ panelSpotlightArticle.title }}</h3>
-                      <p class="hero__spotlight-meta">
-                        {{ formatPanelArticleDate(panelSpotlightArticle) }}
-                        <template v-if="panelSpotlightArticle.category">
-                          <span class="hero__spotlight-meta-sep" aria-hidden="true" />· {{ panelSpotlightArticle.category }}
-                        </template>
-                      </p>
-                    </div>
-                  </button>
-                </template>
-                <template v-else-if="panelFeedArticles.length">
-                  <ul class="hero__panel-feed">
-                    <li v-for="a in panelFeedArticles" :key="a.id">
-                      <button type="button" class="hero__panel-feed-row" @click="router.push(`/blog/${a.id}`)">
-                        <span class="hero__panel-feed-title">{{ a.title }}</span>
-                        <span class="hero__panel-feed-date">{{ formatPanelArticleDate(a) }}</span>
-                      </button>
-                    </li>
-                  </ul>
-                </template>
-                <p v-else class="hero__panel-stage-text">{{ panelCenterLine }}</p>
-              </div>
+
+            <div v-if="quoteLoading" class="quote-card__loading" aria-busy="true">
+              <div class="quote-skel quote-skel--a" />
+              <div class="quote-skel quote-skel--b" />
+              <div class="quote-skel quote-skel--c" />
+              <p class="quote-card__hint">正在为你写今日语录…</p>
             </div>
+            <blockquote v-else class="quote-card__body">
+              <p class="quote-card__text">{{ quoteText }}</p>
+            </blockquote>
+
+            <p class="quote-card__foot">每天更新一次 · 愿你被温柔以待</p>
           </aside>
         </div>
       </div>
@@ -220,7 +242,13 @@ onMounted(async () => {
           <AppButton variant="ghost" @click="router.push('/blog')">查看全部 →</AppButton>
         </div>
         <div v-if="featuredArticles.length" class="featured-grid">
-          <ArticleCard v-for="article in featuredArticles" :key="article.id" :article="article" :featured="true" class="animate-fade-in-up" />
+          <ArticleCard
+            v-for="article in featuredArticles"
+            :key="article.id"
+            :article="article"
+            :featured="true"
+            class="animate-fade-in-up"
+          />
         </div>
         <div v-else class="empty-articles"><p>还没有精选文章</p></div>
       </div>
@@ -233,7 +261,13 @@ onMounted(async () => {
           <AppButton variant="ghost" @click="router.push('/blog')">更多文章 →</AppButton>
         </div>
         <div v-if="recentArticles.length" class="recent-grid">
-          <ArticleCard v-for="(article, i) in recentArticles" :key="article.id" :article="article" class="animate-fade-in-up" :class="`delay-${(i+1)*100}`" />
+          <ArticleCard
+            v-for="(article, i) in recentArticles"
+            :key="article.id"
+            :article="article"
+            class="animate-fade-in-up"
+            :class="`delay-${(i + 1) * 100}`"
+          />
         </div>
         <div v-else class="empty-articles"><p>还没有文章</p></div>
       </div>
@@ -246,39 +280,45 @@ onMounted(async () => {
           <AppButton variant="ghost" @click="router.push('/ai')">探索全部 →</AppButton>
         </div>
         <div class="ai-preview">
-          <div v-for="(feat, i) in topAI" :key="feat.id" class="ai-preview-card animate-fade-in-up" :class="`delay-${(i+1)*100}`" @click="router.push('/ai')" style="cursor: pointer;">
+          <button
+            v-for="(feat, i) in topAI"
+            :key="feat.id"
+            type="button"
+            class="ai-preview-card animate-fade-in-up"
+            :class="`delay-${(i + 1) * 100}`"
+            @click="router.push({ path: '/ai', query: { feature: feat.id } })"
+          >
             <div class="ai-preview-card__head">
               <span class="ai-preview-card__icon" aria-hidden="true">{{ feat.emoji }}</span>
               <h4 class="ai-preview-card__name">{{ feat.name }}</h4>
             </div>
             <p class="ai-preview-card__desc">{{ feat.description }}</p>
-          </div>
+          </button>
         </div>
       </div>
     </section>
 
-    <section class="section section--entry-banners section--alt">
+    <section
+      v-if="authStore.isLoggedIn"
+      class="section section--entry-banners section--alt"
+    >
       <div class="container entry-banners">
-        <div
-          v-if="authStore.isLoggedIn"
-          class="resume-entry-banner"
-          @click="router.push('/resume')"
-        >
+        <div class="resume-entry-banner" @click="router.push('/resume')">
           <div class="resume-entry-banner__content">
-            <div class="resume-entry-banner__emoji">📄</div>
+            <div class="resume-entry-banner__emoji" aria-hidden="true">📄</div>
             <div>
               <h3 class="resume-entry-banner__title">我的简历</h3>
-              <p class="resume-entry-banner__desc">在线简历编辑器，支持多种模块和实时预览 ✨</p>
+              <p class="resume-entry-banner__desc">在线简历编辑器，支持多种模块和实时预览</p>
             </div>
           </div>
           <AppButton variant="warm">查看简历 →</AppButton>
         </div>
         <div class="couple-entry-banner" @click="router.push('/couple')">
           <div class="couple-entry-banner__content">
-            <div class="couple-entry-banner__emoji">💑</div>
+            <div class="couple-entry-banner__emoji" aria-hidden="true">💑</div>
             <div>
               <h3 class="couple-entry-banner__title">情侣空间</h3>
-              <p class="couple-entry-banner__desc">一个属于我们两个人的小世界，需要密码才能进入 🔒</p>
+              <p class="couple-entry-banner__desc">一个属于我们两个人的小世界，需要密码才能进入</p>
             </div>
           </div>
           <AppButton variant="warm">进入空间 →</AppButton>
@@ -289,7 +329,6 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-/* 首页布局与玻璃质感；颜色全部继承 html[data-theme] 下的全局变量 */
 .home {
   background:
     radial-gradient(ellipse 100% 70% at 12% -8%, var(--body-grad-1), transparent 52%),
@@ -298,14 +337,14 @@ onMounted(async () => {
     var(--color-bg);
 }
 
-/* —— Hero —— */
+/* 首屏单独占一页 */
 .hero {
   position: relative;
-  min-height: max(640px, calc(100vh - 64px));
+  min-height: calc(100vh - 64px);
   display: flex;
   align-items: center;
   overflow: clip;
-  padding: 48px 0 72px;
+  padding: 48px 0 56px;
 }
 
 .hero__ambient {
@@ -319,37 +358,46 @@ onMounted(async () => {
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(color-mix(in srgb, var(--color-primary) 7%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 7%, transparent) 1px, transparent 1px);
-  background-size: 56px 56px;
-  mask-image: radial-gradient(ellipse 75% 70% at 50% 40%, black 15%, transparent 72%);
-  opacity: 0.55;
+    linear-gradient(color-mix(in srgb, var(--color-primary) 8%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--color-primary) 8%, transparent) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, black 20%, transparent 75%);
+  opacity: 0.5;
 }
 
 .hero__orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(72px);
+  filter: blur(70px);
   opacity: 0.55;
   animation: float 14s ease-in-out infinite;
 }
 
 .hero__orb--primary {
-  width: min(520px, 90vw);
-  height: min(520px, 90vw);
-  background: color-mix(in srgb, var(--color-primary) 22%, transparent);
-  top: -12%;
-  right: -8%;
+  width: min(420px, 70vw);
+  height: min(420px, 70vw);
+  background: color-mix(in srgb, var(--color-primary) 28%, transparent);
+  top: -20%;
+  right: 8%;
 }
 
 .hero__orb--mid {
-  width: min(420px, 80vw);
-  height: min(420px, 80vw);
-  background: color-mix(in srgb, var(--color-ui-gradient-mid) 18%, transparent);
-  bottom: -18%;
-  left: -6%;
+  width: min(320px, 55vw);
+  height: min(320px, 55vw);
+  background: color-mix(in srgb, var(--color-ui-gradient-mid) 22%, transparent);
+  bottom: -30%;
+  left: -4%;
   animation-delay: -4s;
   animation-direction: reverse;
+}
+
+.hero__orb--warm {
+  width: min(240px, 40vw);
+  height: min(240px, 40vw);
+  background: color-mix(in srgb, var(--color-secondary) 20%, transparent);
+  top: 40%;
+  right: -4%;
+  animation-delay: -7s;
 }
 
 .hero__noise {
@@ -357,7 +405,6 @@ onMounted(async () => {
   inset: 0;
   opacity: 0.035;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  pointer-events: none;
 }
 
 .hero__shell {
@@ -371,13 +418,9 @@ onMounted(async () => {
 
 .hero__columns {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(280px, 0.88fr);
-  gap: clamp(32px, 5vw, 64px);
-  align-items: stretch;
-}
-
-.hero__content {
-  text-align: left;
+  grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.95fr);
+  gap: clamp(24px, 4vw, 48px);
+  align-items: start;
 }
 
 .hero__badge {
@@ -391,8 +434,8 @@ onMounted(async () => {
   color: var(--color-text-secondary);
   background: var(--color-bg-glass);
   border: 1px solid var(--color-border);
-  margin-bottom: 28px;
-  animation: fade-in-down 0.55s ease-out both;
+  margin-bottom: 20px;
+  animation: fade-in-up 0.5s ease-out both;
 }
 
 .hero__badge-dot {
@@ -401,17 +444,15 @@ onMounted(async () => {
   border-radius: 50%;
   background: var(--color-success);
   box-shadow: 0 0 12px color-mix(in srgb, var(--color-success) 55%, transparent);
-  flex-shrink: 0;
 }
 
 .hero__title {
-  margin: 0 0 20px;
-  font-family: var(--font-sans);
+  margin: 0 0 16px;
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1.08;
-  font-size: clamp(2.25rem, 4.2vw + 1rem, 3.65rem);
-  animation: fade-in-up 0.65s ease-out 0.06s both;
+  font-size: clamp(2.2rem, 4vw + 1rem, 3.4rem);
+  animation: fade-in-up 0.55s ease-out 0.05s both;
 }
 
 .hero__title-line {
@@ -422,99 +463,126 @@ onMounted(async () => {
 .hero__title-gradient {
   display: block;
   margin-top: 4px;
-  font-size: clamp(2.05rem, 3.8vw + 0.85rem, 3.35rem);
-  filter: drop-shadow(0 0 22px color-mix(in srgb, var(--color-primary) 42%, transparent));
+  font-size: clamp(1.9rem, 3.4vw + 0.85rem, 3rem);
+  filter: drop-shadow(0 0 20px color-mix(in srgb, var(--color-primary) 40%, transparent));
 }
 
 .hero__bio {
   max-width: 34rem;
-  margin: 0 0 24px;
-  font-size: clamp(1rem, 0.35vw + 0.95rem, 1.125rem);
-  line-height: 1.75;
+  margin: 0 0 22px;
+  font-size: clamp(0.98rem, 0.3vw + 0.92rem, 1.1rem);
+  line-height: 1.7;
   color: var(--color-text-secondary);
-  animation: fade-in-up 0.65s ease-out 0.12s both;
+  animation: fade-in-up 0.55s ease-out 0.1s both;
 }
 
-.hero__meta-row {
+.hero-skel {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 14px;
-  margin-bottom: 28px;
-  font-size: var(--text-sm);
-  animation: fade-in-up 0.65s ease-out 0.18s both;
-}
-
-.hero__meta-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  border-radius: var(--radius-full);
-  background: var(--color-bg-glass);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-primary);
-  font-weight: 600;
-  position: relative;
-  overflow: hidden;
-}
-
-.hero__meta-glow {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  box-shadow: 0 0 10px var(--color-primary);
-}
-
-.hero__meta-muted {
-  color: var(--color-text-muted);
-}
-
-.hero__meta-sep {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--color-text-primary) 18%, transparent);
-}
-
-.hero__meta-status {
-  color: var(--color-success);
-  font-weight: 500;
-}
-
-.hero__actions {
-  display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 12px;
-  margin-bottom: 32px;
-  animation: fade-in-up 0.65s ease-out 0.24s both;
+  max-width: 34rem;
+  animation: fade-in-up 0.35s ease-out both;
 }
 
-.hero__btn-primary :deep(.btn--primary) {
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--color-primary) 28%, transparent),
-    0 4px 22px color-mix(in srgb, var(--color-primary) 28%, transparent);
+.hero-skel__badge {
+  width: 140px;
+  height: 28px;
+  border-radius: 999px;
 }
 
-.hero__btn-secondary :deep(.btn--secondary) {
-  background: var(--color-bg-glass);
-  color: var(--color-text-primary);
+.hero-skel__title {
+  width: 72%;
+  height: 42px;
+  border-radius: 14px;
+  margin-top: 4px;
+}
+
+.hero-skel__title--sub {
+  width: 58%;
+  height: 36px;
+}
+
+.hero-skel__bio {
+  width: 92%;
+  height: 14px;
+  margin-top: 4px;
+}
+
+.hero-skel__bio--short {
+  width: 68%;
+  margin-bottom: 8px;
+}
+
+.hero-skel__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  max-width: 420px;
+  margin: 6px 0 8px;
+}
+
+.hero-skel__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 12px;
+  border-radius: 18px;
+  background: var(--color-bg-card);
   border: 1px solid var(--color-border);
 }
 
-.hero__btn-secondary :deep(.btn--secondary:hover) {
-  border-color: var(--color-border-strong);
-  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-bg) 90%);
-  color: var(--color-text-primary);
+.hero-skel__stat-num {
+  width: 42%;
+  height: 28px;
+  border-radius: 10px;
+}
+
+.hero-skel__stat-label {
+  width: 52%;
+  height: 12px;
+}
+
+.hero-skel__updates {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.hero-skel__updates-label {
+  width: 72px;
+  height: 12px;
+}
+
+.hero-skel__update-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+}
+
+.hero-skel__update-title {
+  flex: 1;
+  height: 14px;
+  max-width: 70%;
+}
+
+.hero-skel__update-date {
+  width: 72px;
+  height: 12px;
+  flex-shrink: 0;
 }
 
 .hero__stats-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
   max-width: 420px;
-  animation: fade-in-up 0.65s ease-out 0.3s both;
+  margin-bottom: 22px;
+  animation: fade-in-up 0.55s ease-out 0.14s both;
 }
 
 .stat-card {
@@ -524,7 +592,6 @@ onMounted(async () => {
   background: var(--color-bg-card);
   border: 1px solid var(--color-border);
   backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   transition:
     transform var(--transition-base),
     border-color var(--transition-base),
@@ -540,9 +607,8 @@ onMounted(async () => {
 .stat-card__num {
   font-size: var(--text-2xl);
   font-weight: 800;
-  color: var(--color-text-primary);
   letter-spacing: -0.02em;
-  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
 }
 
 .stat-card__label {
@@ -551,372 +617,203 @@ onMounted(async () => {
   color: var(--color-text-muted);
 }
 
-/* 右侧玻璃面板 */
-.hero__panel {
-  border-radius: 24px;
-  padding: 22px 22px 20px;
-  background: var(--color-bg-glass);
-  border: 1px solid var(--color-border);
-  backdrop-filter: blur(22px);
-  -webkit-backdrop-filter: blur(22px);
-  box-shadow:
-    var(--shadow-lg),
-    0 0 0 1px color-mix(in srgb, var(--color-primary) 8%, transparent);
-  animation: fade-in-up 0.75s ease-out 0.15s both;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+.hero__updates {
+  max-width: 440px;
+  animation: fade-in-up 0.55s ease-out 0.22s both;
 }
 
-.hero__panel-top {
-  margin-bottom: 18px;
-}
-
-.hero__panel-tag {
-  display: inline-block;
+.hero__updates-label {
+  margin: 0 0 10px;
   font-size: var(--text-xs);
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--color-text-muted);
-  margin-bottom: 12px;
 }
 
-.hero__panel-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.hero__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  font-size: var(--text-xs);
-  color: var(--color-text-secondary);
-  border-radius: var(--radius-full);
-  background: color-mix(in srgb, var(--color-text-primary) 5%, var(--color-bg) 95%);
-  border: 1px solid var(--color-border);
-  font: inherit;
-  cursor: pointer;
-  transition:
-    border-color var(--transition-fast),
-    background var(--transition-fast),
-    color var(--transition-fast);
-}
-
-.hero__chip:hover {
-  color: var(--color-primary);
-  border-color: color-mix(in srgb, var(--color-primary) 35%, transparent);
-  background: color-mix(in srgb, var(--color-primary) 10%, var(--color-bg) 90%);
-}
-
-.hero__chip:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
-.hero__chip-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.hero__chip-dot--primary {
-  background: var(--color-primary);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--color-primary) 55%, transparent);
-}
-
-.hero__chip-dot--secondary {
-  background: var(--color-secondary);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--color-secondary) 50%, transparent);
-}
-
-.hero__chip-dot--mid {
-  background: var(--color-ui-gradient-mid);
-  box-shadow: 0 0 8px color-mix(in srgb, var(--color-ui-gradient-mid) 45%, transparent);
-}
-
-.hero__panel-stage {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  margin-bottom: 0;
-}
-
-.hero__panel-stage-label {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-  margin: 0 0 10px;
-  flex-shrink: 0;
-}
-
-.hero__panel-stage-inner {
-  position: relative;
-  min-height: 140px;
-  border-radius: 18px;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  background:
-    radial-gradient(ellipse 90% 85% at 50% 45%, color-mix(in srgb, var(--color-primary) 16%, transparent) 0%, transparent 62%),
-    linear-gradient(
-      155deg,
-      color-mix(in srgb, var(--color-surface) 94%, var(--color-primary) 6%) 0%,
-      color-mix(in srgb, var(--color-bg) 92%, var(--color-ui-gradient-mid) 8%) 100%
-    );
-  border: 1px solid var(--color-border);
-  overflow: hidden;
-}
-
-.hero__panel-pulse {
-  position: absolute;
-  width: 140%;
-  height: 140%;
-  left: -20%;
-  top: -20%;
-  background: conic-gradient(
-    from 118deg,
-    transparent,
-    color-mix(in srgb, var(--color-primary) 14%, transparent),
-    transparent 38%,
-    color-mix(in srgb, var(--color-ui-gradient-mid) 12%, transparent),
-    transparent 72%
-  );
-  animation: spin-slow 22s linear infinite;
-  pointer-events: none;
-}
-
-.hero__panel-stage-text {
-  position: relative;
-  z-index: 1;
-  margin: 0;
-  font-size: var(--text-sm);
-  color: color-mix(in srgb, var(--color-text-primary) 82%, transparent);
-  line-height: 1.65;
-  max-width: 16rem;
-}
-
-.hero__panel-stage-inner--spotlight,
-.hero__panel-stage-inner--feed,
-.hero__panel-stage-inner--skeleton {
-  align-items: stretch;
-  justify-content: flex-start;
-  text-align: left;
-  flex: 1;
-  min-height: 0;
-}
-
-.hero__panel-skeleton {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  min-width: 0;
-  width: 100%;
-}
-
-.hero__sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.hero__sk-cover {
-  flex: 1;
-  min-height: 120px;
-  border-radius: 12px;
-  overflow: hidden;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--color-text-primary) 6%, transparent) 0%,
-    color-mix(in srgb, var(--color-text-primary) 14%, transparent) 45%,
-    color-mix(in srgb, var(--color-text-primary) 6%, transparent) 90%
-  );
-  background-size: 200% 100%;
-  animation: hero-sk-shimmer 1.5s ease-in-out infinite;
-}
-
-.hero__sk-body {
-  flex-shrink: 0;
-  padding-top: 10px;
-  min-width: 0;
-}
-
-.hero__sk-line {
-  border-radius: 6px;
-  height: 14px;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--color-text-primary) 6%, transparent) 0%,
-    color-mix(in srgb, var(--color-text-primary) 14%, transparent) 45%,
-    color-mix(in srgb, var(--color-text-primary) 6%, transparent) 90%
-  );
-  background-size: 200% 100%;
-  animation: hero-sk-shimmer 1.5s ease-in-out infinite;
-}
-
-.hero__sk-line--title {
-  width: 88%;
-  max-width: 100%;
-}
-
-.hero__sk-line--meta {
-  width: 42%;
-  max-width: 100%;
-  height: 10px;
-  margin-top: 10px;
-  animation-delay: 0.12s;
-}
-
-.hero__spotlight {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  min-width: 0;
-  width: 100%;
-  padding: 0;
-  margin: 0;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-  border-radius: 12px;
-  overflow: hidden;
-  transition:
-    box-shadow var(--transition-base),
-    transform var(--transition-base);
-}
-
-.hero__spotlight:hover {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 28%, transparent);
-}
-
-.hero__spotlight:focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
-.hero__spotlight-cover {
-  position: relative;
-  flex: 1;
-  min-height: 120px;
-  border-radius: 12px;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--color-text-primary) 6%, transparent);
-}
-
-.hero__spotlight-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.hero__spotlight-body {
-  flex-shrink: 0;
-  padding-top: 10px;
-  min-width: 0;
-}
-
-.hero__spotlight-title {
-  margin: 0 0 6px;
-  font-size: var(--text-base);
-  font-weight: 700;
-  line-height: 1.35;
-  color: var(--color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.hero__spotlight-meta {
-  margin: 0;
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-}
-
-.hero__spotlight-meta-sep {
-  margin: 0 0.25em;
-}
-
-.hero__panel-feed {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  margin: 0;
-  padding: 0;
+.hero__updates-list {
   list-style: none;
-}
-
-.hero__panel-feed li + li {
+  margin: 0;
+  padding: 0;
   border-top: 1px solid var(--color-border);
 }
 
-.hero__panel-feed-row {
+.hero__updates-link {
   display: flex;
-  align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  padding: 10px 0;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
+  gap: 16px;
+  align-items: baseline;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--color-border);
   color: inherit;
-  transition: color var(--transition-fast);
+  transition: opacity var(--transition-fast);
 }
 
-.hero__panel-feed-row:hover {
-  color: var(--color-primary);
+.hero__updates-link:hover {
+  opacity: 0.72;
 }
 
-.hero__panel-feed-row:focus-visible {
-  outline: 2px solid var(--color-primary);
+.hero__updates-link:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 65%, transparent);
   outline-offset: 2px;
 }
 
-.hero__panel-feed-title {
-  flex: 1;
-  min-width: 0;
+.hero__updates-title {
   font-size: var(--text-sm);
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  min-width: 0;
 }
 
-.hero__panel-feed-date {
+.hero__updates-date {
   flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+/* 右侧每日语录 */
+.quote-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+  padding: 22px 24px 18px;
+  border-radius: 28px;
+  overflow: hidden;
+  background:
+    linear-gradient(
+      160deg,
+      color-mix(in srgb, var(--color-accent) 10%, var(--color-surface)),
+      color-mix(in srgb, var(--color-primary) 8%, var(--color-surface)) 55%,
+      var(--color-surface)
+    );
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(18px);
+  animation: fade-in-up 0.65s ease-out 0.14s both;
+}
+
+.quote-card__glow {
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  right: -40px;
+  top: -40px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  filter: blur(40px);
+  pointer-events: none;
+}
+
+.quote-card__top {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 0;
+}
+
+.quote-card__title {
+  margin: 0;
+  font-size: clamp(1.15rem, 0.6vw + 1rem, 1.35rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+  line-height: 1.35;
+}
+
+.quote-card__weather {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: color-mix(in srgb, var(--color-surface) 78%, transparent);
+  border: 1px solid var(--color-border);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.quote-card__body {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  flex: 0 1 auto;
+  display: block;
+}
+
+.quote-card__text {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(1.15rem, 1.2vw + 0.9rem, 1.35rem);
+  line-height: 1.85;
+  color: var(--color-text-primary);
+  letter-spacing: 0.02em;
+  text-indent: 2em;
+}
+
+.quote-card__foot {
+  position: relative;
+  z-index: 1;
+  margin: 0;
   font-size: var(--text-xs);
   color: var(--color-text-muted);
 }
 
-/* —— 内容区块 —— */
+.quote-card__loading {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.quote-card__hint {
+  margin: 8px 0 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.quote-skel {
+  height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-text-primary) 5%, transparent),
+    color-mix(in srgb, var(--color-text-primary) 10%, transparent),
+    color-mix(in srgb, var(--color-text-primary) 5%, transparent)
+  );
+  background-size: 200% 100%;
+  animation: quote-shimmer 1.2s ease-in-out infinite;
+}
+
+.quote-skel--a {
+  width: 92%;
+}
+.quote-skel--b {
+  width: 78%;
+}
+.quote-skel--c {
+  width: 64%;
+}
+
+@keyframes quote-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
 .section {
-  padding: 56px 24px 20px;
+  padding: 64px 24px 24px;
 }
 
 @media (min-width: 900px) {
@@ -933,14 +830,8 @@ onMounted(async () => {
 }
 
 .section--entry-banners {
-  padding-top: 48px;
-  padding-bottom: 72px;
-}
-
-.entry-banners {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  padding-top: 40px;
+  padding-bottom: 64px;
 }
 
 .container {
@@ -959,40 +850,32 @@ onMounted(async () => {
 
 .section__header :deep(.btn--ghost) {
   color: var(--color-text-muted);
-  border: 1px solid transparent;
 }
 
 .section__header :deep(.btn--ghost:hover) {
   color: var(--color-primary);
   background: color-mix(in srgb, var(--color-primary) 8%, transparent);
-  border-color: color-mix(in srgb, var(--color-primary) 22%, transparent);
 }
 
 .featured-grid,
 .recent-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
+  gap: 16px;
 }
 
 .featured-grid :deep(.article-card__body),
 .recent-grid :deep(.article-card__body) {
-  padding: 10px 12px 12px;
-}
-
-.featured-grid :deep(.article-card__summary),
-.recent-grid :deep(.article-card__summary) {
-  margin-bottom: 8px;
+  min-height: 0;
 }
 
 .empty-articles {
+  padding: 40px;
   text-align: center;
-  padding: 56px 24px;
   color: var(--color-text-muted);
-  font-size: var(--text-sm);
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
   border: 1px dashed var(--color-border);
-  border-radius: var(--radius-xl);
-  background: color-mix(in srgb, var(--color-primary) 3%, var(--color-bg) 97%);
 }
 
 .ai-preview {
@@ -1002,215 +885,145 @@ onMounted(async () => {
 }
 
 .ai-preview-card {
-  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 18px;
+  text-align: left;
   background: var(--color-bg-card);
-  backdrop-filter: var(--blur-md);
-  -webkit-backdrop-filter: var(--blur-md);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
+  color: inherit;
   cursor: pointer;
   transition:
     transform var(--transition-base),
     border-color var(--transition-base),
     box-shadow var(--transition-base);
-  min-width: 0;
 }
 
 .ai-preview-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-3px);
   border-color: var(--color-border-strong);
-  box-shadow: var(--shadow-lg), 0 0 24px color-mix(in srgb, var(--color-primary) 12%, transparent);
+  box-shadow: var(--shadow-md);
+}
+
+.ai-preview-card:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-primary) 65%, transparent);
+  outline-offset: 2px;
 }
 
 .ai-preview-card__head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-  min-width: 0;
+  gap: 10px;
 }
 
 .ai-preview-card__icon {
-  font-size: 1.45rem;
-  line-height: 1;
-  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 1.15rem;
+  background: color-mix(in srgb, var(--color-primary) 12%, var(--color-surface));
 }
 
 .ai-preview-card__name {
   margin: 0;
   font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--color-text-primary);
-  line-height: 1.25;
-  min-width: 0;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 700;
 }
 
 .ai-preview-card__desc {
   margin: 0;
-  font-size: var(--text-xs);
+  font-size: 12px;
+  line-height: 1.55;
   color: var(--color-text-muted);
-  line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.resume-entry-banner {
+.entry-banners {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 28px 36px;
-  border-radius: 22px;
-  cursor: pointer;
-  flex-wrap: wrap;
-  gap: 20px;
-  background: linear-gradient(
-    125deg,
-    color-mix(in srgb, var(--color-primary) 12%, transparent) 0%,
-    color-mix(in srgb, var(--color-ui-gradient-mid) 10%, transparent) 100%
-  );
-  border: 1px solid var(--color-border-strong);
-  transition:
-    transform var(--transition-base),
-    box-shadow var(--transition-base),
-    border-color var(--transition-base);
+  flex-direction: column;
+  gap: 14px;
 }
 
-.resume-entry-banner:hover {
-  transform: translateY(-3px);
-  border-color: var(--color-primary);
-  box-shadow: var(--shadow-lg), 0 0 32px color-mix(in srgb, var(--color-primary) 16%, transparent);
-}
-
-.resume-entry-banner__content {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.resume-entry-banner__emoji {
-  font-size: 2.75rem;
-  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--color-primary) 35%, transparent));
-}
-
-.resume-entry-banner__title {
-  font-size: var(--text-xl);
-  font-weight: 700;
-  color: var(--color-text-primary);
-  margin-bottom: 6px;
-}
-
-.resume-entry-banner__desc {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
-}
-
+.resume-entry-banner,
 .couple-entry-banner {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 28px 36px;
-  border-radius: 22px;
-  cursor: pointer;
-  flex-wrap: wrap;
   gap: 20px;
-  background: linear-gradient(
-    125deg,
-    color-mix(in srgb, var(--color-accent) 11%, transparent) 0%,
-    color-mix(in srgb, var(--color-secondary) 9%, transparent) 100%
-  );
-  border: 1px solid color-mix(in srgb, var(--color-accent) 26%, transparent);
+  padding: 22px 24px;
+  border-radius: 20px;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
   transition:
     transform var(--transition-base),
-    box-shadow var(--transition-base),
-    border-color var(--transition-base);
+    box-shadow var(--transition-base);
 }
 
+.resume-entry-banner {
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--color-primary) 12%, var(--color-surface)),
+    var(--color-surface)
+  );
+}
+
+.couple-entry-banner {
+  background: linear-gradient(
+    120deg,
+    color-mix(in srgb, var(--color-accent) 12%, var(--color-surface)),
+    var(--color-surface)
+  );
+}
+
+.resume-entry-banner:hover,
 .couple-entry-banner:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--color-accent) 45%, transparent);
-  box-shadow: var(--shadow-lg), 0 0 28px color-mix(in srgb, var(--color-accent) 14%, transparent);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
+.resume-entry-banner__content,
 .couple-entry-banner__content {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
 }
 
+.resume-entry-banner__emoji,
 .couple-entry-banner__emoji {
-  font-size: 2.75rem;
-  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--color-accent) 35%, transparent));
+  font-size: 2rem;
 }
 
+.resume-entry-banner__title,
 .couple-entry-banner__title {
-  font-size: var(--text-xl);
+  margin: 0 0 4px;
+  font-size: var(--text-lg);
   font-weight: 700;
-  color: var(--color-text-primary);
-  margin-bottom: 6px;
 }
 
+.resume-entry-banner__desc,
 .couple-entry-banner__desc {
+  margin: 0;
   font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
 
-@keyframes hero-sk-shimmer {
-  0% {
-    background-position: 100% 0;
-  }
-  100% {
-    background-position: -100% 0;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .hero__sk-cover,
-  .hero__sk-line {
-    animation: none;
-  }
-}
-
-@keyframes fade-in-down {
-  from {
-    opacity: 0;
-    transform: translateY(-14px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(18px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0) scale(1);
-  }
-  50% {
-    transform: translateY(16px) scale(1.03);
-  }
-}
-
-@keyframes spin-slow {
-  to {
-    transform: rotate(360deg);
+  .hero__orb,
+  .hero__badge,
+  .hero__title,
+  .hero__bio,
+  .hero__stats-grid,
+  .hero__updates,
+  .quote-card,
+  .quote-skel {
+    animation: none !important;
   }
 }
 
@@ -1226,12 +1039,17 @@ onMounted(async () => {
 }
 
 @media (max-width: 900px) {
+  .hero {
+    min-height: auto;
+    align-items: stretch;
+  }
+
   .hero__columns {
     grid-template-columns: 1fr;
   }
 
-  .hero__panel {
-    max-width: 480px;
+  .quote-card {
+    min-height: 0;
   }
 }
 
@@ -1243,48 +1061,30 @@ onMounted(async () => {
 
 @media (max-width: 560px) {
   .featured-grid,
-  .recent-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 440px) {
-  .ai-preview {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 768px) {
-  .hero {
-    padding: 32px 0 48px;
-    min-height: auto;
-  }
-
+  .recent-grid,
+  .ai-preview,
   .hero__stats-grid {
-    max-width: none;
+    grid-template-columns: 1fr;
   }
 
-  .hero__actions {
+  .quote-card__top {
     flex-direction: column;
-    align-items: stretch;
+    align-items: flex-start;
   }
 
-  .hero__actions :deep(.btn) {
-    width: 100%;
+  .quote-card__weather {
+    white-space: normal;
   }
 
   .resume-entry-banner,
   .couple-entry-banner {
     flex-direction: column;
     text-align: center;
-    padding: 24px 22px;
   }
 
   .resume-entry-banner__content,
   .couple-entry-banner__content {
     flex-direction: column;
-    text-align: center;
   }
 }
-
 </style>

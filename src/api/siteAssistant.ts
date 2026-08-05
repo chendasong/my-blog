@@ -217,6 +217,19 @@ function matchDirectNavigationPath(userText: string): string | null {
         '写作助手',
       ],
     },
+    {
+      path: '/ai/app-gen',
+      phrases: [
+        'ai应用生成',
+        '应用生成',
+        '生成应用',
+        '代码生成',
+        '生成vue',
+        'ai写应用',
+        '应用生成器',
+        '打开应用生成',
+      ],
+    },
     { path: '/couple', phrases: ['情侣空间', '情侣页', '恋爱空间'] },
     {
       path: '/blog',
@@ -380,7 +393,7 @@ const SYSTEM_PROMPT = `你是 Luminary 个人博客网站内的「AI 助手」�
 }
 
 可用工具（可同时调用多个，按顺序执行）：
-1. navigate — 站内路由跳转。arguments: { "path": "/路径" }。path 必须以 / 开头。常用：/ 首页，/blog 文章列表，/blog/new 新建文章编辑器，/notes 笔记列表，/notes/new 新建笔记，/ai AI工坊，/ai/agent 写作 Agent 流水线，/resume 简历，/resume/edit 编辑简历，/couple 情侣空间，/login 登录。
+1. navigate — 站内路由跳转。arguments: { "path": "/路径" }。path 必须以 / 开头。常用：/ 首页，/blog 文章列表，/blog/new 新建文章编辑器，/notes 笔记列表，/notes/new 新建笔记，/ai AI工坊，/ai/agent 写作 Agent 流水线，/ai/app-gen AI 应用生成，/resume 简历，/resume/edit 编辑简历，/couple 情侣空间，/login 登录。
 2. search_articles — 按标题/摘要搜索文章。arguments: { "keyword": "关键词", "limit": 5 }
 3. search_notes — 搜索笔记。arguments: { "keyword": "关键词", "limit": 5 }
 4. music_play_pause — 播放/暂停背景音乐。arguments: {}

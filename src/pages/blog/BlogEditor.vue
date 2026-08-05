@@ -14,23 +14,30 @@ import dayjs from 'dayjs'
 const route = useRoute()
 const router = useRouter()
 const toast = useToast()
+/** 有路由 id 为编辑模式，否则为新建 */
 const isEdit = !!route.params.id
 
 const loading = ref(false)
 const saving = ref(false)
+/** AI 封面批量生成中，禁用风格选择与重复点击 */
 const generatingCovers = ref(false)
+/** 生成封面时选用的画风预设 */
 const coverImageStyleId = ref(DEFAULT_AI_IMAGE_STYLE_ID)
 
-// 封面状态独立管理，互不干扰
-// uploadedCover: 本地预览 URL（未上传）
-const uploadedFile = ref<File | null>(null)        // 待上传的文件
-const uploadedPreview = ref('')                  // 本地预览 URL
-const generatedCovers = ref<string[]>([])          // AI 生成的图 (远程 URL)
-const selectedUpload = ref('')                   // 当前选中的自定义图
-const selectedAI = ref('')                       // 当前选中的 AI 图
-// activeSource: 'upload' | 'ai' | '' - 最后操作的来源
+/** 用户选中的本地文件，发布时才上传，减少无效存储 */
+const uploadedFile = ref<File | null>(null)
+/** blob URL 本地预览，需在替换时 revoke 防泄漏 */
+const uploadedPreview = ref('')
+/** AI 一次生成的多张候选封面（远程临时 URL） */
+const generatedCovers = ref<string[]>([])
+/** 自定义上传通道当前选中的预览地址 */
+const selectedUpload = ref('')
+/** AI 通道当前选中的封面 URL */
+const selectedAI = ref('')
+/** 用户最后一次操作的封面来源，决定发布时取哪一路 */
 const activeSource = ref<'upload' | 'ai' | ''>('')
 
+/** 文章主表单：tags 在提交时拆成数组 */
 const form = ref({
   title: '',
   summary: '',
@@ -42,6 +49,7 @@ const form = ref({
   featured: false,
 })
 
+/** 编辑模式回填已有文章；新建模式保持空表单 */
 onMounted(async () => {
   if (isEdit) {
     loading.value = true
@@ -63,11 +71,11 @@ onMounted(async () => {
   }
 })
 
+/** 选择本地封面：仅创建预览，实际上传推迟到发布 */
 function handleCoverUpload(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
   uploadedFile.value = file
-  // 本地预览，不上传服务器
   if (uploadedPreview.value) URL.revokeObjectURL(uploadedPreview.value)
   uploadedPreview.value = URL.createObjectURL(file)
   selectedUpload.value = uploadedPreview.value
@@ -75,6 +83,7 @@ function handleCoverUpload(e: Event) {
   toast.success('图片已选择，发布后自动上传')
 }
 
+/** 按标题 + 画风生成 3 张候选，默认选中第一张 */
 async function handleGenerateCovers() {
   if (!form.value.title.trim()) {
     toast.warning('请先输入文章标题')
@@ -98,13 +107,14 @@ async function handleGenerateCovers() {
   }
 }
 
-// 得到最终封面：优先取最后操作来源的图
+/** 解析最终封面：有明确来源用对应选中项，否则保留编辑时的原 cover */
 function getActiveCover(): string {
   if (activeSource.value === 'upload') return selectedUpload.value
   if (activeSource.value === 'ai') return selectedAI.value
   return form.value.cover
 }
 
+/** 校验 → 上传/转存封面 → 创建或更新文章 → 回列表 */
 async function handleSubmit() {
   if (!form.value.title.trim() || isRichTextEmpty(form.value.content)) {
     toast.error('标题和内容不能为空')
@@ -113,7 +123,7 @@ async function handleSubmit() {
   saving.value = true
   try {
     let coverUrl = getActiveCover()
-    // 如果有本地上传的文件，且封面选的是自定义图，现在才上传
+    // 自定义上传：发布瞬间才传到图床
     if (uploadedFile.value && activeSource.value === 'upload') {
       try {
         coverUrl = await uploadImage(uploadedFile.value)
@@ -122,6 +132,7 @@ async function handleSubmit() {
         coverUrl = form.value.cover
       }
     }
+    // AI 或外链封面转存到自有存储，避免临时 URL 失效
     if (coverUrl && /^https?:\/\//i.test(coverUrl)) {
       try {
         coverUrl = await mirrorRemoteImageToHostingIfNeeded(coverUrl)
@@ -142,6 +153,7 @@ async function handleSubmit() {
       likes: 0,
       comments: 0,
     }
+    // 新建写全量统计字段；编辑仅更新内容与元数据
     if (isEdit) {
       await articleApi.update(route.params.id as string, { ...data, updatedAt: now })
     } else {

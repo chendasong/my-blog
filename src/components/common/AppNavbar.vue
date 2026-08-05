@@ -15,12 +15,13 @@ const scrolled = ref(false)
 const allNavItems = [
   { label: '首页', path: '/', icon: '🏠' },
   { label: '文章', path: '/blog', icon: '📝' },
-  { label: '笔记', path: '/notes', icon: '📔' },
+  // { label: '笔记', path: '/notes', icon: '📔' },
   { label: 'AI 知识库', path: '/ai-knowledge', icon: '📚' },
   { label: 'AI 工坊', path: '/ai', icon: '✨' },
   { label: '写作 Agent', path: '/ai/agent', icon: '🤖' },
+  { label: 'AI 应用生成', path: '/ai/app-gen', icon: '🧩' },
   { label: '我的简历', path: '/resume', icon: '📄', requiresAuth: true },
-  { label: '情侣空间', path: '/couple', icon: '💑' },
+  { label: '情侣空间', path: '/couple', icon: '💑', requiresAuth: true },
 ]
 
 const navItems = computed(() =>
@@ -214,6 +215,7 @@ function handleLogout() {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
   color: var(--color-text-primary);
   font-family: var(--font-sans);
   font-weight: 700;
@@ -245,14 +247,20 @@ function handleLogout() {
 .nav-item {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
   gap: 6px;
-  padding: 8px 14px;
+  padding: 8px 12px;
   border-radius: var(--radius-full);
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--color-text-secondary);
+  white-space: nowrap;
   transition: all var(--transition-fast);
   cursor: pointer;
+}
+
+.nav-item__label {
+  white-space: nowrap;
 }
 
 .nav-item:hover {
@@ -274,6 +282,7 @@ function handleLogout() {
   position: relative;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
   margin-left: 8px;
 }
 

@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 知识库正文阅读面板：渲染 Markdown/HTML、右侧大纲、滚动高亮。
+ * 正文与目录树分离加载，避免元数据未就绪时误报「文章不存在」。
+ */
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { marked } from 'marked'
@@ -21,13 +25,19 @@ const router = useRouter()
 const authStore = useAuthStore()
 const store = useAiKnowledgeStore()
 
+/** Suspense 子组件：等待父级 DOM 就绪后再挂载，避免 bodyRef 取不到 */
 await nextTick()
 
+/** 正文 prose 容器，用于提取标题生成大纲 */
 const bodyRef = ref<HTMLElement | null>(null)
+/** 从渲染后 DOM 同步出的大纲项列表 */
 const tocItems = ref<KnowledgeTocItem[]>([])
+/** 当前滚动位置对应的高亮大纲项 ID */
 const activeTocId = ref<string | null>(null)
+/** 点击大纲跳转后短暂锁定滚动监听，防止高亮来回跳动 */
 let tocScrollLockUntil = 0
 
+/** 文章元数据（标题、更新时间等），不含正文内容 */
 const articleSummary = computed(() => {
   const id = props.articleId
   if (!id) return null
@@ -47,12 +57,14 @@ const articleNotFound = computed(() => {
   return !articleSummary.value
 })
 
+/** 正文是否已拉取并写入 store */
 const contentReady = computed(() => {
   const id = props.articleId
   if (!id) return false
   return store.isArticleContentLoaded(id)
 })
 
+/** 正文加载中：含 idle/loading 状态及 store 层 loading 标记 */
 const contentLoading = computed(() => {
   const id = props.articleId
   if (!id) return false
@@ -68,6 +80,7 @@ const contentError = computed(() => {
   return store.getArticleContentError(id)
 })
 
+/** 将正文转为安全 HTML：已是 HTML 则直接净化，否则 Markdown 解析后净化 */
 const htmlBody = computed(() => {
   const a = articleSummary.value
   if (!a || !contentReady.value) return ''
@@ -78,14 +91,35 @@ const htmlBody = computed(() => {
   return DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } })
 })
 
+/** 后台刷新目录时，在已有正文上方叠一层骨架，避免整页闪烁 */
 const showRefetchOverlay = computed(
   () => store.loading && store.libraryHydrated && !!articleSummary.value && contentReady.value,
 )
 
-/** 滚动高亮：已越过顶栏参考线的最后一个标题（比 IO 稳定，不会来回跳） */
-const TOC_ACTIVE_LINE = KNOWLEDGE_HEADING_SCROLL_OFFSET + 12
+/** 滚动高亮：主栏滚动容器顶栏下的参考线 */
+const TOC_ACTIVE_PAD = 28
+/** 大纲滚动监听：缓存各标题 DOM 节点，避免每次 scroll 都 querySelector */
 let tocHeadingEls: { id: string; el: HTMLElement }[] = []
 let tocScrollRaf = 0
+let tocScrollTarget: HTMLElement | Window | null = null
+let tocMq: MediaQueryList | null = null
+
+const TOC_DESKTOP_MQ = '(min-width: 1101px)'
+
+/** 确定实际滚动容器：宽屏用 .ak-main，窄屏内容撑开时改用 window */
+function getMainScroller(): HTMLElement | null {
+  const el = bodyRef.value?.closest('.ak-main') as HTMLElement | null
+  if (!el) return null
+  // 宽屏锁视口时由 .ak-main 滚动；窄屏壳高随内容撑开时改由 window 滚动
+  if (window.matchMedia(TOC_DESKTOP_MQ).matches) return el
+  if (el.scrollHeight > el.clientHeight + 1) return el
+  return null
+}
+
+function getScrollLineTop(scroller: HTMLElement | null): number {
+  if (scroller) return scroller.getBoundingClientRect().top + TOC_ACTIVE_PAD
+  return KNOWLEDGE_HEADING_SCROLL_OFFSET + 12
+}
 
 function findHeadingInBody(id: string): HTMLElement | null {
   if (!bodyRef.value) return null
@@ -101,13 +135,17 @@ function rebuildTocHeadingCache() {
     .filter((x): x is { id: string; el: HTMLElement } => x != null)
 }
 
+/** 根据参考线位置更新 activeTocId：参考线以下的最后一个标题即为当前章节 */
 function updateActiveTocFromScroll() {
   if (performance.now() < tocScrollLockUntil) return
   if (tocHeadingEls.length === 0) return
 
+  const scroller = getMainScroller()
+  const line = getScrollLineTop(scroller)
+
   let nextId = tocHeadingEls[0].id
   for (const { id, el } of tocHeadingEls) {
-    if (el.getBoundingClientRect().top <= TOC_ACTIVE_LINE) nextId = id
+    if (el.getBoundingClientRect().top <= line) nextId = id
     else break
   }
   if (activeTocId.value !== nextId) activeTocId.value = nextId
@@ -131,13 +169,27 @@ function setupTocScrollSpy() {
   rebuildTocHeadingCache()
   if (!activeTocId.value && items[0]) activeTocId.value = items[0].id
   updateActiveTocFromScroll()
-  window.addEventListener('scroll', onTocScroll, { passive: true })
-  window.addEventListener('resize', onTocScroll, { passive: true })
+  const scroller = getMainScroller()
+  tocScrollTarget = scroller ?? window
+  tocScrollTarget.addEventListener('scroll', onTocScroll, { passive: true })
+  tocMq = window.matchMedia(TOC_DESKTOP_MQ)
+  tocMq.addEventListener('change', onTocViewportChange)
+}
+
+function onTocViewportChange() {
+  // 断点切换时重新绑定滚动容器（.ak-main ↔ window）
+  setupTocScrollSpy()
 }
 
 function teardownTocScrollSpy() {
-  window.removeEventListener('scroll', onTocScroll)
-  window.removeEventListener('resize', onTocScroll)
+  if (tocScrollTarget) {
+    tocScrollTarget.removeEventListener('scroll', onTocScroll)
+    tocScrollTarget = null
+  }
+  if (tocMq) {
+    tocMq.removeEventListener('change', onTocViewportChange)
+    tocMq = null
+  }
   if (tocScrollRaf) {
     cancelAnimationFrame(tocScrollRaf)
     tocScrollRaf = 0
@@ -145,6 +197,7 @@ function teardownTocScrollSpy() {
   tocHeadingEls = []
 }
 
+/** 正文或大纲变化后，重新扫描 DOM 生成大纲并绑定滚动监听 */
 async function refreshBodyAndToc() {
   const id = props.articleId
   if (!id || !contentReady.value) {
@@ -189,19 +242,30 @@ watch(bodyRef, (el) => {
   if (el && props.articleId && contentReady.value) void refreshBodyAndToc()
 })
 
+/** 点击大纲项：滚动到对应标题，并短暂锁定高亮更新 */
 function scrollToHeading(id: string) {
   const el = findHeadingInBody(id)
   if (!el) return
   activeTocId.value = id
   tocScrollLockUntil = performance.now() + 900
+  const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+  const scroller = getMainScroller()
+  if (scroller) {
+    const top = Math.max(
+      0,
+      el.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - TOC_ACTIVE_PAD,
+    )
+    scroller.scrollTo({ top, behavior })
+    return
+  }
   const top = Math.max(
     0,
     el.getBoundingClientRect().top + window.scrollY - KNOWLEDGE_HEADING_SCROLL_OFFSET,
   )
-  const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
   window.scrollTo({ top, behavior })
 }
 
+/** 正文加载失败后强制重新拉取 */
 function retryContent() {
   const id = props.articleId
   if (!id) return

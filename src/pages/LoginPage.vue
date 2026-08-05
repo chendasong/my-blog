@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 管理员登录页：博客后台内容管理的身份验证入口。
+ * 登录成功后跳转到 redirect 参数指定页，默认回首页。
+ */
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -13,6 +17,7 @@ const password = ref('')
 const loading = ref(false)
 const showPassword = ref(false)
 
+/** 调用 authStore 登录，成功后按 redirect 跳转 */
 async function handleLogin() {
   if (!username.value.trim() || !password.value.trim()) {
     toast.warning('请输入账号和密码')

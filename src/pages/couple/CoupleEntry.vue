@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * 情侣空间入口：独立密码验证，与管理员登录分离。
+ * 支持 localStorage 记住密码，下次进入时静默校验并自动跳转。
+ */
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
@@ -12,9 +16,11 @@ const toast = useToast()
 
 const password = ref('')
 const loading = ref(false)
+/** 自动登录校验期间隐藏表单，避免密码框闪现 */
 const checking = ref(true)
 const showPwd = ref(false)
 
+/** 尝试用本地缓存密码静默登录；失败或网络异常则展示手动输入表单 */
 onMounted(async () => {
   const saved = localStorage.getItem(COUPLE_SAVED_PWD_STORAGE_KEY)
   if (saved) {
@@ -33,6 +39,7 @@ onMounted(async () => {
   checking.value = false
 })
 
+/** 校验密码，通过后写入 localStorage 并设置全局情侣空间授权标记 */
 async function handleSubmit() {
   if (!password.value) { toast.warning('请输入密码'); return }
   loading.value = true

@@ -1,4 +1,9 @@
 <script setup lang="ts">
+/**
+ * 简历公开浏览页主体。
+ * 面向访客展示最终排版，支持打印/另存 PDF；登录用户可跳转编辑、切换多套模板预览。
+ * 同一用户可维护多份「投递版本」（如不同公司/岗位），浏览页只选预览哪一套，不改 activeTemplateId。
+ */
 import { ref, computed } from "vue"
 import { useRouter } from "vue-router"
 import { onClickOutside } from "@vueuse/core"
@@ -12,10 +17,14 @@ import { getActiveTemplate, getTemplateById } from "@/lib/resumeDocument"
 const router = useRouter()
 const authStore = useAuthStore()
 
-/** 首屏：Suspense 会等到该 Promise 完成再替换 #fallback */
+/** 首屏拉取完整简历文档（含 templates、defaultTemplateId）；父级 Suspense 会等此 Promise 再渲染正文 */
 const resumeDocument = ref(await resumeApi.getResume())
 
-/** 预览首屏：与接口/组装顺序一致，固定用第一条（`resumeRowsToDocument` 里即 defaultTemplateId = created_at 最早一行） */
+/**
+ * 浏览页默认预览哪套模板。
+ * 优先 defaultTemplateId（数据库 created_at 最早的那行，代表「主简历」），否则取 templates[0]。
+ * 与编辑页的 activeTemplateId 独立：浏览切换预览不影响编辑默认打开哪套。
+ */
 function initialPreviewTemplateId(doc: ResumeDocument): string {
   const tpls = doc.templates
   if (!tpls.length) return ""
@@ -25,9 +34,10 @@ function initialPreviewTemplateId(doc: ResumeDocument): string {
   return tpls[0]!.id
 }
 
-/** 浏览页预览哪条模板（仅前端筛选，与打印 PDF 标题同源） */
+/** 当前预览的模板 id，纯前端状态，不写回服务端 */
 const previewTemplateId = ref(initialPreviewTemplateId(resumeDocument.value))
 
+/** 解析 previewTemplateId 对应模板；id 失效时回退到 activeTemplate，避免删模板后白屏 */
 const previewTemplate = computed(() => {
   const doc = resumeDocument.value
   const byId = getTemplateById(doc, previewTemplateId.value)
@@ -35,6 +45,7 @@ const previewTemplate = computed(() => {
   return getActiveTemplate(doc)
 })
 
+/** 仅当存在多套模板时才展示下拉，避免单模板用户看到无意义控件 */
 const showTemplatePicker = computed(() => resumeDocument.value.templates.length > 1)
 
 const templatePickerRoot = ref<HTMLElement | null>(null)
@@ -49,18 +60,22 @@ function pickPreviewTemplate(id: string) {
   templatePickerOpen.value = false
 }
 
+/** 只渲染 visible 区块并按 order 排序，与编辑页「隐藏模块」规则一致 */
 const visibleSections = computed(() => {
   return previewTemplate.value.sections
     .filter((s) => s.visible)
     .sort((a, b) => a.order - b.order)
 })
 
-/** 去掉 Windows/浏览器文件名非法字符与多余空白 */
+/** 清洗姓名/岗位片段，供浏览器「另存为 PDF」默认文件名使用，避免非法字符导致保存失败 */
 function sanitizeFileSegment(raw: string): string {
   return raw.replace(/[/\\:*?"<>|]/g, " ").replace(/\s+/g, " ").trim()
 }
 
-/** 打印/另存为 PDF 时，系统默认文件名常取自 document.title；姓名、岗位来自基本信息区块 */
+/**
+ * 打印/下载 PDF 时的建议文件名（不含扩展名）。
+ * 浏览器另存 PDF 常读 document.title；从 basic 区块取姓名与岗位，组合成「张三-前端工程师」类名称。
+ */
 const printPdfDefaultFileBase = computed(() => {
   const sec = previewTemplate.value.sections.find((s) => s.type === "basic")
   const rawName =
@@ -75,10 +90,12 @@ const printPdfDefaultFileBase = computed(() => {
   return "我的简历"
 })
 
+/** 仅登录用户可见编辑入口，跳转编辑页继续改 activeTemplate 对应内容 */
 const handleEdit = () => {
   router.push("/resume/edit")
 }
 
+/** 临时改 document.title 以影响 PDF 默认文件名，打印结束后在 afterprint 恢复站点原标题 */
 const handlePrintResume = () => {
   const prevTitle = document.title
   document.title = printPdfDefaultFileBase.value
